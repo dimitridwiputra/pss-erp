@@ -1,0 +1,40 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+      - name: Install pinned pnpm
+        run: npm install -g pnpm@11.19.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check workspace
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Architecture boundary check
+        run: pnpm architecture:check
+      - name: Contract check
+        run: pnpm contracts:check
+      - name: Database migration check
+        run: pnpm db:check
+      - name: UI token and copy check
+        run: pnpm ui:check
+      - name: Secret pattern check
+        run: pnpm secrets:check
+      - name: Unit tests
+        run: pnpm test
+      - name: Integration scaffold check
+        run: pnpm test:integration
+      - name: E2E scaffold check
+        run: pnpm test:e2e
+      - name: Build
+        run: pnpm build

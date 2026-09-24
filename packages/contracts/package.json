@@ -1,0 +1,23 @@
+{
+  "name": "@pss/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./api": { "types": "./dist/api/health.d.ts", "default": "./dist/api/health.js" },
+    "./events": { "types": "./dist/events/index.d.ts", "default": "./dist/events/index.js" },
+    "./primitives": { "types": "./dist/primitives.d.ts", "default": "./dist/primitives.js" },
+    "./registry": { "types": "./dist/registry/index.d.ts", "default": "./dist/registry/index.js" }
+  },
+  "scripts": {
+    "build:code": "tsc -p tsconfig.build.json",
+    "build": "node ../../scripts/generate-registry-catalog.mjs && pnpm build:code && node scripts/generate-docs.mjs",
+    "lint": "eslint src scripts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

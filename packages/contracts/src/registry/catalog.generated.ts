@@ -1,0 +1,4037 @@
+// Generated from PRD Appendices D, F, M, N, P. Do not edit.
+export const registryCatalog = {
+  "version": 1,
+  "source": "docs/PRODUCT_PRD.md Appendices D, F, M, N, P",
+  "roles": [
+    {
+      "code": "SALES_REP",
+      "label": "Salesperson",
+      "product": "PSS Sales",
+      "defaultScope": "TERRITORY + OWN",
+      "permissionGroups": "SFA-EXEC, ORD-REQ, COL-FIELD, CSH-DECLARE",
+      "mfaRequired": false
+    },
+    {
+      "code": "SALES_SUPERVISOR",
+      "label": "Supervisor Sales",
+      "product": "PSS Supervisor",
+      "defaultScope": "SALES_TEAM",
+      "permissionGroups": "SFA-SUPERVISE, CUS-PROSPECT-APPROVE, COM-OVERRIDE-L1, CST-VIEW-TEAM",
+      "mfaRequired": false
+    },
+    {
+      "code": "SALES_ADMIN",
+      "label": "Admin Penjualan",
+      "product": "PSS Admin",
+      "defaultScope": "BRANCH",
+      "permissionGroups": "ORD-MANAGE, FUL-DELIVERY-CONFIRM, RET-REQUEST, DQ-WORK",
+      "mfaRequired": false
+    },
+    {
+      "code": "BRANCH_MANAGER",
+      "label": "Kepala Cabang",
+      "product": "PSS Control Station",
+      "defaultScope": "BRANCH",
+      "permissionGroups": "CST-VIEW, ORD-CANCEL, COM-OVERRIDE-L2, CRD-OVERRIDE-L1, INV-ADJ-APPROVE-L1, CSH-DISCREPANCY-APPROVE, RET-APPROVE",
+      "mfaRequired": true
+    },
+    {
+      "code": "WAREHOUSE_OPERATOR",
+      "label": "Petugas Gudang",
+      "product": "PSS Gudang",
+      "defaultScope": "WAREHOUSE",
+      "permissionGroups": "WMS-EXEC",
+      "mfaRequired": false
+    },
+    {
+      "code": "WAREHOUSE_SUPERVISOR",
+      "label": "Supervisor Gudang",
+      "product": "PSS Supervisor",
+      "defaultScope": "WAREHOUSE",
+      "permissionGroups": "WMS-SUPERVISE, WMS-COUNT-REVIEW",
+      "mfaRequired": false
+    },
+    {
+      "code": "WAREHOUSE_ADMIN",
+      "label": "Admin Gudang",
+      "product": "PSS Admin",
+      "defaultScope": "WAREHOUSE",
+      "permissionGroups": "FUL-PREPARE, INV-ADJ-REQUEST, INV-COUNT, INV-TRANSFER, PUR-RECEIVE, RET-RECEIVE, WMS-CONFIG",
+      "mfaRequired": false
+    },
+    {
+      "code": "DRIVER",
+      "label": "Pengemudi",
+      "product": "PSS Antar",
+      "defaultScope": "OWN (shipment)",
+      "permissionGroups": "DLV-EXEC, COL-COD, CSH-DECLARE",
+      "mfaRequired": false
+    },
+    {
+      "code": "DISPATCHER",
+      "label": "Dispatcher",
+      "product": "PSS Admin",
+      "defaultScope": "BRANCH",
+      "permissionGroups": "FLT-PLAN, FLT-DISPATCH, FLT-EXCEPTION",
+      "mfaRequired": false
+    },
+    {
+      "code": "DELIVERY_SUPERVISOR",
+      "label": "Supervisor Pengiriman",
+      "product": "PSS Supervisor",
+      "defaultScope": "BRANCH",
+      "permissionGroups": "FLT-SUPERVISE",
+      "mfaRequired": false
+    },
+    {
+      "code": "FLEET_ADMIN",
+      "label": "Admin Armada",
+      "product": "PSS Admin",
+      "defaultScope": "BRANCH",
+      "permissionGroups": "FLT-VEHICLE",
+      "mfaRequired": false
+    },
+    {
+      "code": "CASHIER",
+      "label": "Kasir",
+      "product": "PSS Keuangan",
+      "defaultScope": "BRANCH",
+      "permissionGroups": "PAY-RECORD, PAY-VERIFY, CSH-VERIFY, BNK-PETTY-EXEC",
+      "mfaRequired": true
+    },
+    {
+      "code": "AR_OFFICER",
+      "label": "Petugas Piutang",
+      "product": "PSS Keuangan",
+      "defaultScope": "BRANCH/ORG",
+      "permissionGroups": "PAY-APPLY, AR-MANAGE, COL-ASSIGN, RET-CREDIT-NOTE, AR-WO-REQUEST",
+      "mfaRequired": true
+    },
+    {
+      "code": "PROCUREMENT_OFFICER",
+      "label": "Staf Pembelian",
+      "product": "PSS Admin",
+      "defaultScope": "BRANCH/ORG",
+      "permissionGroups": "PUR-MANAGE",
+      "mfaRequired": false
+    },
+    {
+      "code": "FINANCE_MAKER",
+      "label": "Staf Akuntansi",
+      "product": "PSS Keuangan",
+      "defaultScope": "ORG",
+      "permissionGroups": "GL-MAKE, BNK-RECON, AP-MANAGE, TAX-MANAGE",
+      "mfaRequired": true
+    },
+    {
+      "code": "FINANCE_APPROVER",
+      "label": "Penyetuju Keuangan",
+      "product": "PSS Keuangan",
+      "defaultScope": "ORG",
+      "permissionGroups": "GL-APPROVE, AP-PAY-APPROVE, CRD-OVERRIDE-L2, AR-WO-APPROVE, PAY-REVERSAL-APPROVE, PUR-APPROVE-L2",
+      "mfaRequired": true
+    },
+    {
+      "code": "CONTROLLER",
+      "label": "Controller",
+      "product": "PSS Keuangan",
+      "defaultScope": "ORG",
+      "permissionGroups": "FIN-CONFIG, CLS-MANAGE, GL-PERIOD-DECISION, GL-MAKE, GL-APPROVE",
+      "mfaRequired": true
+    },
+    {
+      "code": "CFO",
+      "label": "CFO",
+      "product": "PSS Control Station",
+      "defaultScope": "ORG",
+      "permissionGroups": "CST-VIEW, CLS-APPROVE, CLS-REOPEN-APPROVE, APPROVE-ALL-L3",
+      "mfaRequired": true
+    },
+    {
+      "code": "CEO / COO",
+      "label": "Direksi",
+      "product": "PSS Control Station",
+      "defaultScope": "ORG",
+      "permissionGroups": "CST-VIEW, APPROVE-ALL-L3",
+      "mfaRequired": true
+    },
+    {
+      "code": "MASTER_DATA_STEWARD",
+      "label": "Pengelola Data Utama",
+      "product": "PSS Admin",
+      "defaultScope": "ORG",
+      "permissionGroups": "MDM-MANAGE, INT-MAP, MDM-MERGE-REQUEST",
+      "mfaRequired": false
+    },
+    {
+      "code": "INTEGRATION_OPERATOR",
+      "label": "Operator Integrasi",
+      "product": "PSS Admin",
+      "defaultScope": "ORG",
+      "permissionGroups": "INT-OPERATE",
+      "mfaRequired": false
+    },
+    {
+      "code": "COMMERCIAL_ADMIN",
+      "label": "Admin Komersial",
+      "product": "PSS Admin",
+      "defaultScope": "ORG/PRINCIPAL",
+      "permissionGroups": "COM-PRICE, PRI-POLICY-REQUEST",
+      "mfaRequired": false
+    },
+    {
+      "code": "GIS_ADMIN",
+      "label": "Admin Peta",
+      "product": "Konsol Sistem",
+      "defaultScope": "ORG",
+      "permissionGroups": "GEO-ADMIN",
+      "mfaRequired": false
+    },
+    {
+      "code": "INTERNAL_AUDIT",
+      "label": "Audit Internal",
+      "product": "PSS Control Station",
+      "defaultScope": "ORG (read-only)",
+      "permissionGroups": "AUDIT-READ-ALL",
+      "mfaRequired": true
+    },
+    {
+      "code": "DATA_ANALYST",
+      "label": "Analis Data",
+      "product": "PSS Control Station",
+      "defaultScope": "ORG",
+      "permissionGroups": "RPT-READ, DWH-READ",
+      "mfaRequired": false
+    },
+    {
+      "code": "SYSTEM_ADMIN",
+      "label": "Admin Sistem",
+      "product": "Konsol Sistem",
+      "defaultScope": "Teknis",
+      "permissionGroups": "SYS-ADMIN",
+      "mfaRequired": true
+    }
+  ],
+  "permissionGroups": [
+    {
+      "group": "SFA-EXEC",
+      "permissions": [
+        "sfa.visit.execute",
+        "sfa.prospect.create",
+        "sfa.photo.create",
+        "geo.location.capture"
+      ],
+      "sourceText": "`sfa.visit.execute`, `sfa.prospect.create`, `sfa.photo.create`, `geo.location.capture`"
+    },
+    {
+      "group": "ORD-REQ",
+      "permissions": [
+        "orders.order_request.submit",
+        "commercial.price.view",
+        "credit.precheck.view"
+      ],
+      "sourceText": "`orders.order_request.submit`, `commercial.price.view`, `credit.precheck.view`"
+    },
+    {
+      "group": "COL-FIELD / COL-COD",
+      "permissions": [
+        "payments.evidence.record"
+      ],
+      "sourceText": "`payments.evidence.record` (scope OWN)"
+    },
+    {
+      "group": "CSH-DECLARE",
+      "permissions": [
+        "payments.cash_handover.declare"
+      ],
+      "sourceText": "`payments.cash_handover.declare`"
+    },
+    {
+      "group": "SFA-SUPERVISE",
+      "permissions": [
+        "sfa.visit_plan.manage",
+        "sfa.team.view"
+      ],
+      "sourceText": "`sfa.visit_plan.manage`, `sfa.team.view`"
+    },
+    {
+      "group": "ORD-MANAGE",
+      "permissions": [
+        "orders.order.create",
+        "orders.order.confirm",
+        "orders.order.resolve_shortage",
+        "orders.duplicate.resolve"
+      ],
+      "sourceText": "`orders.order.create`, `orders.order.confirm`, `orders.order.resolve_shortage`, `orders.duplicate.resolve`"
+    },
+    {
+      "group": "ORD-CANCEL",
+      "permissions": [
+        "orders.order.cancel"
+      ],
+      "sourceText": "`orders.order.cancel`"
+    },
+    {
+      "group": "FUL-PREPARE",
+      "permissions": [
+        "fulfillment.request.prepare",
+        "fulfillment.delivery_order.dispatch"
+      ],
+      "sourceText": "`fulfillment.request.prepare`, `fulfillment.delivery_order.dispatch`"
+    },
+    {
+      "group": "FUL-DELIVERY-CONFIRM",
+      "permissions": [
+        "fulfillment.delivery_order.confirm_delivery"
+      ],
+      "sourceText": "`fulfillment.delivery_order.confirm_delivery`"
+    },
+    {
+      "group": "COM-PRICE",
+      "permissions": [
+        "commercial.price_list.manage"
+      ],
+      "sourceText": "`commercial.price_list.manage`"
+    },
+    {
+      "group": "COM-OVERRIDE-L1/L2",
+      "permissions": [
+        "commercial.price.override",
+        "DiscountLimit"
+      ],
+      "sourceText": "`commercial.price.override` (limit dari `DiscountLimit`)"
+    },
+    {
+      "group": "CRD-OVERRIDE-L1/L2",
+      "permissions": [
+        "credit.override.approve"
+      ],
+      "sourceText": "`credit.override.approve` (limit per level)"
+    },
+    {
+      "group": "PRI-POLICY-REQUEST",
+      "permissions": [
+        "principal_policy.policy.propose",
+        "principal_policy.policy.approve"
+      ],
+      "sourceText": "`principal_policy.policy.propose` (approve: `principal_policy.policy.approve` oleh CFO/COO)"
+    },
+    {
+      "group": "INV-ADJ-REQUEST / APPROVE",
+      "permissions": [
+        "inventory.adjustment.request",
+        "inventory.adjustment.approve"
+      ],
+      "sourceText": "`inventory.adjustment.request` / `inventory.adjustment.approve`"
+    },
+    {
+      "group": "INV-COUNT / INV-TRANSFER",
+      "permissions": [
+        "inventory.count.execute",
+        "inventory.transfer.manage"
+      ],
+      "sourceText": "`inventory.count.execute`, `inventory.transfer.manage`"
+    },
+    {
+      "group": "PUR-MANAGE / PUR-RECEIVE / PUR-APPROVE",
+      "permissions": [
+        "procurement.po.manage",
+        "procurement.receipt.post",
+        "procurement.po.approve",
+        "procurement.supplier_invoice.post"
+      ],
+      "sourceText": "`procurement.po.manage`, `procurement.receipt.post`, `procurement.po.approve`, `procurement.supplier_invoice.post`"
+    },
+    {
+      "group": "RET-REQUEST / APPROVE / RECEIVE / CREDIT-NOTE",
+      "permissions": [
+        "returns.return.request",
+        "returns.return.approve",
+        "returns.return.receive",
+        "returns.credit_note.issue"
+      ],
+      "sourceText": "`returns.return.request`, `returns.return.approve`, `returns.return.receive`, `returns.credit_note.issue`"
+    },
+    {
+      "group": "PAY-RECORD / VERIFY / APPLY",
+      "permissions": [
+        "payments.payment.record",
+        "payments.payment.verify",
+        "payments.payment.apply"
+      ],
+      "sourceText": "`payments.payment.record`, `payments.payment.verify`, `payments.payment.apply`"
+    },
+    {
+      "group": "PAY-REVERSAL-APPROVE",
+      "permissions": [
+        "payments.application.reverse.approve"
+      ],
+      "sourceText": "`payments.application.reverse.approve`"
+    },
+    {
+      "group": "CSH-VERIFY / DISCREPANCY-APPROVE",
+      "permissions": [
+        "payments.cash_custody.verify",
+        "payments.cash_custody.discrepancy.approve"
+      ],
+      "sourceText": "`payments.cash_custody.verify`, `payments.cash_custody.discrepancy.approve`"
+    },
+    {
+      "group": "AR-MANAGE / WO",
+      "permissions": [
+        "ar.dispute.manage",
+        "ar.collection_task.assign",
+        "ar.write_off.request",
+        "ar.write_off.approve"
+      ],
+      "sourceText": "`ar.dispute.manage`, `ar.collection_task.assign`, `ar.write_off.request`, `ar.write_off.approve`"
+    },
+    {
+      "group": "AP-MANAGE / PAY-APPROVE",
+      "permissions": [
+        "ap.payment.prepare",
+        "ap.payment.approve"
+      ],
+      "sourceText": "`ap.payment.prepare`, `ap.payment.approve`"
+    },
+    {
+      "group": "GL-MAKE / APPROVE",
+      "permissions": [
+        "finance.journal.create",
+        "finance.journal.submit",
+        "finance.journal.approve",
+        "finance.journal.reverse.request"
+      ],
+      "sourceText": "`finance.journal.create`, `finance.journal.submit`, `finance.journal.approve`, `finance.journal.reverse.request`"
+    },
+    {
+      "group": "GL-PERIOD-DECISION",
+      "permissions": [
+        "finance.posting.period_decision"
+      ],
+      "sourceText": "`finance.posting.period_decision`"
+    },
+    {
+      "group": "CLS-MANAGE / APPROVE / REOPEN",
+      "permissions": [
+        "finance.close.manage",
+        "finance.close.approve",
+        "finance.period.reopen.request",
+        "finance.period.reopen.approve"
+      ],
+      "sourceText": "`finance.close.manage`, `finance.close.approve`, `finance.period.reopen.request`, `finance.period.reopen.approve`"
+    },
+    {
+      "group": "BNK-RECON / PETTY",
+      "permissions": [
+        "finance.bank.import",
+        "finance.bank.reconcile",
+        "finance.petty_cash.expense.record"
+      ],
+      "sourceText": "`finance.bank.import`, `finance.bank.reconcile`, `finance.petty_cash.expense.record`"
+    },
+    {
+      "group": "TAX-MANAGE",
+      "permissions": [
+        "tax.rate.manage",
+        "tax.invoice_number.manage",
+        "tax.export.run"
+      ],
+      "sourceText": "`tax.rate.manage`, `tax.invoice_number.manage`, `tax.export.run`"
+    },
+    {
+      "group": "FIN-CONFIG",
+      "permissions": [
+        "finance.coa.manage",
+        "finance.posting_rule.manage",
+        "finance.account_role.map"
+      ],
+      "sourceText": "`finance.coa.manage`, `finance.posting_rule.manage`, `finance.account_role.map`"
+    },
+    {
+      "group": "MDM-MANAGE / MERGE",
+      "permissions": [
+        "master_data.*.manage",
+        "master_data.merge.request",
+        "master_data.merge.approve"
+      ],
+      "sourceText": "`master_data.*.manage`, `master_data.merge.request` (approve: `master_data.merge.approve` oleh Controller atau steward lain)"
+    },
+    {
+      "group": "INT-MAP / OPERATE",
+      "permissions": [
+        "integration.mapping.decide",
+        "integration.batch.retry",
+        "integration.file.upload",
+        "integration.raw.view"
+      ],
+      "sourceText": "`integration.mapping.decide`, `integration.batch.retry`, `integration.file.upload`, `integration.raw.view`"
+    },
+    {
+      "group": "WMS-EXEC / SUPERVISE / CONFIG",
+      "permissions": [
+        "wms.task.execute",
+        "wms.task.reassign",
+        "wms.count.review",
+        "wms.location.manage"
+      ],
+      "sourceText": "`wms.task.execute`, `wms.task.reassign`, `wms.count.review`, `wms.location.manage`"
+    },
+    {
+      "group": "FLT-*",
+      "permissions": [
+        "fleet.shipment.plan",
+        "fleet.shipment.dispatch",
+        "fleet.vehicle.manage",
+        "fleet.delivery.execute"
+      ],
+      "sourceText": "`fleet.shipment.plan`, `fleet.shipment.dispatch`, `fleet.vehicle.manage`, `fleet.delivery.execute`"
+    },
+    {
+      "group": "GEO-ADMIN",
+      "permissions": [
+        "geo.dataset.load",
+        "geo.territory.manage"
+      ],
+      "sourceText": "`geo.dataset.load`, `geo.territory.manage`"
+    },
+    {
+      "group": "CST-VIEW",
+      "permissions": [
+        "reporting.control_station.view"
+      ],
+      "sourceText": "`reporting.control_station.view` (dengan scope)"
+    },
+    {
+      "group": "DQ-WORK",
+      "permissions": [
+        "platform.exception.work"
+      ],
+      "sourceText": "`platform.exception.work` — mengerjakan antrian yang owner role-nya dimiliki user (Appendix P). Dimiliki semua role yang tercantum sebagai owner antrian"
+    },
+    {
+      "group": "AUDIT-READ-ALL",
+      "permissions": [
+        "*.read",
+        "audit.entry.read",
+        "audit.export"
+      ],
+      "sourceText": "`*.read`, `audit.entry.read`, `audit.export`"
+    },
+    {
+      "group": "SYS-ADMIN",
+      "permissions": [
+        "identity.user.manage",
+        "identity.role.assign",
+        "configuration.*.manage",
+        "integration.connector.manage"
+      ],
+      "sourceText": "`identity.user.manage`, `identity.role.assign`, `configuration.*.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis"
+    }
+  ],
+  "permissionAdditions": [
+    {
+      "item": "`identity.session.revoke`, `identity.mfa.reset`, `identity.device.revoke`, `app.<produk>.access`",
+      "section": "§22",
+      "codes": [
+        "identity.session.revoke",
+        "identity.mfa.reset",
+        "identity.device.revoke",
+        "app.<produk>.access"
+      ]
+    },
+    {
+      "item": "`master_data.customer.pii.view`",
+      "section": "§24",
+      "codes": [
+        "master_data.customer.pii.view"
+      ]
+    },
+    {
+      "item": "`master_data.principal.contract.view`",
+      "section": "§26",
+      "codes": [
+        "master_data.principal.contract.view"
+      ]
+    },
+    {
+      "item": "`orders.amendment.resolve`, `orders.order.import`",
+      "section": "§29",
+      "codes": [
+        "orders.amendment.resolve",
+        "orders.order.import"
+      ]
+    },
+    {
+      "item": "`fulfillment.delivery_order.print`",
+      "section": "§31",
+      "codes": [
+        "fulfillment.delivery_order.print"
+      ]
+    },
+    {
+      "item": "`inventory.stock_card.view`, `inventory.transit.receive_back`, `inventory.count.review`",
+      "section": "§32",
+      "codes": [
+        "inventory.stock_card.view",
+        "inventory.transit.receive_back",
+        "inventory.count.review"
+      ]
+    },
+    {
+      "item": "`invoicing.invoice.print`",
+      "section": "§34",
+      "codes": [
+        "invoicing.invoice.print"
+      ]
+    },
+    {
+      "item": "`ar.receivable.view`",
+      "section": "§36",
+      "codes": [
+        "ar.receivable.view"
+      ]
+    },
+    {
+      "item": "`ap.payable.view`",
+      "section": "§40",
+      "codes": [
+        "ap.payable.view"
+      ]
+    },
+    {
+      "item": "`master_data.prospect.approve`, `fleet.shipment.view`",
+      "section": "§45",
+      "codes": [
+        "master_data.prospect.approve",
+        "fleet.shipment.view"
+      ]
+    },
+    {
+      "item": "`finance.bank.account.view_full`",
+      "section": "§51",
+      "codes": [
+        "finance.bank.account.view_full"
+      ]
+    },
+    {
+      "item": "`*.view_full` per jenis data sensitif (mis. `master_data.customer.identity.view_full`, `finance.bank.account.view_full`)",
+      "section": "§77",
+      "codes": [
+        "*.view_full",
+        "master_data.customer.identity.view_full",
+        "finance.bank.account.view_full"
+      ]
+    }
+  ],
+  "baseErrors": [
+    {
+      "code": "INTERNAL",
+      "httpCategory": "500 · INTERNAL",
+      "description": "Kesalahan tak terduga. Pesan umum dan requestId ditampilkan"
+    },
+    {
+      "code": "VALIDATION_FAILED",
+      "httpCategory": "422 · VALIDATION",
+      "description": "Input tidak valid, dengan `fieldErrors[]`"
+    },
+    {
+      "code": "UNAUTHENTICATED",
+      "httpCategory": "401 · UNAUTHENTICATED",
+      "description": "Tidak ada sesi atau token tidak valid"
+    },
+    {
+      "code": "PERMISSION_DENIED",
+      "httpCategory": "403 · FORBIDDEN",
+      "description": "Di luar permission atau scope"
+    },
+    {
+      "code": "NOT_FOUND",
+      "httpCategory": "404 · NOT_FOUND",
+      "description": "Objek tidak ada atau di luar scope"
+    },
+    {
+      "code": "STALE_DATA",
+      "httpCategory": "409 · CONFLICT",
+      "description": "Versi aggregate berbeda dengan `expectedVersion`"
+    },
+    {
+      "code": "INVALID_STATE_TRANSITION",
+      "httpCategory": "409 · CONFLICT",
+      "description": "Transisi tidak terdaftar di STM"
+    },
+    {
+      "code": "IDEMPOTENCY_KEY_REUSED",
+      "httpCategory": "409 · CONFLICT",
+      "description": "Key yang sama dipakai untuk payload berbeda"
+    },
+    {
+      "code": "SEGREGATION_OF_DUTIES",
+      "httpCategory": "403 · FORBIDDEN",
+      "description": "Melanggar SOD-01…08"
+    },
+    {
+      "code": "RATE_LIMITED",
+      "httpCategory": "429 · RATE_LIMITED",
+      "description": "Batas laju terlampaui"
+    },
+    {
+      "code": "DEPENDENCY_UNAVAILABLE",
+      "httpCategory": "503 · DEPENDENCY_UNAVAILABLE",
+      "description": "Dependensi tidak tersedia (dapat di-retry)"
+    }
+  ],
+  "domainErrors": [
+    {
+      "code": "ACCOUNT_CODE_DUPLICATE",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Kode akun sudah ada",
+      "explanation": "Kode 1-1100 dipakai akun Kas Cabang.",
+      "action": "[Ubah Kode]",
+      "section": "§48",
+      "copyComplete": true
+    },
+    {
+      "code": "ACCOUNT_INACTIVE",
+      "httpCategory": "403 · FORBIDDEN",
+      "title": "Akun tidak aktif",
+      "explanation": "Akun Anda sedang dinonaktifkan.",
+      "action": "[Hubungi Admin]",
+      "section": "§22",
+      "copyComplete": true
+    },
+    {
+      "code": "ACCOUNT_IN_USE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Akun sudah dipakai",
+      "explanation": "Tipe akun tidak bisa diubah karena sudah ada jurnal. Buat akun baru.",
+      "action": "[Buat Akun Baru]",
+      "section": "§48",
+      "copyComplete": true
+    },
+    {
+      "code": "ACCOUNT_ROLE_UNMAPPED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Role akun belum terpetakan",
+      "explanation": "PAYMENT_VERIFIED butuh akun untuk UNAPPLIED_RECEIPTS.",
+      "action": "[Petakan Akun]",
+      "section": "§48",
+      "copyComplete": true
+    },
+    {
+      "code": "ACTIVE_APPLICATIONS_EXIST",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§37",
+      "copyComplete": false
+    },
+    {
+      "code": "ALREADY_REVERSED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Sudah dibalik",
+      "explanation": "Jurnal ini sudah dibalik oleh JV-…",
+      "action": "[Lihat Pembalik]",
+      "section": "§50",
+      "copyComplete": true
+    },
+    {
+      "code": "AMOUNT_MISMATCH",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Nominal tidak sama",
+      "explanation": "Mutasi Rp X, pembayaran terpilih Rp Y.",
+      "action": "[Ubah Pilihan]",
+      "section": "§37",
+      "copyComplete": true
+    },
+    {
+      "code": "APPLICATION_EXCEEDS_OUTSTANDING",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Melebihi sisa tagihan",
+      "explanation": "Sisa tagihan invoice INV-… hanya Rp X.",
+      "action": "[Sesuaikan]",
+      "section": "§37",
+      "copyComplete": true
+    },
+    {
+      "code": "APPLICATION_EXCEEDS_PAYMENT",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Melebihi nominal pembayaran",
+      "explanation": "Total alokasi Rp X lebih besar dari pembayaran Rp Y.",
+      "action": "[Kurangi Alokasi]",
+      "section": "§37",
+      "copyComplete": true
+    },
+    {
+      "code": "APPROVAL_LIMIT_EXCEEDED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Di luar wewenang Anda",
+      "explanation": "Permintaan ini diteruskan ke Kepala Cabang.",
+      "action": "[Mengerti]",
+      "section": "§27",
+      "copyComplete": true
+    },
+    {
+      "code": "APPROVAL_TYPE_UNKNOWN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§60",
+      "copyComplete": false
+    },
+    {
+      "code": "ATTRIBUTION_INVALID",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Porsi tidak valid",
+      "explanation": "Total porsi melebihi 100%.",
+      "action": "[Perbaiki]",
+      "section": "§69",
+      "copyComplete": true
+    },
+    {
+      "code": "BANK_ACCOUNT_GL_CONFLICT",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Akun sudah dipakai",
+      "explanation": "Akun 1-1210 sudah terhubung ke rekening lain.",
+      "action": "[Pilih Akun Lain]",
+      "section": "§51",
+      "copyComplete": true
+    },
+    {
+      "code": "BANK_LINE_ALREADY_MATCHED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Mutasi sudah dipakai",
+      "explanation": "Mutasi ini sudah dicocokkan dengan {dokumen}.",
+      "action": "[Pilih Mutasi Lain]",
+      "section": "§37",
+      "copyComplete": true
+    },
+    {
+      "code": "BATCH_BUSY",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Batch sedang diproses",
+      "explanation": "Tunggu proses selesai.",
+      "action": "[Muat Ulang]",
+      "section": "§59",
+      "copyComplete": true
+    },
+    {
+      "code": "BRANCH_HAS_OPEN_DOCUMENTS",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Cabang masih punya transaksi terbuka",
+      "explanation": "Selesaikan N pesanan/pengiriman terbuka.",
+      "action": "[Lihat Daftar]",
+      "section": "§23",
+      "copyComplete": true
+    },
+    {
+      "code": "CAPACITY_EXCEEDED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Melebihi kapasitas",
+      "explanation": "Berat 1.320 kg dari 1.200 kg.",
+      "action": "[Pindahkan Job]",
+      "section": "§44",
+      "copyComplete": true
+    },
+    {
+      "code": "CASH_CUSTODY_REQUIRED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Kas belum diserahkan",
+      "explanation": "Pembayaran tunai diverifikasi saat serah terima kas.",
+      "action": "[Buka Serah Terima]",
+      "section": "§37",
+      "copyComplete": true
+    },
+    {
+      "code": "CHECKLIST_CHANGED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Checklist berubah",
+      "explanation": "Ada tugas yang kembali gagal setelah diajukan.",
+      "action": "[Lihat Checklist]",
+      "section": "§54",
+      "copyComplete": true
+    },
+    {
+      "code": "CLOSE_CHECKLIST_NOT_APPROVED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Checklist belum disetujui",
+      "explanation": "Selesaikan 3 tugas dan minta persetujuan CFO.",
+      "action": "[Lihat Checklist]",
+      "section": "§53",
+      "copyComplete": true
+    },
+    {
+      "code": "CONFIG_KEY_UNKNOWN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§84",
+      "copyComplete": false
+    },
+    {
+      "code": "CONFIG_RETROACTIVE_CLOSED_PERIOD",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Tanggal berlaku di periode tertutup",
+      "explanation": "Pilih tanggal di periode terbuka.",
+      "action": "[Ubah Tanggal]",
+      "section": "§84",
+      "copyComplete": true
+    },
+    {
+      "code": "CONNECTOR_TEST_FAILED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Koneksi gagal",
+      "explanation": "Folder unggahan tidak ditemukan.",
+      "action": "[Periksa Pengaturan]",
+      "section": "§59",
+      "copyComplete": true
+    },
+    {
+      "code": "CONTROL_ACCOUNT_MANUAL_POSTING",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Akun hanya untuk jurnal otomatis",
+      "explanation": "Piutang Usaha diisi dari invoice & pembayaran. Pilih akun lain atau koreksi dokumen sumber.",
+      "action": "[Pilih Akun Lain]",
+      "section": "§50",
+      "copyComplete": true
+    },
+    {
+      "code": "CONTROL_ACCOUNT_ROLE_REQUIRED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§48",
+      "copyComplete": false
+    },
+    {
+      "code": "CONTROL_ACCOUNT_VIOLATION",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§49",
+      "copyComplete": false
+    },
+    {
+      "code": "CREDIT_APPROVAL_REQUIRED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Pesanan perlu persetujuan kredit",
+      "explanation": "Batas kredit terlampaui.",
+      "action": "[Minta Persetujuan] / [Minta Pembayaran]",
+      "section": "§29",
+      "copyComplete": true
+    },
+    {
+      "code": "CREDIT_NOTE_EXCEEDS_INVOICE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Melebihi nilai invoice",
+      "explanation": "Sisa yang bisa dikreditkan Rp X.",
+      "action": "[Ubah Nilai]",
+      "section": "§35",
+      "copyComplete": true
+    },
+    {
+      "code": "CUSTODY_ALREADY_VERIFIED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Slip sudah dipakai",
+      "explanation": "Kas dari slip ini sudah diterima {waktu}.",
+      "action": "[Lihat Bukti]",
+      "section": "§39",
+      "copyComplete": true
+    },
+    {
+      "code": "CUSTODY_PAYMENT_NOT_PENDING",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§39",
+      "copyComplete": false
+    },
+    {
+      "code": "CUSTOMER_CREDIT_INSUFFICIENT",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Kredit tidak cukup",
+      "explanation": "Saldo kredit customer Rp X.",
+      "action": "[Sesuaikan]",
+      "section": "§37",
+      "copyComplete": true
+    },
+    {
+      "code": "CUTOVER_PREREQUISITE_FAILED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Cutover ditahan",
+      "explanation": "Toleransi paralel run belum ditetapkan.",
+      "action": "[Lihat Prasyarat]",
+      "section": "§85",
+      "copyComplete": true
+    },
+    {
+      "code": "DATASET_INVALID",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Dataset tidak valid",
+      "explanation": "12 poligon rusak.",
+      "action": "[Unduh Laporan]",
+      "section": "§57",
+      "copyComplete": true
+    },
+    {
+      "code": "DEVICE_LIMIT_REACHED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Terlalu banyak perangkat",
+      "explanation": "Cabut perangkat lama sebelum memakai perangkat baru.",
+      "action": "[Hubungi Admin]",
+      "section": "§22",
+      "copyComplete": true
+    },
+    {
+      "code": "DEVICE_REVOKED",
+      "httpCategory": "403 · FORBIDDEN",
+      "title": "Perangkat tidak diizinkan",
+      "explanation": "Perangkat ini sudah dicabut aksesnya.",
+      "action": "[Hubungi Admin]",
+      "section": "§22",
+      "copyComplete": true
+    },
+    {
+      "code": "DISCOUNT_INVALID",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Diskon tidak valid",
+      "explanation": "Harga setelah diskon tidak boleh di bawah nol.",
+      "action": "[Ubah Diskon]",
+      "section": "§27",
+      "copyComplete": true
+    },
+    {
+      "code": "DISCOUNT_LIMIT_EXCEEDED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Diskon melebihi batas",
+      "explanation": "Minta persetujuan supervisor.",
+      "action": "[Minta Persetujuan]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "DO_ALREADY_PLANNED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Sudah direncanakan",
+      "explanation": "Surat jalan ini ada di rute B 5678 AB.",
+      "action": "[Buka Rute]",
+      "section": "§58",
+      "copyComplete": true
+    },
+    {
+      "code": "DUPLICATE_CODE",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Kode sudah dipakai",
+      "explanation": "Pilih kode cabang lain.",
+      "action": "[Ubah Kode]",
+      "section": "§23",
+      "copyComplete": true
+    },
+    {
+      "code": "DUPLICATE_PAYMENT_REFERENCE",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Giro sudah tercatat",
+      "explanation": "Giro nomor {no} sudah dicatat pada {tanggal}.",
+      "action": "[Lihat Pembayaran]",
+      "section": "§37",
+      "copyComplete": true
+    },
+    {
+      "code": "DUPLICATE_REASON_REQUIRED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Alasan diperlukan",
+      "explanation": "Jelaskan kenapa toko ini berbeda dari kandidat.",
+      "action": "[Isi Alasan]",
+      "section": "§24",
+      "copyComplete": true
+    },
+    {
+      "code": "DUPLICATE_SUPPLIER_INVOICE",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Tagihan sudah dicatat",
+      "explanation": "Nomor tagihan ini sudah ada untuk supplier yang sama.",
+      "action": "[Lihat Tagihan]",
+      "section": "§33",
+      "copyComplete": true
+    },
+    {
+      "code": "DUPLICATE_SUPPLIER_TAX_INVOICE",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Nomor faktur pajak sudah dipakai",
+      "explanation": "Periksa kembali faktur pajak supplier.",
+      "action": "[Periksa]",
+      "section": "§28",
+      "copyComplete": true
+    },
+    {
+      "code": "EVIDENCE_PHOTO_REQUIRED",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Foto bukti diperlukan",
+      "explanation": "Ambil foto bukti transfer atau giro.",
+      "action": "[Ambil Foto]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "EVIDENCE_REQUIRED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Foto bukti diperlukan",
+      "explanation": "Unggah foto surat jalan yang sudah ditandatangani toko.",
+      "action": "[Ambil Foto]",
+      "section": "§31",
+      "copyComplete": true
+    },
+    {
+      "code": "EXTERNAL_FIELD_LOCKED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Data dari {sumber}",
+      "explanation": "Ubah di {sumber}; PSS akan memperbarui otomatis.",
+      "action": "[Mengerti]",
+      "section": "§29",
+      "copyComplete": true
+    },
+    {
+      "code": "FILE_TEMPLATE_INVALID",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Format file tidak sesuai",
+      "explanation": "Kolom 'kode_toko' tidak ditemukan.",
+      "action": "[Unduh Template]",
+      "section": "§44",
+      "copyComplete": true
+    },
+    {
+      "code": "FILE_TOO_LARGE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "File terlalu besar",
+      "explanation": "Maksimum 200 MB. Pecah file per tanggal.",
+      "action": "[Unggah Ulang]",
+      "section": "§59",
+      "copyComplete": true
+    },
+    {
+      "code": "FORBIDDEN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Tidak bisa dibuka",
+      "explanation": "Objek ini di luar akses Anda.",
+      "action": "[Kembali]",
+      "section": "§46",
+      "copyComplete": true
+    },
+    {
+      "code": "GEOFENCE_BLOCKED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Terlalu jauh dari toko",
+      "explanation": "Mulai kunjungan saat sudah di toko.",
+      "action": "[Coba Lagi]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "GEOMETRY_INVALID",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Bentuk wilayah tidak valid",
+      "explanation": "Garis batas saling memotong.",
+      "action": "[Perbaiki]",
+      "section": "§57",
+      "copyComplete": true
+    },
+    {
+      "code": "GO_LIVE_NOT_PERIOD_START",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Tanggal mulai tidak sesuai",
+      "explanation": "Buku PSS harus dimulai di tanggal 1.",
+      "action": "[Ubah Tanggal]",
+      "section": "§53",
+      "copyComplete": true
+    },
+    {
+      "code": "IDEMPOTENCY_KEY_REQUIRED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§73",
+      "copyComplete": false
+    },
+    {
+      "code": "INSUFFICIENT_STOCK",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Stok tidak cukup",
+      "explanation": "Tersedia {n} {uom}.",
+      "action": "[Kirim Sebagian] / [Tunggu Stok]",
+      "section": "§29",
+      "copyComplete": true
+    },
+    {
+      "code": "INVALID_BARCODE",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Barcode tidak valid",
+      "explanation": "Periksa angka barcode atau scan ulang.",
+      "action": "[Scan Ulang]",
+      "section": "§25",
+      "copyComplete": true
+    },
+    {
+      "code": "INVALID_LOCATION",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Lokasi tidak bisa dipakai",
+      "explanation": "Lokasi ini diblokir.",
+      "action": "[Scan Ulang]",
+      "section": "§42",
+      "copyComplete": true
+    },
+    {
+      "code": "INVALID_SIGNATURE",
+      "httpCategory": "422 · VALIDATION",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§37",
+      "copyComplete": false
+    },
+    {
+      "code": "INVOICE_ISSUED_IMMUTABLE",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Invoice sudah terbit",
+      "explanation": "Koreksi dilakukan dengan nota kredit.",
+      "action": "[Buat Nota Kredit]",
+      "section": "§34",
+      "copyComplete": true
+    },
+    {
+      "code": "JOURNAL_NOT_BALANCED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Belum seimbang",
+      "explanation": "Selisih debit dan kredit Rp 250.000.",
+      "action": "[Periksa Baris]",
+      "section": "§50",
+      "copyComplete": true
+    },
+    {
+      "code": "LOAD_INCOMPLETE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Belum semua dimuat",
+      "explanation": "2 surat jalan belum dimuat.",
+      "action": "[Lihat Daftar]",
+      "section": "§58",
+      "copyComplete": true
+    },
+    {
+      "code": "LOCATION_FROZEN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Lokasi sedang dihitung",
+      "explanation": "Tunggu hitungan selesai.",
+      "action": "[Tugas Lain]",
+      "section": "§42",
+      "copyComplete": true
+    },
+    {
+      "code": "LOCATION_INVALID",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Lokasi tidak valid",
+      "explanation": "Titik berada di luar wilayah layanan.",
+      "action": "[Rekam Ulang]",
+      "section": "§57",
+      "copyComplete": true
+    },
+    {
+      "code": "LOCATION_NOT_EMPTY",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Lokasi masih berisi barang",
+      "explanation": "Pindahkan barang dulu atau blokir lokasi.",
+      "action": "[Blokir Lokasi]",
+      "section": "§42",
+      "copyComplete": true
+    },
+    {
+      "code": "LOCATION_UNAVAILABLE",
+      "httpCategory": "503 · DEPENDENCY_UNAVAILABLE",
+      "title": "Lokasi tidak terbaca",
+      "explanation": "Nyalakan GPS atau cari toko dengan nama.",
+      "action": "[Cari Toko]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "MANDATED_PRINCIPAL_SKU",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Produk ini dipesan lewat ND6",
+      "explanation": "Pesanan produk {principal} dibuat di ND6 dan akan masuk otomatis.",
+      "action": "[Hapus Baris]",
+      "section": "§29",
+      "copyComplete": true
+    },
+    {
+      "code": "MAPPING_CONFLICT",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Kode sudah dipakai",
+      "explanation": "Kode ini sudah terhubung ke salesperson lain.",
+      "action": "[Lihat Salesperson]",
+      "section": "§23",
+      "copyComplete": true
+    },
+    {
+      "code": "MEDIA_TOO_LARGE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Foto terlalu besar",
+      "explanation": "Ambil ulang foto.",
+      "action": "[Ambil Ulang]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "MEDIA_TYPE_NOT_ALLOWED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Jenis file tidak didukung",
+      "explanation": "Gunakan foto JPG/PNG atau PDF.",
+      "action": "[Pilih File Lain] ·",
+      "section": "§62",
+      "copyComplete": true
+    },
+    {
+      "code": "MERGE_TYPE_MISMATCH",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Tidak bisa digabung",
+      "explanation": "Hanya data dengan jenis yang sama yang bisa digabung.",
+      "action": "[Pilih Ulang]",
+      "section": "§23",
+      "copyComplete": true
+    },
+    {
+      "code": "MFA_REQUIRED",
+      "httpCategory": "401 · UNAUTHENTICATED",
+      "title": "Perlu verifikasi",
+      "explanation": "Tindakan ini memerlukan verifikasi dua langkah.",
+      "action": "[Verifikasi Sekarang]",
+      "section": "§22",
+      "copyComplete": true
+    },
+    {
+      "code": "NOT_BALANCED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Jurnal otomatis tidak seimbang",
+      "explanation": "Aturan posting menghasilkan selisih Rp X.",
+      "action": "[Periksa Aturan]",
+      "section": "§49",
+      "copyComplete": true
+    },
+    {
+      "code": "NOT_READY_FOR_DISPATCH",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Belum siap kirim",
+      "explanation": "Tandai barang siap sebelum berangkat.",
+      "action": "[Tandai Siap]",
+      "section": "§31",
+      "copyComplete": true
+    },
+    {
+      "code": "NO_MAP_APP",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Aplikasi peta tidak ditemukan",
+      "explanation": "Alamat sudah disalin.",
+      "action": "[Mengerti]",
+      "section": "§43",
+      "copyComplete": true
+    },
+    {
+      "code": "NO_OPEN_PERIOD",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Belum ada periode terbuka",
+      "explanation": "Buka periode berikutnya lebih dulu.",
+      "action": "[Kelola Periode]",
+      "section": "§49",
+      "copyComplete": true
+    },
+    {
+      "code": "NO_PRODUCT_ACCESS",
+      "httpCategory": "403 · FORBIDDEN",
+      "title": "Belum ada akses",
+      "explanation": "Akun Anda belum diberi aplikasi apa pun.",
+      "action": "[Hubungi Admin]",
+      "section": "§22",
+      "copyComplete": true
+    },
+    {
+      "code": "NUMBERING_EXHAUSTED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Nomor dokumen habis",
+      "explanation": "Urutan tahun ini penuh. Hubungi Admin Sistem.",
+      "action": "[Hubungi Admin]",
+      "section": "§61",
+      "copyComplete": true
+    },
+    {
+      "code": "ODOMETER_INVALID",
+      "httpCategory": "422 · VALIDATION",
+      "title": "Odometer tidak valid",
+      "explanation": "Angka akhir lebih kecil dari awal.",
+      "action": "[Perbaiki]",
+      "section": "§58",
+      "copyComplete": true
+    },
+    {
+      "code": "OFFLINE_BUFFER_EMPTY",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Tugas habis saat offline",
+      "explanation": "Tunggu koneksi atau minta daftar cetak ke supervisor.",
+      "action": "[Coba Lagi]",
+      "section": "§42",
+      "copyComplete": true
+    },
+    {
+      "code": "OPENING_ALREADY_POSTED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Saldo awal sudah diposting",
+      "explanation": "Koreksi dengan jurnal penyesuaian di periode pertama.",
+      "action": "[Buat Penyesuaian]",
+      "section": "§56",
+      "copyComplete": true
+    },
+    {
+      "code": "OPENING_BALANCE_REQUIRED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Saldo awal gudang belum ada",
+      "explanation": "Posting stok awal gudang sebelum PSS mengelola persediaannya.",
+      "action": "[Buka Stok Awal]",
+      "section": "§26",
+      "copyComplete": true
+    },
+    {
+      "code": "OPENING_TOTAL_MISMATCH",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Total tidak cocok",
+      "explanation": "Total saldo awal berbeda Rp X dari sistem lama.",
+      "action": "[Lihat Selisih]",
+      "section": "§36",
+      "copyComplete": true
+    },
+    {
+      "code": "ORDER_ALREADY_DISPATCHED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Barang sudah dikirim",
+      "explanation": "Pesanan tidak bisa dibatalkan. Catat penolakan atau retur.",
+      "action": "[Buat Retur]",
+      "section": "§29",
+      "copyComplete": true
+    },
+    {
+      "code": "ORDER_CAPTURE_EXTERNAL",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Pesan lewat sistem principal",
+      "explanation": "Produk ini dipesan lewat {sistem}.",
+      "action": "[Mengerti]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "OUTLET_ALREADY_ASSIGNED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Toko sudah punya salesperson",
+      "explanation": "Toko ini dipegang Andi untuk stream yang sama.",
+      "action": "[Pindahkan]",
+      "section": "§45",
+      "copyComplete": true
+    },
+    {
+      "code": "OUTLET_HAS_OPEN_INVOICES",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Masih ada tagihan terbuka",
+      "explanation": "Selesaikan N tagihan atau minta persetujuan Finance.",
+      "action": "[Ajukan Persetujuan]",
+      "section": "§24",
+      "copyComplete": true
+    },
+    {
+      "code": "OUTLET_MERGED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Toko digabung",
+      "explanation": "Data toko ini sekarang ada di {toko survivor}.",
+      "action": "[Buka Toko]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "OUTLET_PENDING_REVIEW",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Toko menunggu diperiksa",
+      "explanation": "Toko ini belum aktif untuk pesanan baru.",
+      "action": "[Lihat Toko]",
+      "section": "§29",
+      "copyComplete": true
+    },
+    {
+      "code": "OVER_RECEIPT",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Melebihi pesanan",
+      "explanation": "Qty diterima lebih dari sisa PO.",
+      "action": "[Ubah Qty] / [Hubungi Pembelian]",
+      "section": "§33",
+      "copyComplete": true
+    },
+    {
+      "code": "PACK_QTY_MISMATCH",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Jumlah belum sesuai",
+      "explanation": "Masih ada 3 barang belum masuk koli.",
+      "action": "[Lanjut Scan]",
+      "section": "§42",
+      "copyComplete": true
+    },
+    {
+      "code": "PAYABLE_ALREADY_SCHEDULED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Sudah dijadwalkan",
+      "explanation": "Invoice ini sudah ada di pembayaran SPAY-…",
+      "action": "[Lihat Pembayaran]",
+      "section": "§40",
+      "copyComplete": true
+    },
+    {
+      "code": "PENDING_MAPPING",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Menunggu data dikenali",
+      "explanation": "Toko atau produk belum dipetakan.",
+      "action": "[Petakan Sekarang]",
+      "section": "§29",
+      "copyComplete": true
+    },
+    {
+      "code": "PERIOD_CLOSED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Periode sudah ditutup",
+      "explanation": "Transaksi ini perlu keputusan periode.",
+      "action": "[Pilih Periode]",
+      "section": "§49",
+      "copyComplete": true
+    },
+    {
+      "code": "PERIOD_NOT_FOUND",
+      "httpCategory": "404 · NOT_FOUND",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§53",
+      "copyComplete": false
+    },
+    {
+      "code": "PETTY_CASH_INSUFFICIENT",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Saldo kas kecil kurang",
+      "explanation": "Saldo Rp 30.000. Ajukan pengisian ulang.",
+      "action": "[Ajukan Pengisian]",
+      "section": "§51",
+      "copyComplete": true
+    },
+    {
+      "code": "POLICY_NOT_FOUND",
+      "httpCategory": "404 · NOT_FOUND",
+      "title": "Aturan belum diatur",
+      "explanation": "Belum ada aturan sistem untuk transaksi ini. Tim Komersial sudah diberi tahu.",
+      "action": "[Lihat Antrian]",
+      "section": "§26",
+      "copyComplete": true
+    },
+    {
+      "code": "POLICY_OVERLAP",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Jadwal bertabrakan",
+      "explanation": "Sudah ada aturan lain untuk proses ini pada tanggal tersebut.",
+      "action": "[Lihat Aturan]",
+      "section": "§26",
+      "copyComplete": true
+    },
+    {
+      "code": "POLICY_REJECTED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Pesanan dari sistem yang tidak berwenang",
+      "explanation": "Sejak {tanggal} pesanan ini harus dibuat di PSS.",
+      "action": "[Buka Antrian]",
+      "section": "§29",
+      "copyComplete": true
+    },
+    {
+      "code": "POLICY_RETROACTIVE_CONFLICT",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Tidak bisa berlaku mundur",
+      "explanation": "Sudah ada transaksi yang diproses dengan aturan lama pada tanggal itu.",
+      "action": "[Pilih Tanggal Lain]",
+      "section": "§26",
+      "copyComplete": true
+    },
+    {
+      "code": "POSSIBLE_DUPLICATE",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Mungkin sudah terdaftar",
+      "explanation": "Toko Makmur di jalan yang sama sudah ada.",
+      "action": "[Buka Toko yang Ada]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "POSTED_JOURNAL_IMMUTABLE",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Jurnal tidak bisa diubah",
+      "explanation": "Jurnal yang sudah diposting hanya bisa dibalik.",
+      "action": "[Ajukan Pembalikan]",
+      "section": "§50",
+      "copyComplete": true
+    },
+    {
+      "code": "PO_HAS_RECEIPTS",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Sudah ada penerimaan",
+      "explanation": "PO ini hanya bisa ditutup, tidak bisa dibatalkan.",
+      "action": "[Tutup PO]",
+      "section": "§33",
+      "copyComplete": true
+    },
+    {
+      "code": "PREVIOUS_PERIOD_OPEN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Periode sebelumnya masih terbuka",
+      "explanation": "Tutup sementara Agustus 2026 lebih dulu.",
+      "action": "[Buka Agustus]",
+      "section": "§53",
+      "copyComplete": true
+    },
+    {
+      "code": "PRICE_LIST_OVERLAP",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Harga bertabrakan",
+      "explanation": "Sudah ada daftar harga lain untuk produk dan tanggal ini.",
+      "action": "[Lihat Daftar Harga]",
+      "section": "§27",
+      "copyComplete": true
+    },
+    {
+      "code": "PRICE_NOT_FOUND",
+      "httpCategory": "404 · NOT_FOUND",
+      "title": "Harga belum tersedia",
+      "explanation": "Produk ini belum punya harga untuk toko ini.",
+      "action": "[Hapus Baris] / [Hubungi Admin]",
+      "section": "§27",
+      "copyComplete": true
+    },
+    {
+      "code": "PRINCIPAL_HAS_ACTIVE_PRODUCTS",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Masih ada produk aktif",
+      "explanation": "Nonaktifkan N produk terlebih dahulu.",
+      "action": "[Lihat Produk]",
+      "section": "§26",
+      "copyComplete": true
+    },
+    {
+      "code": "PROCESS_NOT_MANAGED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Pembayaran dicatat di sistem lain",
+      "explanation": "Penagihan untuk principal ini masih dicatat di {sistem sumber}.",
+      "action": "[Kembali]",
+      "section": "§37",
+      "copyComplete": true
+    },
+    {
+      "code": "PRODUCT_INACTIVE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Produk tidak aktif",
+      "explanation": "Produk ini tidak dijual lagi.",
+      "action": "[Pilih Produk Lain]",
+      "section": "§25",
+      "copyComplete": true
+    },
+    {
+      "code": "QUEUE_UNKNOWN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§68",
+      "copyComplete": false
+    },
+    {
+      "code": "REASON_REQUIRED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Alasan diperlukan",
+      "explanation": "Pilih alasan menonaktifkan toko.",
+      "action": "[Pilih Alasan]",
+      "section": "§24",
+      "copyComplete": true
+    },
+    {
+      "code": "RECEIVABLE_DISPUTED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Tagihan masih sengketa",
+      "explanation": "Selesaikan sengketa terlebih dahulu.",
+      "action": "[Buka Sengketa]",
+      "section": "§36",
+      "copyComplete": true
+    },
+    {
+      "code": "REFERENCE_IN_USE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Nilai sudah dipakai",
+      "explanation": "Nilai ini tidak bisa dihapus, hanya dinonaktifkan.",
+      "action": "[Nonaktifkan]",
+      "section": "§23",
+      "copyComplete": true
+    },
+    {
+      "code": "RENDER_FAILED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Dokumen belum bisa dicetak",
+      "explanation": "Coba lagi sebentar lagi.",
+      "action": "[Coba Lagi]",
+      "section": "§61",
+      "copyComplete": true
+    },
+    {
+      "code": "REPRICE_REQUIRED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Harga berubah",
+      "explanation": "3 produk berubah harga.",
+      "action": "[Lihat Harga Baru]",
+      "section": "§27",
+      "copyComplete": true
+    },
+    {
+      "code": "REQUEST_IN_PROGRESS",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Sedang diproses",
+      "explanation": "Tunggu sebentar.",
+      "action": "[Coba Lagi]",
+      "section": "§73",
+      "copyComplete": true
+    },
+    {
+      "code": "REQUIRED_DIMENSION_MISSING",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Dimensi belum lengkap",
+      "explanation": "Akun 6-2100 wajib diisi cost center.",
+      "action": "[Isi Dimensi]",
+      "section": "§48",
+      "copyComplete": true
+    },
+    {
+      "code": "RETURN_EXCEEDS_INVOICED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Melebihi jumlah di invoice",
+      "explanation": "Maksimal {n} {uom} bisa diretur.",
+      "action": "[Ubah Qty]",
+      "section": "§35",
+      "copyComplete": true
+    },
+    {
+      "code": "RETURN_QTY_MISMATCH",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Jumlah kembali tidak sesuai",
+      "explanation": "Seharusnya 3 karton, dihitung 2.",
+      "action": "[Laporkan Selisih]",
+      "section": "§58",
+      "copyComplete": true
+    },
+    {
+      "code": "RULE_CONDITION_AMBIGUOUS",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Kondisi tumpang tindih",
+      "explanation": "Dua kondisi cocok untuk contoh ini.",
+      "action": "[Perbaiki Kondisi]",
+      "section": "§49",
+      "copyComplete": true
+    },
+    {
+      "code": "RULE_FIELD_UNKNOWN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Data tidak tersedia di event",
+      "explanation": "Field 'discountAmount' tidak ada di event Invoice diterbitkan v1.",
+      "action": "[Pilih Field Lain]",
+      "section": "§49",
+      "copyComplete": true
+    },
+    {
+      "code": "RULE_MISSING",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "",
+      "explanation": "",
+      "action": "",
+      "section": "§49",
+      "copyComplete": false
+    },
+    {
+      "code": "RULE_NOT_BALANCED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Aturan tidak seimbang",
+      "explanation": "Debit Rp 11.100.000, kredit Rp 10.000.000 pada contoh INV-…",
+      "action": "[Periksa Baris]",
+      "section": "§49",
+      "copyComplete": true
+    },
+    {
+      "code": "SAME_ACCOUNT",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Rekening sama",
+      "explanation": "Pilih rekening tujuan yang berbeda.",
+      "action": "[Ubah Tujuan]",
+      "section": "§51",
+      "copyComplete": true
+    },
+    {
+      "code": "SCAN_MISMATCH",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Barang tidak sesuai",
+      "explanation": "Yang dipindai: {produk}. Yang diminta: {produk}.",
+      "action": "[Scan Ulang]",
+      "section": "§42",
+      "copyComplete": true
+    },
+    {
+      "code": "SCAN_NOT_EXPECTED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Barang tidak ada di PO",
+      "explanation": "Pisahkan barang ini dan lapor ke admin.",
+      "action": "[Scan Ulang]",
+      "section": "§42",
+      "copyComplete": true
+    },
+    {
+      "code": "SESSION_EXPIRED",
+      "httpCategory": "401 · UNAUTHENTICATED",
+      "title": "Sesi berakhir",
+      "explanation": "Masuk lagi untuk melanjutkan. Data yang belum terkirim tetap aman.",
+      "action": "[Masuk]",
+      "section": "§22",
+      "copyComplete": true
+    },
+    {
+      "code": "SNAPSHOT_STALE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Data belum diperbarui",
+      "explanation": "Data terakhir 3 hari lalu.",
+      "action": "[Perbarui]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "SOD_ROLE_CONFLICT",
+      "httpCategory": "403 · FORBIDDEN",
+      "title": "Kombinasi akses tidak diizinkan",
+      "explanation": "Kasir dan Petugas Piutang tidak boleh dipegang orang yang sama di cabang ini.",
+      "action": "[Pilih Akses Lain] / [Ajukan Pengecualian]",
+      "section": "§22",
+      "copyComplete": true
+    },
+    {
+      "code": "SOFT_CLOSE_ADJUSTMENT_ONLY",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Periode sedang ditutup",
+      "explanation": "Hanya jurnal penyesuaian yang bisa diposting.",
+      "action": "[Ubah Jenis]",
+      "section": "§50",
+      "copyComplete": true
+    },
+    {
+      "code": "STATEMENT_BALANCE_MISMATCH",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Saldo tidak cocok",
+      "explanation": "Saldo akhir file Rp X, hitungan Rp Y. Periksa file yang diunggah.",
+      "action": "[Unggah Ulang]",
+      "section": "§51",
+      "copyComplete": true
+    },
+    {
+      "code": "STATEMENT_INCOMPLETE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Mutasi belum lengkap",
+      "explanation": "Ada mutasi 14–16 Sep yang belum diimpor.",
+      "action": "[Unggah Mutasi]",
+      "section": "§52",
+      "copyComplete": true
+    },
+    {
+      "code": "STORAGE_FULL",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Memori perangkat penuh",
+      "explanation": "Sinkronkan dulu sebelum menambah data.",
+      "action": "[Sinkronkan]",
+      "section": "§74",
+      "copyComplete": true
+    },
+    {
+      "code": "SUBLEDGER_SNAPSHOT_TIMEOUT",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Data belum lengkap",
+      "explanation": "Saldo persediaan belum tersedia. Rekonsiliasi dijalankan ulang otomatis.",
+      "action": "[Jalankan Ulang]",
+      "section": "§52",
+      "copyComplete": true
+    },
+    {
+      "code": "SYNC_REQUIRED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Sinkronkan dulu",
+      "explanation": "Ada pembayaran yang belum terkirim.",
+      "action": "[Sinkronkan]",
+      "section": "§41",
+      "copyComplete": true
+    },
+    {
+      "code": "SYSTEM_JOURNAL_REVERSAL_FORBIDDEN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Koreksi dari dokumen sumber",
+      "explanation": "Jurnal ini dibuat otomatis dari INV-… Koreksi lewat nota kredit.",
+      "action": "[Buka Dokumen]",
+      "section": "§50",
+      "copyComplete": true
+    },
+    {
+      "code": "TAX_CODE_MISSING",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Kode pajak produk belum ada",
+      "explanation": "Lengkapi kode pajak produk {sku} sebelum menerbitkan invoice.",
+      "action": "[Lengkapi Produk]",
+      "section": "§28",
+      "copyComplete": true
+    },
+    {
+      "code": "TAX_EXPORT_FORMAT_NOT_CONFIGURED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Format ekspor belum diatur",
+      "explanation": "Finance/Tax belum menetapkan format file.",
+      "action": "[Hubungi Finance]",
+      "section": "§28",
+      "copyComplete": true
+    },
+    {
+      "code": "TAX_RATE_NOT_CONFIGURED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Tarif pajak belum diatur",
+      "explanation": "Invoice belum bisa diterbitkan karena tarif pajak untuk tanggal ini belum diatur Finance.",
+      "action": "[Hubungi Finance]",
+      "section": "§28",
+      "copyComplete": true
+    },
+    {
+      "code": "TAX_SUBMISSION_REJECTED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Faktur ditolak",
+      "explanation": "Alasan: {alasan}.",
+      "action": "[Perbaiki]",
+      "section": "§28",
+      "copyComplete": true
+    },
+    {
+      "code": "TEMPLATE_VERSION_MISMATCH",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Template tidak sesuai",
+      "explanation": "Gunakan template terbaru.",
+      "action": "[Unduh Template]",
+      "section": "§24",
+      "copyComplete": true
+    },
+    {
+      "code": "UNKNOWN_LABEL",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Label tidak dikenal",
+      "explanation": "Label ini tidak terdaftar di gudang ini.",
+      "action": "[Scan Ulang]",
+      "section": "§42",
+      "copyComplete": true
+    },
+    {
+      "code": "UOM_FACTOR_LOCKED",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Satuan sudah dipakai",
+      "explanation": "Buat satuan baru bila isi karton berubah.",
+      "action": "[Tambah Satuan]",
+      "section": "§25",
+      "copyComplete": true
+    },
+    {
+      "code": "VAT_RECAP_VARIANCE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Ada selisih PPN",
+      "explanation": "12 invoice belum punya nomor faktur pajak.",
+      "action": "[Lihat Invoice]",
+      "section": "§50",
+      "copyComplete": true
+    },
+    {
+      "code": "VEHICLE_IN_USE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Kendaraan sedang dipakai",
+      "explanation": "Selesaikan rute hari ini dulu.",
+      "action": "[Lihat Rute]",
+      "section": "§58",
+      "copyComplete": true
+    },
+    {
+      "code": "WAREHOUSE_HAS_STOCK",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Gudang masih berisi stok",
+      "explanation": "Pindahkan atau sesuaikan stok sebelum menonaktifkan.",
+      "action": "[Lihat Stok]",
+      "section": "§23",
+      "copyComplete": true
+    },
+    {
+      "code": "WAREHOUSE_NOT_MANAGED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Gudang belum dikelola PSS",
+      "explanation": "Stok gudang ini masih dicatat di sistem lama.",
+      "action": "[Lihat Jadwal Pindah]",
+      "section": "§32",
+      "copyComplete": true
+    },
+    {
+      "code": "WMS_ACTIVATION_BLOCKED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Belum bisa diaktifkan",
+      "explanation": "Masih ada 12 selisih stok.",
+      "action": "[Lihat Selisih]",
+      "section": "§42",
+      "copyComplete": true
+    }
+  ],
+  "reasonCodes": [
+    {
+      "area": "AR",
+      "code": "RC-AR-DISPUTE_NOT_RECEIVED",
+      "placeholder": false
+    },
+    {
+      "area": "AR",
+      "code": "RC-AR-DISPUTE_PRICE",
+      "placeholder": false
+    },
+    {
+      "area": "AR",
+      "code": "RC-AR-DISPUTE_QTY",
+      "placeholder": false
+    },
+    {
+      "area": "AR",
+      "code": "RC-AR-DISPUTE_QUALITY",
+      "placeholder": false
+    },
+    {
+      "area": "CLS",
+      "code": "RC-CLS-REOPEN_",
+      "placeholder": true
+    },
+    {
+      "area": "CLS",
+      "code": "RC-CLS-REOPEN_AUDIT",
+      "placeholder": false
+    },
+    {
+      "area": "CLS",
+      "code": "RC-CLS-REOPEN_LATE_DOCUMENT",
+      "placeholder": false
+    },
+    {
+      "area": "CLS",
+      "code": "RC-CLS-REOPEN_MATERIAL_ERROR",
+      "placeholder": false
+    },
+    {
+      "area": "COL",
+      "code": "RC-COL-DISPUTE",
+      "placeholder": false
+    },
+    {
+      "area": "COL",
+      "code": "RC-COL-NO_MONEY",
+      "placeholder": false
+    },
+    {
+      "area": "COL",
+      "code": "RC-COL-OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "COL",
+      "code": "RC-COL-PROMISE_TO_PAY",
+      "placeholder": false
+    },
+    {
+      "area": "COL",
+      "code": "RC-COL-STORE_CLOSED",
+      "placeholder": false
+    },
+    {
+      "area": "CSH",
+      "code": "RC-CSH-COUNT_OVER",
+      "placeholder": false
+    },
+    {
+      "area": "CSH",
+      "code": "RC-CSH-COUNT_SHORT",
+      "placeholder": false
+    },
+    {
+      "area": "CSH",
+      "code": "RC-CSH-LOST",
+      "placeholder": false
+    },
+    {
+      "area": "CSH",
+      "code": "RC-CSH-WRONG_EVIDENCE",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-ADDRESS_NOT_FOUND",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-COD_",
+      "placeholder": true
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-COD_NO_MONEY",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-COD_PARTIAL",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-FAIL_ACCESS",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-FAIL_ADDRESS",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-FAIL_NO_COD",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-FAIL_OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-FAIL_REFUSED",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-FAIL_STORE_CLOSED",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-NO_MONEY",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-PARTIAL_",
+      "placeholder": true
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-PARTIAL_DAMAGED",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-PARTIAL_REFUSED",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-PARTIAL_WRONG_ITEM",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-REFUSED",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-STORE_CLOSED",
+      "placeholder": false
+    },
+    {
+      "area": "DLV",
+      "code": "RC-DLV-WRONG_ORDER",
+      "placeholder": false
+    },
+    {
+      "area": "FUL",
+      "code": "RC-FUL-DAMAGED",
+      "placeholder": false
+    },
+    {
+      "area": "FUL",
+      "code": "RC-FUL-OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "FUL",
+      "code": "RC-FUL-OUT_OF_STOCK",
+      "placeholder": false
+    },
+    {
+      "area": "FUL",
+      "code": "RC-FUL-WRONG_LOCATION",
+      "placeholder": false
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-LATE_",
+      "placeholder": true
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-LATE_CORRECTION",
+      "placeholder": false
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-LATE_OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-LATE_SOURCE_DELAY",
+      "placeholder": false
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-REJECT_",
+      "placeholder": true
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-REV_",
+      "placeholder": true
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-REV_DUPLICATE",
+      "placeholder": false
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-REV_WRONG_ACCOUNT",
+      "placeholder": false
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-REV_WRONG_AMOUNT",
+      "placeholder": false
+    },
+    {
+      "area": "GL",
+      "code": "RC-GL-REV_WRONG_PERIOD",
+      "placeholder": false
+    },
+    {
+      "area": "INT",
+      "code": "RC-INT-DATE_INVALID",
+      "placeholder": false
+    },
+    {
+      "area": "INT",
+      "code": "RC-INT-DEPENDENCY_PENDING",
+      "placeholder": false
+    },
+    {
+      "area": "INT",
+      "code": "RC-INT-DOMAIN_REJECTED",
+      "placeholder": false
+    },
+    {
+      "area": "INT",
+      "code": "RC-INT-MAPPING_REJECTED",
+      "placeholder": false
+    },
+    {
+      "area": "INT",
+      "code": "RC-INT-POLICY_REJECTED",
+      "placeholder": false
+    },
+    {
+      "area": "INT",
+      "code": "RC-INT-SCHEMA_INVALID",
+      "placeholder": false
+    },
+    {
+      "area": "INT",
+      "code": "RC-INT-UOM_UNKNOWN",
+      "placeholder": false
+    },
+    {
+      "area": "INV",
+      "code": "RC-INV-COUNT_VARIANCE",
+      "placeholder": false
+    },
+    {
+      "area": "INV",
+      "code": "RC-INV-DAMAGED",
+      "placeholder": false
+    },
+    {
+      "area": "INV",
+      "code": "RC-INV-EXPIRED",
+      "placeholder": false
+    },
+    {
+      "area": "INV",
+      "code": "RC-INV-FOUND",
+      "placeholder": false
+    },
+    {
+      "area": "INV",
+      "code": "RC-INV-LOST",
+      "placeholder": false
+    },
+    {
+      "area": "INV",
+      "code": "RC-INV-OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "INV",
+      "code": "RC-INV-TRANSIT_LOSS",
+      "placeholder": false
+    },
+    {
+      "area": "ORD",
+      "code": "RC-ORD-CANCELLED_AT_SOURCE",
+      "placeholder": false
+    },
+    {
+      "area": "ORD",
+      "code": "RC-ORD-CREDIT_REJECTED",
+      "placeholder": false
+    },
+    {
+      "area": "ORD",
+      "code": "RC-ORD-CUSTOMER_REQUEST",
+      "placeholder": false
+    },
+    {
+      "area": "ORD",
+      "code": "RC-ORD-DUPLICATE",
+      "placeholder": false
+    },
+    {
+      "area": "ORD",
+      "code": "RC-ORD-OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "ORD",
+      "code": "RC-ORD-OUT_OF_STOCK",
+      "placeholder": false
+    },
+    {
+      "area": "ORD",
+      "code": "RC-ORD-SUPERSEDED_BY_EXTERNAL",
+      "placeholder": false
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-GIRO_",
+      "placeholder": true
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-GIRO_INSUFFICIENT_FUNDS",
+      "placeholder": false
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-GIRO_OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-GIRO_SIGNATURE",
+      "placeholder": false
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-REJECT_INVALID_EVIDENCE",
+      "placeholder": false
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-REJECT_NOT_FOUND",
+      "placeholder": false
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-REV_",
+      "placeholder": true
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-REV_BANK_CORRECTION",
+      "placeholder": false
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-REV_WRONG_CUSTOMER",
+      "placeholder": false
+    },
+    {
+      "area": "PAY",
+      "code": "RC-PAY-REV_WRONG_INVOICE",
+      "placeholder": false
+    },
+    {
+      "area": "RET",
+      "code": "RC-RET-DAMAGED",
+      "placeholder": false
+    },
+    {
+      "area": "RET",
+      "code": "RC-RET-EXCESS",
+      "placeholder": false
+    },
+    {
+      "area": "RET",
+      "code": "RC-RET-EXPIRED",
+      "placeholder": false
+    },
+    {
+      "area": "RET",
+      "code": "RC-RET-OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "RET",
+      "code": "RC-RET-QUALITY",
+      "placeholder": false
+    },
+    {
+      "area": "RET",
+      "code": "RC-RET-WRONG_ITEM",
+      "placeholder": false
+    },
+    {
+      "area": "SFA",
+      "code": "RC-SFA-SKIP_",
+      "placeholder": true
+    },
+    {
+      "area": "SFA",
+      "code": "RC-SFA-SKIP_OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "SFA",
+      "code": "RC-SFA-SKIP_OUT_OF_TIME",
+      "placeholder": false
+    },
+    {
+      "area": "SFA",
+      "code": "RC-SFA-SKIP_OWNER_ABSENT",
+      "placeholder": false
+    },
+    {
+      "area": "SFA",
+      "code": "RC-SFA-SKIP_STOCK_FULL",
+      "placeholder": false
+    },
+    {
+      "area": "SFA",
+      "code": "RC-SFA-SKIP_STORE_CLOSED",
+      "placeholder": false
+    },
+    {
+      "area": "WMS",
+      "code": "RC-WMS-DISC_DAMAGED",
+      "placeholder": false
+    },
+    {
+      "area": "WMS",
+      "code": "RC-WMS-DISC_EXCESS",
+      "placeholder": false
+    },
+    {
+      "area": "WMS",
+      "code": "RC-WMS-DISC_MISSING",
+      "placeholder": false
+    },
+    {
+      "area": "WMS",
+      "code": "RC-WMS-DISC_WRONG_LOCATION",
+      "placeholder": false
+    },
+    {
+      "area": "WMS",
+      "code": "RC-WMS-SHORT_",
+      "placeholder": true
+    },
+    {
+      "area": "WMS",
+      "code": "RC-WMS-SHORT_DAMAGED",
+      "placeholder": false
+    },
+    {
+      "area": "WMS",
+      "code": "RC-WMS-SHORT_EXPIRED",
+      "placeholder": false
+    },
+    {
+      "area": "WMS",
+      "code": "RC-WMS-SHORT_NOT_FOUND",
+      "placeholder": false
+    }
+  ],
+  "statuses": [
+    {
+      "aggregateState": "SalesOrder · DRAFT",
+      "desktopLabel": "Draf",
+      "frontlineLabel": "Belum dikirim",
+      "tone": "neutral",
+      "icon": "file-pen"
+    },
+    {
+      "aggregateState": "SalesOrder · REQUESTED / VALIDATED (MAN, kredit & stok OK)",
+      "desktopLabel": "Diproses",
+      "frontlineLabel": "Sedang diproses",
+      "tone": "info",
+      "icon": "loader"
+    },
+    {
+      "aggregateState": "SalesOrder · VALIDATED + CreditDecision ON_HOLD",
+      "desktopLabel": "Menunggu persetujuan kredit",
+      "frontlineLabel": "Perlu persetujuan kredit",
+      "tone": "warning",
+      "icon": "shield-alert"
+    },
+    {
+      "aggregateState": "SalesOrder · VALIDATED + reservasi PARTIAL/NONE",
+      "desktopLabel": "Sebagian barang belum tersedia",
+      "frontlineLabel": "Barang belum lengkap",
+      "tone": "warning",
+      "icon": "package-x"
+    },
+    {
+      "aggregateState": "SalesOrder · VALIDATED (observed)",
+      "desktopLabel": "Tercatat dari {sumber}",
+      "frontlineLabel": "—",
+      "tone": "external",
+      "icon": "link"
+    },
+    {
+      "aggregateState": "SalesOrder · CONFIRMED",
+      "desktopLabel": "Siap disiapkan",
+      "frontlineLabel": "Diterima",
+      "tone": "info",
+      "icon": "check"
+    },
+    {
+      "aggregateState": "SalesOrder · IN_FULFILLMENT",
+      "desktopLabel": "Sedang dikirim",
+      "frontlineLabel": "Sedang dikirim",
+      "tone": "info",
+      "icon": "truck"
+    },
+    {
+      "aggregateState": "SalesOrder · COMPLETED",
+      "desktopLabel": "Selesai",
+      "frontlineLabel": "Selesai",
+      "tone": "success",
+      "icon": "check-circle"
+    },
+    {
+      "aggregateState": "SalesOrder · CANCELLED / REJECTED",
+      "desktopLabel": "Dibatalkan / Ditolak",
+      "frontlineLabel": "Batal",
+      "tone": "neutral",
+      "icon": "x-circle"
+    },
+    {
+      "aggregateState": "FulfillmentRequest · RELEASED",
+      "desktopLabel": "Menunggu disiapkan",
+      "frontlineLabel": "—",
+      "tone": "neutral",
+      "icon": "clock"
+    },
+    {
+      "aggregateState": "FulfillmentRequest · READY",
+      "desktopLabel": "Siap kirim",
+      "frontlineLabel": "—",
+      "tone": "success",
+      "icon": "package-check"
+    },
+    {
+      "aggregateState": "DeliveryOrder · DISPATCHED",
+      "desktopLabel": "Dalam pengiriman",
+      "frontlineLabel": "Dalam perjalanan",
+      "tone": "info",
+      "icon": "truck"
+    },
+    {
+      "aggregateState": "DeliveryOrder · PARTIALLY_DELIVERED",
+      "desktopLabel": "Terkirim sebagian",
+      "frontlineLabel": "Sebagian terkirim",
+      "tone": "warning",
+      "icon": "package-minus"
+    },
+    {
+      "aggregateState": "DeliveryOrder · NOT_DELIVERED",
+      "desktopLabel": "Gagal kirim",
+      "frontlineLabel": "Gagal dikirim",
+      "tone": "danger",
+      "icon": "package-x"
+    },
+    {
+      "aggregateState": "Invoice · PREPARED",
+      "desktopLabel": "Siap kirim (belum jadi tagihan)",
+      "frontlineLabel": "—",
+      "tone": "neutral",
+      "icon": "file-text"
+    },
+    {
+      "aggregateState": "Invoice · ISSUED",
+      "desktopLabel": "Terbit",
+      "frontlineLabel": "—",
+      "tone": "info",
+      "icon": "receipt"
+    },
+    {
+      "aggregateState": "Receivable · NOT_DUE",
+      "desktopLabel": "Belum jatuh tempo",
+      "frontlineLabel": "Belum jatuh tempo",
+      "tone": "neutral",
+      "icon": "calendar"
+    },
+    {
+      "aggregateState": "Receivable · DUE",
+      "desktopLabel": "Jatuh tempo hari ini",
+      "frontlineLabel": "Tagih hari ini",
+      "tone": "warning",
+      "icon": "calendar-clock"
+    },
+    {
+      "aggregateState": "Receivable · OVERDUE_*",
+      "desktopLabel": "Terlambat {n} hari",
+      "frontlineLabel": "Terlambat {n} hari",
+      "tone": "danger",
+      "icon": "alarm-clock"
+    },
+    {
+      "aggregateState": "Receivable · SETTLED",
+      "desktopLabel": "Lunas",
+      "frontlineLabel": "Lunas",
+      "tone": "success",
+      "icon": "badge-check"
+    },
+    {
+      "aggregateState": "Receivable · DISPUTED",
+      "desktopLabel": "Dalam sengketa",
+      "frontlineLabel": "Sedang dicek kantor",
+      "tone": "warning",
+      "icon": "message-circle-warning"
+    },
+    {
+      "aggregateState": "Payment · PENDING_VERIFICATION",
+      "desktopLabel": "Perlu dicek",
+      "frontlineLabel": "Menunggu dicek kasir",
+      "tone": "warning",
+      "icon": "hourglass"
+    },
+    {
+      "aggregateState": "Payment · VERIFIED + UNAPPLIED/PARTIALLY",
+      "desktopLabel": "Belum dialokasikan",
+      "frontlineLabel": "—",
+      "tone": "warning",
+      "icon": "split"
+    },
+    {
+      "aggregateState": "Payment · VERIFIED + FULLY_APPLIED",
+      "desktopLabel": "Sudah dialokasikan",
+      "frontlineLabel": "Diterima kantor",
+      "tone": "success",
+      "icon": "check-circle"
+    },
+    {
+      "aggregateState": "Payment · REJECTED / BOUNCED",
+      "desktopLabel": "Ditolak / Giro tolak",
+      "frontlineLabel": "Perlu dicek",
+      "tone": "danger",
+      "icon": "ban"
+    },
+    {
+      "aggregateState": "Cash (◇ belum disetor)",
+      "desktopLabel": "Kas belum disetor",
+      "frontlineLabel": "Uang di tangan",
+      "tone": "warning",
+      "icon": "wallet"
+    },
+    {
+      "aggregateState": "CashCustody · DISCREPANCY",
+      "desktopLabel": "Ada selisih",
+      "frontlineLabel": "Ada selisih — hubungi kasir",
+      "tone": "danger",
+      "icon": "scale"
+    },
+    {
+      "aggregateState": "WarehouseTask · ASSIGNED",
+      "desktopLabel": "Tugas baru",
+      "frontlineLabel": "Tugas baru",
+      "tone": "info",
+      "icon": "list-todo"
+    },
+    {
+      "aggregateState": "WarehouseTask · COMPLETED_SHORT",
+      "desktopLabel": "Selesai, barang kurang",
+      "frontlineLabel": "Barang kurang dilaporkan",
+      "tone": "warning",
+      "icon": "package-minus"
+    },
+    {
+      "aggregateState": "DeliveryAttempt · PENDING",
+      "desktopLabel": "—",
+      "frontlineLabel": "Belum dikunjungi",
+      "tone": "neutral",
+      "icon": "map-pin"
+    },
+    {
+      "aggregateState": "DeliveryAttempt · ARRIVED",
+      "desktopLabel": "—",
+      "frontlineLabel": "Sudah sampai",
+      "tone": "info",
+      "icon": "map-pin-check"
+    },
+    {
+      "aggregateState": "ProofOfDelivery · MISSING",
+      "desktopLabel": "Bukti kirim belum ada",
+      "frontlineLabel": "Foto bukti belum ada",
+      "tone": "danger",
+      "icon": "camera-off"
+    },
+    {
+      "aggregateState": "Journal · SUBMITTED",
+      "desktopLabel": "Menunggu persetujuan",
+      "frontlineLabel": "—",
+      "tone": "warning",
+      "icon": "stamp"
+    },
+    {
+      "aggregateState": "Journal · POSTED",
+      "desktopLabel": "Diposting",
+      "frontlineLabel": "—",
+      "tone": "success",
+      "icon": "book-check"
+    },
+    {
+      "aggregateState": "AccountingPeriod · SOFT_CLOSE",
+      "desktopLabel": "Sedang tutup buku",
+      "frontlineLabel": "—",
+      "tone": "warning",
+      "icon": "lock-open"
+    },
+    {
+      "aggregateState": "AccountingPeriod · CLOSED",
+      "desktopLabel": "Terkunci",
+      "frontlineLabel": "—",
+      "tone": "neutral",
+      "icon": "lock"
+    },
+    {
+      "aggregateState": "StagingRecord · PENDING_MAPPING",
+      "desktopLabel": "Data belum dikenali",
+      "frontlineLabel": "—",
+      "tone": "warning",
+      "icon": "help-circle"
+    },
+    {
+      "aggregateState": "StagingRecord · REJECTED",
+      "desktopLabel": "Data tidak valid",
+      "frontlineLabel": "—",
+      "tone": "danger",
+      "icon": "file-warning"
+    },
+    {
+      "aggregateState": "SyncBatch · FAILED",
+      "desktopLabel": "Sinkronisasi gagal",
+      "frontlineLabel": "—",
+      "tone": "danger",
+      "icon": "cloud-off"
+    },
+    {
+      "aggregateState": "OrderRequest · QUEUED",
+      "desktopLabel": "—",
+      "frontlineLabel": "↻ Menunggu Sinkronisasi",
+      "tone": "info",
+      "icon": "refresh-cw"
+    },
+    {
+      "aggregateState": "OrderRequest · ACCEPTED",
+      "desktopLabel": "—",
+      "frontlineLabel": "✓ Tersimpan",
+      "tone": "success",
+      "icon": "check"
+    },
+    {
+      "aggregateState": "OrderRequest · NEEDS_ATTENTION",
+      "desktopLabel": "—",
+      "frontlineLabel": "⚠ Perlu Diperiksa",
+      "tone": "warning",
+      "icon": "alert-triangle"
+    },
+    {
+      "aggregateState": "Visit · SKIPPED",
+      "desktopLabel": "Dilewati",
+      "frontlineLabel": "Dilewati",
+      "tone": "neutral",
+      "icon": "skip-forward"
+    },
+    {
+      "aggregateState": "Outlet location · UNMAPPED",
+      "desktopLabel": "Lokasi belum direkam",
+      "frontlineLabel": "Rekam lokasi",
+      "tone": "warning",
+      "icon": "map-pin-off"
+    }
+  ],
+  "offlineStatuses": [
+    {
+      "code": "SAVED",
+      "label": "Tersimpan",
+      "tone": "success",
+      "icon": "check"
+    },
+    {
+      "code": "PENDING_SYNC",
+      "label": "Menunggu Sinkronisasi",
+      "tone": "info",
+      "icon": "cloud-upload"
+    },
+    {
+      "code": "NEEDS_REVIEW",
+      "label": "Perlu Diperiksa",
+      "tone": "warning",
+      "icon": "alert-triangle"
+    }
+  ],
+  "configurationSeeds": [
+    {
+      "keyExpression": "invoicing.recognition_point",
+      "defaultText": "AT_DELIVERY (ASM)",
+      "scope": "org / principal / customer",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "invoicing.top_start_basis",
+      "defaultText": "DELIVERY_DATE (ASM)",
+      "scope": "org / principal / customer",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "invoicing.grouping_rule",
+      "defaultText": "per (DO × principal) untuk stream PRINCIPAL; gabungan untuk MIX/TRADER",
+      "scope": "org",
+      "owner": "Finance + Sales",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "inventory.costing_method",
+      "defaultText": "MOVING_AVERAGE (ASM)",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "inventory.valuation_unit",
+      "defaultText": "BRANCH",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "inventory.reservation_expiry_hours",
+      "defaultText": "72",
+      "scope": "cabang",
+      "owner": "Ops",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "finance.track_in_transit_account",
+      "defaultText": "true",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F4"
+    },
+    {
+      "keyExpression": "finance.post_discount_separately",
+      "defaultText": "false",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F4"
+    },
+    {
+      "keyExpression": "finance.late_posting_default",
+      "defaultText": "FIRST_OPEN_PERIOD (Controller tetap memutuskan)",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F4"
+    },
+    {
+      "keyExpression": "finance.journal.emergency_self_approval",
+      "defaultText": "nonaktif",
+      "scope": "org",
+      "owner": "CFO",
+      "validationGate": "F4"
+    },
+    {
+      "keyExpression": "finance.petty_cash.max_per_expense",
+      "defaultText": "KOSONG → semua pengeluaran kas kecil perlu approval Branch Manager",
+      "scope": "cabang",
+      "owner": "Finance",
+      "validationGate": "F6"
+    },
+    {
+      "keyExpression": "finance.fiscal_year_start_month",
+      "defaultText": "1 (ASM)",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F4"
+    },
+    {
+      "keyExpression": "tax.vat_output_rate` / `tax.vat_input_rate",
+      "defaultText": "KOSONG → invoice tidak bisa diterbitkan sampai tarif diisi",
+      "scope": "effective-dated",
+      "owner": "Finance/Tax",
+      "validationGate": "F4"
+    },
+    {
+      "keyExpression": "credit.auto_release_on_payment",
+      "defaultText": "true",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "credit.revalidate_after_minutes",
+      "defaultText": "60",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "credit.hold_expiry_hours",
+      "defaultText": "48",
+      "scope": "cabang",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "credit.include_open_orders_in_exposure",
+      "defaultText": "true (ASM, GAP-44)",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "orders.auto_confirm_external",
+      "defaultText": "true",
+      "scope": "principal",
+      "owner": "Sales + Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "orders.partial_confirmation",
+      "defaultText": "REQUIRE_DECISION (Admin memilih backorder / tutup kurang)",
+      "scope": "cabang",
+      "owner": "Sales",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "fulfillment.release_rule",
+      "defaultText": "IMMEDIATE",
+      "scope": "cabang",
+      "owner": "Gudang",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "fulfillment.cutoff_time",
+      "defaultText": "KOSONG (tanpa cut-off; order dirilis segera)",
+      "scope": "cabang",
+      "owner": "Gudang",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "fulfillment.admin_confirm_requires_evidence",
+      "defaultText": "true (foto surat jalan bertanda tangan)",
+      "scope": "cabang",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "ar.aging_buckets",
+      "defaultText": "1–30 / 31–60 / 61–90 / > 90",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "ar.overdue_tolerance_days",
+      "defaultText": "0",
+      "scope": "org / customer",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "ar.collection_task_rule",
+      "defaultText": "buat saat DUE; kelompok per customer; assignee = collection owner",
+      "scope": "cabang",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "ar.collection_task_expiry_days",
+      "defaultText": "7",
+      "scope": "cabang",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "payments.cash_in_hand_max_hours",
+      "defaultText": "24",
+      "scope": "cabang",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "payments.bank_auto_match_rules",
+      "defaultText": "kosong (hanya saran)",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F6"
+    },
+    {
+      "keyExpression": "returns.approval_rule",
+      "defaultText": "semua retur tanpa invoice + retur di atas threshold perlu approval; threshold KOSONG → semua perlu approval",
+      "scope": "cabang",
+      "owner": "Sales + Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "inventory.transfer_approval_rule",
+      "defaultText": "transfer lintas cabang perlu approval Branch Manager asal; dalam cabang tanpa approval",
+      "scope": "org",
+      "owner": "Ops",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "procurement.po_approval_threshold",
+      "defaultText": "KOSONG → semua PO perlu approval",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "procurement.over_receipt_tolerance_pct",
+      "defaultText": "0",
+      "scope": "org",
+      "owner": "Ops",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "procurement.price_match_tolerance",
+      "defaultText": "0",
+      "scope": "org",
+      "owner": "Finance",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "approval.<type>.levels",
+      "defaultText": "per tipe; threshold KOSONG → dirutekan ke level **tertinggi** tipe tersebut (fail-safe)",
+      "scope": "org",
+      "owner": "Finance + Ops",
+      "validationGate": "F0 (mesin) / F5 (nilai)"
+    },
+    {
+      "keyExpression": "identity.sod_exception",
+      "defaultText": "tidak ada",
+      "scope": "cabang",
+      "owner": "CFO",
+      "validationGate": "F0"
+    },
+    {
+      "keyExpression": "sfa.geofence_radius_m",
+      "defaultText": "100 (ASM)",
+      "scope": "cabang",
+      "owner": "Sales",
+      "validationGate": "F7"
+    },
+    {
+      "keyExpression": "sfa.geofence_block",
+      "defaultText": "false",
+      "scope": "cabang",
+      "owner": "Sales",
+      "validationGate": "F7"
+    },
+    {
+      "keyExpression": "sfa.gps_accuracy_threshold_m",
+      "defaultText": "30 (APRD §11.4)",
+      "scope": "org",
+      "owner": "Sales",
+      "validationGate": "F7"
+    },
+    {
+      "keyExpression": "offline.max_age_hours",
+      "defaultText": "72",
+      "scope": "org",
+      "owner": "Engineering",
+      "validationGate": "F7"
+    },
+    {
+      "keyExpression": "fleet.pod_policy",
+      "defaultText": "foto invoice bertanda tangan wajib; tanda tangan digital opsional",
+      "scope": "org / segmen",
+      "owner": "Finance",
+      "validationGate": "F8"
+    },
+    {
+      "keyExpression": "fleet.pod_missing_hours",
+      "defaultText": "24",
+      "scope": "cabang",
+      "owner": "Finance",
+      "validationGate": "F8"
+    },
+    {
+      "keyExpression": "integration.raw_retention_days",
+      "defaultText": "180",
+      "scope": "connector",
+      "owner": "Legal",
+      "validationGate": "F2"
+    },
+    {
+      "keyExpression": "integration.retry_backoff_minutes",
+      "defaultText": "1, 5, 15, 60",
+      "scope": "connector",
+      "owner": "Engineering",
+      "validationGate": "F2"
+    },
+    {
+      "keyExpression": "integration.parallel_run_tolerance",
+      "defaultText": "KOSONG (GAP-33) → cutover diblokir sampai diisi",
+      "scope": "stream/cabang",
+      "owner": "Finance + Ops",
+      "validationGate": "F5"
+    },
+    {
+      "keyExpression": "idempotency.retention_days",
+      "defaultText": "7",
+      "scope": "org",
+      "owner": "Engineering",
+      "validationGate": "F0"
+    }
+  ],
+  "configurationAdditions": [
+    {
+      "kind": "Config",
+      "item": "`identity.access_token_minutes` (15), `identity.refresh_token_hours` (≤ `offline.max_age_hours`), `identity.step_up_minutes` (15), `identity.shared_device_idle_minutes` (10), `identity.max_devices_per_user` (2) — owner Engineering, gate F0",
+      "section": "§22",
+      "keys": [
+        "identity.access_token_minutes",
+        "identity.refresh_token_hours",
+        "offline.max_age_hours",
+        "identity.step_up_minutes",
+        "identity.shared_device_idle_minutes",
+        "identity.max_devices_per_user"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`master_data.duplicate_threshold` (ASM, steward, F1); `master_data.review_sla_days` (3)",
+      "section": "§24",
+      "keys": [
+        "master_data.duplicate_threshold",
+        "master_data.review_sla_days"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`approval.price_override.levels`, `approval.price_override.expiry_hours` (24), `approval.price_list_activation.levels` — threshold KOSONG → level tertinggi",
+      "section": "§27",
+      "keys": [
+        "approval.price_override.levels",
+        "approval.price_override.expiry_hours",
+        "approval.price_list_activation.levels"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`tax.rounding_rule` (KOSONG → blocking), `tax.input_vat_tolerance` (0), `tax.invoice_deadline_days` (KOSONG), `tax_export_format_version` (KOSONG) — owner Finance/Tax, gate F5",
+      "section": "§28",
+      "keys": [
+        "tax.rounding_rule",
+        "tax.input_vat_tolerance",
+        "tax.invoice_deadline_days",
+        "tax_export_format_version"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`orders.auto_confirm` (true), `orders.shortage_wait_hours` (24), `integration.fingerprint_amount_tolerance` (ASM 0)",
+      "section": "§29",
+      "keys": [
+        "orders.auto_confirm",
+        "orders.shortage_wait_hours",
+        "integration.fingerprint_amount_tolerance"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`approval.credit_profile_change.levels`, `approval.credit_override.levels` (threshold KOSONG → level tertinggi), `credit.show_limit_to_sales` (false)",
+      "section": "§30",
+      "keys": [
+        "approval.credit_profile_change.levels",
+        "approval.credit_override.levels",
+        "credit.show_limit_to_sales"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`fulfillment.sj_show_prices` (false), `fulfillment.delivery_date_backdate_days` (2)",
+      "section": "§31",
+      "keys": [
+        "fulfillment.sj_show_prices",
+        "fulfillment.delivery_date_backdate_days"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`inventory.transit_max_days` (3), `inventory.cost_precision` (6), `approval.stock_adjustment.levels` (threshold KOSONG → level tertinggi)",
+      "section": "§32",
+      "keys": [
+        "inventory.transit_max_days",
+        "inventory.cost_precision",
+        "approval.stock_adjustment.levels"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`ar.dispute_sla_days` (14), `ar.block_on_write_off` (true), `approval.write_off.levels`",
+      "section": "§36",
+      "keys": [
+        "ar.dispute_sla_days",
+        "ar.block_on_write_off",
+        "approval.write_off.levels"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`payments.small_overpayment_threshold` (KOSONG → semua lebih bayar jadi kredit customer; owner Finance; gate F5) · `payments.giro_overdue_days` (3 ASM; Finance; F5) · `credit.include_pending_giro_in_exposure` (true; Finance; F5)",
+      "section": "§37",
+      "keys": [
+        "payments.small_overpayment_threshold",
+        "payments.giro_overdue_days",
+        "credit.include_pending_giro_in_exposure"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "Tidak ada baru",
+      "section": "§38",
+      "keys": []
+    },
+    {
+      "kind": "Config",
+      "item": "`approval.cash_discrepancy.levels` (KOSONG → level tertinggi)",
+      "section": "§39",
+      "keys": [
+        "approval.cash_discrepancy.levels"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`approval.supplier_payment.levels` (KOSONG → level tertinggi)",
+      "section": "§40",
+      "keys": [
+        "approval.supplier_payment.levels"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`sfa.show_credit_limit_amount` (false; Finance; F7) · `sfa.order_without_visit` (true ASM; Sales; F7) · `sfa.skip_photo_required` (false; Sales; F7) · `sfa.photo_camera_only` (true; Sales; F7) · `offline.max_retry` (10; Engineering; F7) · `media.max_image_kb` (500 ASM; Engineering; F0) · `principal_policy.external_order_app_link` (KOSONG; Commercial; F7)",
+      "section": "§41",
+      "keys": [
+        "sfa.show_credit_limit_amount",
+        "sfa.order_without_visit",
+        "sfa.skip_photo_required",
+        "sfa.photo_camera_only",
+        "offline.max_retry",
+        "media.max_image_kb",
+        "principal_policy.external_order_app_link"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`wms.min_remaining_shelf_life_days` (KOSONG; Gudang+Sales; F9) · `wms.allow_lot_substitution` (false) · `wms.use_case_as_package` (true ASM) · `wms.cycle_count_policy` (KOSONG → hanya on-demand) · `wms.recount_threshold_pct` (2 ASM) · `wms.count_freeze_location` (true) · `wms.offline_task_buffer` (20 tugas ASM) · `wms.paper_fallback_minutes` (30 ASM)",
+      "section": "§42",
+      "keys": [
+        "wms.min_remaining_shelf_life_days",
+        "wms.allow_lot_substitution",
+        "wms.use_case_as_package",
+        "wms.cycle_count_policy",
+        "wms.recount_threshold_pct",
+        "wms.count_freeze_location",
+        "wms.offline_task_buffer",
+        "wms.paper_fallback_minutes"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`fleet.fail_photo_required` (true) · `fleet.driver_can_request_return` (false)",
+      "section": "§43",
+      "keys": [
+        "fleet.fail_photo_required",
+        "fleet.driver_can_request_return"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`sfa.single_owner_per_outlet_stream` (true ASM; Sales; F7) · `wms.task_stuck_minutes` (30 ASM; Gudang; F9)",
+      "section": "§45",
+      "keys": [
+        "sfa.single_owner_per_outlet_stream",
+        "wms.task_stuck_minutes"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`integration.freshness_sla_minutes` (KOSONG per connector → \"Tanpa target\"; Integration + Management; F3)",
+      "section": "§46",
+      "keys": [
+        "integration.freshness_sla_minutes"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`finance.coa.code_pattern` (KOSONG; Finance; F4)",
+      "section": "§48",
+      "keys": [
+        "finance.coa.code_pattern"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`finance.go_live_date` (KOSONG → posting tidak aktif; Finance; F4) · `finance.balance_tolerance` (0; Finance; F4)",
+      "section": "§49",
+      "keys": [
+        "finance.go_live_date",
+        "finance.balance_tolerance"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`approval.journal.levels` (KOSONG → level tertinggi) · `approval.journal.expiry_days` (7 ASM)",
+      "section": "§50",
+      "keys": [
+        "approval.journal.levels",
+        "approval.journal.expiry_days"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`finance.bank_line_rules` (kosong → hanya manual; Finance; F6)",
+      "section": "§51",
+      "keys": [
+        "finance.bank_line_rules"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`finance.fiscal_year_autocreate_months` (2 ASM) · `approval.period_reopen.levels` (CFO)",
+      "section": "§53",
+      "keys": [
+        "finance.fiscal_year_autocreate_months",
+        "approval.period_reopen.levels"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`finance.close.approver_role` (CFO; fallback CEO; Finance; F6)",
+      "section": "§54",
+      "keys": [
+        "finance.close.approver_role"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`finance.branch_pnl_visible` (false; CFO; F6)",
+      "section": "§55",
+      "keys": [
+        "finance.branch_pnl_visible"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`finance.audit_adjustment_period_enabled` (false ASM; Finance; F6)",
+      "section": "§56",
+      "keys": [
+        "finance.audit_adjustment_period_enabled"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`geo.review_distance_m` (1000 ASM) · `geo.plus_code_length` (10 ASM) · `geo.nearby_max_radius_m` (5000 ASM) · `geo.unmapped_outlet_days` (90) · `geo.tile_source_url` (KOSONG → fallback daftar)",
+      "section": "§57",
+      "keys": [
+        "geo.review_distance_m",
+        "geo.plus_code_length",
+        "geo.nearby_max_radius_m",
+        "geo.unmapped_outlet_days",
+        "geo.tile_source_url"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`fleet.capacity_block` (false) · `fleet.driver_silence_minutes` (60 ASM) · `fleet.late_tolerance_minutes` (30 ASM) · `fleet.optimizer_timeout_s` (30) · `fleet.gps_interval_s` (60 ASM) · `fleet.gps_retention_days` (KOSONG → OD-39; fitur tidak aktif)",
+      "section": "§58",
+      "keys": [
+        "fleet.capacity_block",
+        "fleet.driver_silence_minutes",
+        "fleet.late_tolerance_minutes",
+        "fleet.optimizer_timeout_s",
+        "fleet.gps_interval_s",
+        "fleet.gps_retention_days"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`integration.max_file_mb` (200 ASM) · `integration.auto_rule_match` (false) · `integration.pending_mapping_max_days` (3 ASM) · `integration.duplicate_amount_tolerance` (0 ASM) · `integration.dependency_retry_hours` (72 ASM) · `integration.expected_file_interval_hours` (26 ASM) · `integration.recon_tolerance` (0) · `integration.pending_match_max_hours` (24 ASM)",
+      "section": "§59",
+      "keys": [
+        "integration.max_file_mb",
+        "integration.auto_rule_match",
+        "integration.pending_mapping_max_days",
+        "integration.duplicate_amount_tolerance",
+        "integration.dependency_retry_hours",
+        "integration.expected_file_interval_hours",
+        "integration.recon_tolerance",
+        "integration.pending_match_max_hours"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`approval.<type>.expiry_hours` (per tipe; default 48 ASM) · `approval.<type>.bulk_allowed` (false)",
+      "section": "§60",
+      "keys": [
+        "approval.<type>.expiry_hours",
+        "approval.<type>.bulk_allowed"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`documents.reservation_timeout_minutes` (60 ASM)",
+      "section": "§61",
+      "keys": [
+        "documents.reservation_timeout_minutes"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`media.url_ttl_seconds` (300) · `media.policy.<purpose>` (tipe, ukuran maks, retensi) · `media.max_image_kb` (ada di §41)",
+      "section": "§62",
+      "keys": [
+        "media.url_ttl_seconds",
+        "media.policy.<purpose>",
+        "media.max_image_kb"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`notifications.retention_days` (90 ASM)",
+      "section": "§63",
+      "keys": [
+        "notifications.retention_days"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`dwh.retirement_grace_days` (30 ASM)",
+      "section": "§67",
+      "keys": [
+        "dwh.retirement_grace_days"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`platform.business_calendar` (KOSONG → Senin–Jumat tanpa hari libur; owner Ops; wajib diisi hari kerja per cabang & hari libur nasional sebelum gate F3)",
+      "section": "§68",
+      "keys": [
+        "platform.business_calendar"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`audit.retention_years` (KOSONG → tidak dihapus; Legal/Finance; OD-40) · `audit.hot_months` (24 ASM)",
+      "section": "§70",
+      "keys": [
+        "audit.retention_years",
+        "audit.hot_months"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`api.rate_limits` (per identitas/endpoint; default ASUMSI 600 req/menit per user)",
+      "section": "§71",
+      "keys": [
+        "api.rate_limits"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`events.archive_days` (400 ASM — ≥ 1 tahun untuk replay read model/DW) · `events.retry_backoff` (1s, 5s, 30s, 2m, 10m) · `events.dlq_alert_minutes` (15)",
+      "section": "§72",
+      "keys": [
+        "events.archive_days",
+        "events.retry_backoff",
+        "events.dlq_alert_minutes"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`observability.log_retention_days` (30 ASM; OD-40)",
+      "section": "§76",
+      "keys": [
+        "observability.log_retention_days"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`privacy.retention.<category>` (KOSONG kecuali raw 180 hari; Legal)",
+      "section": "§77",
+      "keys": [
+        "privacy.retention.<category>"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`migration.parallel_run_days_required` (10 hari kerja ASM; Finance+Ops) · `migration.emergency_rollback` (nonaktif; CFO)",
+      "section": "§85",
+      "keys": [
+        "migration.parallel_run_days_required",
+        "migration.emergency_rollback"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`backup.pitr_days` (14 ASM)",
+      "section": "§87",
+      "keys": [
+        "backup.pitr_days"
+      ]
+    },
+    {
+      "kind": "Config / flag",
+      "item": "`fulfillment.cross_branch_enabled` (nonaktif; owner Finance; gate sebelum diaktifkan)",
+      "section": "§23",
+      "keys": [
+        "fulfillment.cross_branch_enabled"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`identity.mfa_enforcement`",
+      "section": "§22",
+      "keys": [
+        "identity.mfa_enforcement"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`commercial.promo_enabled`, `commercial.claims_enabled`",
+      "section": "§27",
+      "keys": [
+        "commercial.promo_enabled",
+        "commercial.claims_enabled"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`tax.export_enabled`, `tax.direct_integration_enabled`",
+      "section": "§28",
+      "keys": [
+        "tax.export_enabled",
+        "tax.direct_integration_enabled"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`orders.whatsapp_intake_enabled`",
+      "section": "§29",
+      "keys": [
+        "orders.whatsapp_intake_enabled"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`credit.sub_limit_enabled` (false), `credit.auto_request_override` (true)",
+      "section": "§30",
+      "keys": [
+        "credit.sub_limit_enabled",
+        "credit.auto_request_override"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`invoicing.consolidation_enabled` (false)",
+      "section": "§34",
+      "keys": [
+        "invoicing.consolidation_enabled"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`returns.supplier_return_enabled`",
+      "section": "§35",
+      "keys": [
+        "returns.supplier_return_enabled"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`payments.qris_va` (off)",
+      "section": "§37",
+      "keys": [
+        "payments.qris_va"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`sfa.app_enabled` (per cabang), `sfa.canvas_selling` (off)",
+      "section": "§41",
+      "keys": [
+        "sfa.app_enabled",
+        "sfa.canvas_selling"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`fleet.driver_app_enabled` (per cabang), `fleet.digital_signature` (off)",
+      "section": "§43",
+      "keys": [
+        "fleet.driver_app_enabled",
+        "fleet.digital_signature"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`supervisor.app_enabled`",
+      "section": "§45",
+      "keys": [
+        "supervisor.app_enabled"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`finance.posting_enabled` (per organisasi)",
+      "section": "§49",
+      "keys": [
+        "finance.posting_enabled"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`finance.bank_api` (off)",
+      "section": "§51",
+      "keys": [
+        "finance.bank_api"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`fleet.route_optimization`, `fleet.vehicle_gps`, `fleet.route_economics` (semua off)",
+      "section": "§58",
+      "keys": [
+        "fleet.route_optimization",
+        "fleet.vehicle_gps",
+        "fleet.route_economics"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`integration.outbound_enabled` (off); policy flag `allow_manual_pending_match` (per principal/cabang, default off)",
+      "section": "§59",
+      "keys": [
+        "integration.outbound_enabled",
+        "allow_manual_pending_match"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`notifications.external_channels` (off)",
+      "section": "§63",
+      "keys": [
+        "notifications.external_channels"
+      ]
+    },
+    {
+      "kind": "Flag",
+      "item": "`reporting.attribution` (off)",
+      "section": "§69",
+      "keys": [
+        "reporting.attribution"
+      ]
+    },
+    {
+      "kind": "Policy field",
+      "item": "`warehouse_id`, `pss_mode`; proses tambahan FULFILLMENT, INVENTORY, PROCUREMENT, DELIVERY_EXECUTION",
+      "section": "§26",
+      "keys": [
+        "warehouse_id",
+        "pss_mode"
+      ]
+    }
+  ],
+  "queueSeeds": [
+    {
+      "code": "Q-UNMAPPED_CUSTOMER",
+      "label": "Toko belum dikenali",
+      "trigger": "`MASTER_MAPPING_REQUIRED` (customer/outlet)",
+      "ownerRole": "MASTER_DATA_STEWARD",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Petakan ke toko yang ada · Buat toko baru · Tolak",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-UNMAPPED_PRODUCT",
+      "label": "Produk belum dikenali",
+      "trigger": "idem (produk)",
+      "ownerRole": "MASTER_DATA_STEWARD",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Petakan · Buat · Tolak",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-UNMAPPED_SALESPERSON",
+      "label": "Salesperson belum dikenali",
+      "trigger": "idem",
+      "ownerRole": "MASTER_DATA_STEWARD",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Petakan · Tolak",
+      "escalation": "Branch Manager"
+    },
+    {
+      "code": "Q-POSSIBLE_DUPLICATE_ORDER",
+      "label": "Kemungkinan pesanan ganda",
+      "trigger": "fingerprint match",
+      "ownerRole": "SALES_ADMIN",
+      "defaultSla": "4 jam",
+      "permittedActions": "Tandai berbeda · Tautkan sebagai duplikat",
+      "escalation": "Branch Manager"
+    },
+    {
+      "code": "Q-POSSIBLE_DUPLICATE_CUSTOMER",
+      "label": "Kemungkinan toko ganda",
+      "trigger": "CUS-003",
+      "ownerRole": "MASTER_DATA_STEWARD",
+      "defaultSla": "3 hari",
+      "permittedActions": "Tandai berbeda · Ajukan merge",
+      "escalation": "—"
+    },
+    {
+      "code": "Q-IMPORT_REJECTED",
+      "label": "Data impor tidak valid",
+      "trigger": "StagingRecord REJECTED / DOMAIN_REJECTED",
+      "ownerRole": "INTEGRATION_OPERATOR",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Proses ulang setelah perbaikan · Tolak dengan alasan · Unduh",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-SYNC_FAILED",
+      "label": "Sinkronisasi gagal",
+      "trigger": "`SYNC_BATCH_FAILED` setelah retry otomatis habis",
+      "ownerRole": "INTEGRATION_OPERATOR",
+      "defaultSla": "2 jam",
+      "permittedActions": "Coba lagi · Unggah file manual",
+      "escalation": "CFO/COO"
+    },
+    {
+      "code": "Q-RECON_VARIANCE",
+      "label": "Selisih rekonsiliasi",
+      "trigger": "`RECONCILIATION_VARIANCE_DETECTED`",
+      "ownerRole": "INTEGRATION_OPERATOR / Finance",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Ambil ulang periode · Terima dengan catatan",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-POST_CUTOVER_LEGACY",
+      "label": "Data sistem lama setelah cutover",
+      "trigger": "POLICY_REJECTED",
+      "ownerRole": "INTEGRATION_OPERATOR",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Selidiki · Tolak",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-EXTERNAL_AMENDMENT",
+      "label": "Perubahan pesanan dari {sumber}",
+      "trigger": "`SALES_ORDER_EXTERNAL_AMENDMENT_RECEIVED`",
+      "ownerRole": "SALES_ADMIN",
+      "defaultSla": "2 jam",
+      "permittedActions": "Terima perubahan (bila aman) · Tolak",
+      "escalation": "Branch Manager"
+    },
+    {
+      "code": "Q-CREDIT_HOLD",
+      "label": "Pesanan perlu persetujuan kredit",
+      "trigger": "`CREDIT_HOLD_PLACED`",
+      "ownerRole": "BRANCH_MANAGER / FINANCE_APPROVER",
+      "defaultSla": "4 jam",
+      "permittedActions": "Setujui (limit level) · Tolak · Minta pembayaran",
+      "escalation": "CFO"
+    },
+    {
+      "code": "Q-STOCK_SHORTAGE",
+      "label": "Barang belum tersedia",
+      "trigger": "`STOCK_SHORTAGE_DETECTED`",
+      "ownerRole": "SALES_ADMIN",
+      "defaultSla": "4 jam",
+      "permittedActions": "Kirim sebagian + backorder · Tutup kurang · Batalkan baris",
+      "escalation": "Branch Manager"
+    },
+    {
+      "code": "Q-PICK_SHORT",
+      "label": "Barang kurang saat disiapkan",
+      "trigger": "FR short / `PICK_COMPLETED` dengan short",
+      "ownerRole": "SALES_ADMIN",
+      "defaultSla": "2 jam",
+      "permittedActions": "Terima kurang · Siapkan ulang · Backorder",
+      "escalation": "Branch Manager"
+    },
+    {
+      "code": "Q-FAILED_DELIVERY",
+      "label": "Gagal kirim",
+      "trigger": "`DELIVERY_FAILED` / DO NOT_DELIVERED",
+      "ownerRole": "DISPATCHER / SALES_ADMIN",
+      "defaultSla": "1 hari",
+      "permittedActions": "Jadwalkan ulang · Kembalikan ke stok · Batalkan",
+      "escalation": "Branch Manager"
+    },
+    {
+      "code": "Q-POD_MISSING",
+      "label": "Bukti kirim belum ada",
+      "trigger": "`POD_MISSING` / konfirmasi Admin tanpa bukti",
+      "ownerRole": "DISPATCHER / AR_OFFICER",
+      "defaultSla": "1 hari",
+      "permittedActions": "Unggah bukti · Eskalasi",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-DELIVERY_NOT_CONFIRMED",
+      "label": "Pengiriman belum dikonfirmasi",
+      "trigger": "DO DISPATCHED > 24 jam tanpa konfirmasi",
+      "ownerRole": "SALES_ADMIN",
+      "defaultSla": "1 hari",
+      "permittedActions": "Konfirmasi pengiriman",
+      "escalation": "Branch Manager"
+    },
+    {
+      "code": "Q-PAYMENT_MISMATCH",
+      "label": "Pembayaran perlu dicek",
+      "trigger": "PAYMENT_REJECTED / bukti ≠ mutasi / sisa lebih bayar",
+      "ownerRole": "AR_OFFICER",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Cocokkan · Ubah alokasi · Pindah ke kredit customer · Tolak",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-UNAPPLIED_PAYMENT",
+      "label": "Pembayaran belum dialokasikan",
+      "trigger": "VERIFIED + UNAPPLIED > 1 hari",
+      "ownerRole": "AR_OFFICER",
+      "defaultSla": "2 hari kerja",
+      "permittedActions": "Alokasikan · Pindah ke kredit customer",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-CASH_HANDOVER_OVERDUE",
+      "label": "Kas belum disetor",
+      "trigger": "◇ `payments.cash_in_hand_max_hours`",
+      "ownerRole": "CASHIER / BRANCH_MANAGER",
+      "defaultSla": "segera",
+      "permittedActions": "Hubungi collector · Eskalasi",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-CASH_DISCREPANCY",
+      "label": "Selisih kas",
+      "trigger": "`CASH_CUSTODY_DISCREPANCY_RECORDED`",
+      "ownerRole": "CASHIER → BRANCH_MANAGER",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Selesaikan (opsi STM)",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-OVERDUE_AR",
+      "label": "Piutang terlambat > 60 hari",
+      "trigger": "`RECEIVABLE_OVERDUE` bucket ≥ 61–90",
+      "ownerRole": "AR_OFFICER / SALES_SUPERVISOR",
+      "defaultSla": "3 hari",
+      "permittedActions": "Buat tugas tagih · Tahan kredit customer · Ajukan write-off",
+      "escalation": "CFO"
+    },
+    {
+      "code": "Q-INVENTORY_VARIANCE",
+      "label": "Selisih stok",
+      "trigger": "REQ-130 / INV-008 / opname",
+      "ownerRole": "WAREHOUSE_ADMIN / Finance",
+      "defaultSla": "2 hari kerja",
+      "permittedActions": "Hitung ulang · Ajukan penyesuaian",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-TRANSFER_DISCREPANCY",
+      "label": "Selisih transfer",
+      "trigger": "ReceiveTransfer dengan selisih",
+      "ownerRole": "WAREHOUSE_ADMIN tujuan",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Ajukan penyesuaian · Selidiki",
+      "escalation": "Branch Manager"
+    },
+    {
+      "code": "Q-SUPPLIER_INVOICE_MATCH",
+      "label": "Invoice supplier tidak cocok",
+      "trigger": "`SUPPLIER_INVOICE_MATCH_EXCEPTION`",
+      "ownerRole": "PROCUREMENT_OFFICER",
+      "defaultSla": "2 hari kerja",
+      "permittedActions": "Koreksi · Ajukan persetujuan selisih · Tolak",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-POSTING_FAILED",
+      "label": "Jurnal otomatis gagal",
+      "trigger": "`POSTING_FAILED`",
+      "ownerRole": "CONTROLLER",
+      "defaultSla": "1 hari kerja",
+      "permittedActions": "Perbaiki mapping akun → coba lagi",
+      "escalation": "CFO"
+    },
+    {
+      "code": "Q-POSTING_PERIOD_DECISION",
+      "label": "Transaksi untuk periode terkunci",
+      "trigger": "`POSTING_DEFERRED`",
+      "ownerRole": "CONTROLLER",
+      "defaultSla": "2 hari kerja",
+      "permittedActions": "Posting di periode terbuka · Ajukan buka periode",
+      "escalation": "CFO"
+    },
+    {
+      "code": "Q-GL_SUBLEDGER_VARIANCE",
+      "label": "Selisih buku besar vs subledger",
+      "trigger": "FIN-010",
+      "ownerRole": "CONTROLLER",
+      "defaultSla": "sebelum close",
+      "permittedActions": "Selidiki · Jurnal koreksi (non-control) · Tandai dijelaskan",
+      "escalation": "CFO"
+    },
+    {
+      "code": "Q-BANK_UNMATCHED",
+      "label": "Mutasi bank belum cocok",
+      "trigger": "BankStatementLine UNMATCHED > 2 hari",
+      "ownerRole": "FINANCE_MAKER / CASHIER",
+      "defaultSla": "2 hari kerja",
+      "permittedActions": "Cocokkan · Buat jurnal (biaya bank) · Kecualikan",
+      "escalation": "Controller"
+    },
+    {
+      "code": "Q-APPROVAL_PENDING",
+      "label": "Menunggu persetujuan Anda",
+      "trigger": "`APPROVAL_REQUESTED`",
+      "ownerRole": "Approver per tipe",
+      "defaultSla": "per tipe",
+      "permittedActions": "Setujui · Tolak",
+      "escalation": "Level berikutnya"
+    },
+    {
+      "code": "Q-OUTLET_UNMAPPED_LOCATION",
+      "label": "Toko belum ada lokasi",
+      "trigger": "Outlet aktif 90 hari dengan lokasi UNMAPPED",
+      "ownerRole": "SALES_SUPERVISOR",
+      "defaultSla": "14 hari",
+      "permittedActions": "Tugaskan rekam lokasi",
+      "escalation": "—"
+    }
+  ],
+  "queueAdditions": [
+    {
+      "kind": "Queue",
+      "item": "`Q-POLICY_MISSING` — \"Aturan sistem belum ada\" — owner COMMERCIAL_ADMIN — SLA 4 jam — aksi: Buat aturan · Tolak transaksi — eskalasi CFO/COO",
+      "section": "§26",
+      "codes": [
+        "Q-POLICY_MISSING"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-STREAM_UNASSIGNED` — \"Aliran pendapatan belum ditentukan\" — owner COMMERCIAL_ADMIN — SLA 2 hari kerja — aksi: Tetapkan aturan",
+      "section": "§27",
+      "codes": [
+        "Q-STREAM_UNASSIGNED"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-TAX_INVOICE_PENDING` — \"Invoice perlu faktur pajak\" — owner FINANCE_MAKER — SLA sesuai `tax.invoice_deadline_days` — aksi: Ekspor · Catat nomor",
+      "section": "§28",
+      "codes": [
+        "Q-TAX_INVOICE_PENDING",
+        "tax.invoice_deadline_days"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-INVOICE_BLOCKED` — \"Invoice belum bisa terbit\" — owner SALES_ADMIN/FINANCE — SLA 4 jam — aksi: Lengkapi data pajak/produk",
+      "section": "§34",
+      "codes": [
+        "Q-INVOICE_BLOCKED"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-AP_LEDGER_REJECTED` — \"Entri utang ditolak\" — owner CONTROLLER — SLA 1 hari kerja — aksi: selidiki, proses ulang",
+      "section": "§40",
+      "codes": [
+        "Q-AP_LEDGER_REJECTED"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-LOCATION_REVIEW` — \"Lokasi toko perlu dicek\" — owner MASTER_DATA_STEWARD — SLA 3 hari — aksi: Verifikasi · Tolak",
+      "section": "§57",
+      "codes": [
+        "Q-LOCATION_REVIEW"
+      ]
+    }
+  ]
+} as const;

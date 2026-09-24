@@ -1,0 +1,26 @@
+{
+  "status": "SOURCE_VERIFIED_NOT_ACTIVATED",
+  "source": {
+    "title": "Company Profile PSS (1).pdf",
+    "sha256": "45714fe23d3039337465fe30241af98f2461fe7647118c22074a8c7ca2188819",
+    "page": 3,
+    "statement": "Four active distribution centers in Cimahi, Sukabumi, Cianjur, and Subang"
+  },
+  "organizationDecision": {
+    "source": "Product Owner instruction, 25 September 2026",
+    "displayName": "Putra Sumber Sari",
+    "legalForm": null,
+    "legalName": null
+  },
+  "pilotDecision": {
+    "source": "Product Owner instruction, 25 September 2026",
+    "branchName": "Cimahi",
+    "purpose": "Operations HO trial and proof of concept"
+  },
+  "currentBranches": [
+    { "name": "Cimahi", "pilot": true, "officialCode": null, "address": null },
+    { "name": "Sukabumi", "pilot": false, "officialCode": null, "address": null },
+    { "name": "Cianjur", "pilot": false, "officialCode": null, "address": null },
+    { "name": "Subang", "pilot": false, "officialCode": null, "address": null }
+  ]
+}

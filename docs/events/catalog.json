@@ -1,0 +1,1160 @@
+{
+  "source": "docs/PRODUCT_PRD.md Appendix C",
+  "totalTypes": 164,
+  "registeredVersions": [
+    {
+      "name": "DELIVERY_ORDER_CLOSED",
+      "version": 1
+    }
+  ],
+  "events": [
+    {
+      "name": "CUSTOMER_CREATED",
+      "section": "C.1",
+      "producer": "master-data",
+      "aggregate": "Customer",
+      "payloadKeys": "customerId, code, names, segment, channel, salesBranch, status, version"
+    },
+    {
+      "name": "CUSTOMER_UPDATED",
+      "section": "C.1",
+      "producer": "master-data",
+      "aggregate": "Customer",
+      "payloadKeys": "customerId, code, names, segment, channel, salesBranch, status, version"
+    },
+    {
+      "name": "CUSTOMER_MERGED",
+      "section": "C.1",
+      "producer": "master-data",
+      "aggregate": "Customer",
+      "payloadKeys": "survivorId, mergedIds"
+    },
+    {
+      "name": "OUTLET_CREATED",
+      "section": "C.1",
+      "producer": "master-data",
+      "aggregate": "Outlet",
+      "payloadKeys": "outletId, customerId, address, locationId, status, version"
+    },
+    {
+      "name": "OUTLET_UPDATED",
+      "section": "C.1",
+      "producer": "master-data",
+      "aggregate": "Outlet",
+      "payloadKeys": "outletId, customerId, address, locationId, status, version"
+    },
+    {
+      "name": "PRODUCT_CREATED",
+      "section": "C.1",
+      "producer": "master-data",
+      "aggregate": "Product",
+      "payloadKeys": "productId, sku, principal, uoms, flags, version"
+    },
+    {
+      "name": "PRODUCT_UPDATED",
+      "section": "C.1",
+      "producer": "master-data",
+      "aggregate": "Product",
+      "payloadKeys": "productId, sku, principal, uoms, flags, version"
+    },
+    {
+      "name": "PRICE_LIST_ACTIVATED",
+      "section": "C.1",
+      "producer": "commercial",
+      "aggregate": "PriceList",
+      "payloadKeys": "priceListId, scope, priceVersion, validFrom"
+    },
+    {
+      "name": "PRINCIPAL_SYSTEM_POLICY_ACTIVATED",
+      "section": "C.1",
+      "producer": "principal-policy",
+      "aggregate": "Policy",
+      "payloadKeys": "policyId, key, process, authority, pssMode, validFrom"
+    },
+    {
+      "name": "CREDIT_PROFILE_CHANGED",
+      "section": "C.1",
+      "producer": "credit",
+      "aggregate": "CreditProfile",
+      "payloadKeys": "customerId, limit, status, version"
+    },
+    {
+      "name": "TAX_RATE_ACTIVATED",
+      "section": "C.1",
+      "producer": "tax",
+      "aggregate": "TaxRate",
+      "payloadKeys": "taxCode, rate, validFrom"
+    },
+    {
+      "name": "SALES_ORDER_REQUESTED",
+      "section": "C.2",
+      "producer": "orders",
+      "aggregate": "SalesOrder",
+      "payloadKeys": "orderId, source, sourceSystem, lines, customer, businessDate"
+    },
+    {
+      "name": "SALES_ORDER_VALIDATED",
+      "section": "C.2",
+      "producer": "orders",
+      "aggregate": "SalesOrder",
+      "payloadKeys": "orderId, pssMode"
+    },
+    {
+      "name": "SALES_ORDER_CONFIRMED",
+      "section": "C.2",
+      "producer": "orders",
+      "aggregate": "SalesOrder",
+      "payloadKeys": "orderId, lines (base qty), warehouse, branches, authorityMap"
+    },
+    {
+      "name": "SALES_ORDER_REJECTED",
+      "section": "C.2",
+      "producer": "orders",
+      "aggregate": "SalesOrder",
+      "payloadKeys": "orderId, reasonCode"
+    },
+    {
+      "name": "SALES_ORDER_CANCELLED",
+      "section": "C.2",
+      "producer": "orders",
+      "aggregate": "SalesOrder",
+      "payloadKeys": "orderId, reasonCode"
+    },
+    {
+      "name": "SALES_ORDER_COMPLETED",
+      "section": "C.2",
+      "producer": "orders",
+      "aggregate": "SalesOrder",
+      "payloadKeys": "orderId, reasonCode"
+    },
+    {
+      "name": "SALES_ORDER_EXTERNAL_AMENDMENT_RECEIVED",
+      "section": "C.2",
+      "producer": "orders",
+      "aggregate": "SalesOrder",
+      "payloadKeys": "orderId, diff"
+    },
+    {
+      "name": "CREDIT_HOLD_PLACED",
+      "section": "C.2",
+      "producer": "credit",
+      "aggregate": "CreditDecision",
+      "payloadKeys": "orderId, customerId, reasons, exposure"
+    },
+    {
+      "name": "CREDIT_HOLD_RELEASED",
+      "section": "C.2",
+      "producer": "credit",
+      "aggregate": "CreditDecision",
+      "payloadKeys": "orderId, customerId, reasons, exposure"
+    },
+    {
+      "name": "CREDIT_OVERRIDDEN",
+      "section": "C.2",
+      "producer": "credit",
+      "aggregate": "CreditDecision",
+      "payloadKeys": "orderId, customerId, reasons, exposure"
+    },
+    {
+      "name": "CREDIT_HOLD_REJECTED",
+      "section": "C.2",
+      "producer": "credit",
+      "aggregate": "CreditDecision",
+      "payloadKeys": "orderId, customerId, reasons, exposure"
+    },
+    {
+      "name": "STOCK_RESERVED",
+      "section": "C.2",
+      "producer": "inventory",
+      "aggregate": "StockReservation",
+      "payloadKeys": "orderLineId, warehouse, qty"
+    },
+    {
+      "name": "STOCK_RESERVATION_RELEASED",
+      "section": "C.2",
+      "producer": "inventory",
+      "aggregate": "StockReservation",
+      "payloadKeys": "orderLineId, warehouse, qty"
+    },
+    {
+      "name": "STOCK_SHORTAGE_DETECTED",
+      "section": "C.2",
+      "producer": "inventory",
+      "aggregate": "StockReservation",
+      "payloadKeys": "orderLineId, warehouse, qty"
+    },
+    {
+      "name": "FULFILLMENT_RELEASED",
+      "section": "C.2",
+      "producer": "fulfillment",
+      "aggregate": "FulfillmentRequest",
+      "payloadKeys": "frId, doId, orderId, warehouse, lines, requestedDate, outletLocationId, codAmount"
+    },
+    {
+      "name": "FULFILLMENT_READY",
+      "section": "C.2",
+      "producer": "fulfillment",
+      "aggregate": "FulfillmentRequest",
+      "payloadKeys": "frId, qty per line, shorts+reason"
+    },
+    {
+      "name": "FULFILLMENT_CLOSED_SHORT",
+      "section": "C.2",
+      "producer": "fulfillment",
+      "aggregate": "FulfillmentRequest",
+      "payloadKeys": "frId, qty per line, shorts+reason"
+    },
+    {
+      "name": "FULFILLMENT_CANCELLED",
+      "section": "C.2",
+      "producer": "fulfillment",
+      "aggregate": "FulfillmentRequest",
+      "payloadKeys": "frId, qty per line, shorts+reason"
+    },
+    {
+      "name": "DELIVERY_ORDER_DISPATCHED",
+      "section": "C.2",
+      "producer": "fulfillment",
+      "aggregate": "DeliveryOrder",
+      "payloadKeys": "doId, dispatchedAt, lines"
+    },
+    {
+      "name": "DELIVERY_ORDER_DELIVERED",
+      "section": "C.2",
+      "producer": "fulfillment",
+      "aggregate": "DeliveryOrder",
+      "payloadKeys": "doId, deliveredAt, delivered qty/line, source (ADMIN/DRIVER)"
+    },
+    {
+      "name": "DELIVERY_ORDER_CLOSED",
+      "section": "C.2",
+      "producer": "fulfillment",
+      "aggregate": "DeliveryOrder",
+      "payloadKeys": "doId"
+    },
+    {
+      "name": "ALLOCATION_COMPLETED",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "FulfillmentRequest (salinan WMS)",
+      "payloadKeys": "frId, allocations/shorts"
+    },
+    {
+      "name": "ALLOCATION_SHORT",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "FulfillmentRequest (salinan WMS)",
+      "payloadKeys": "frId, allocations/shorts"
+    },
+    {
+      "name": "PICK_CONFIRMED",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "WarehouseTask",
+      "payloadKeys": "taskId, line, qty"
+    },
+    {
+      "name": "PICK_COMPLETED",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "FulfillmentRequest",
+      "payloadKeys": "frId, picked qty/line, shorts"
+    },
+    {
+      "name": "PACK_COMPLETED",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "FR / Shipment",
+      "payloadKeys": "frId, packages, lane, shipmentId"
+    },
+    {
+      "name": "STAGE_COMPLETED",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "FR / Shipment",
+      "payloadKeys": "frId, packages, lane, shipmentId"
+    },
+    {
+      "name": "LOAD_COMPLETED",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "FR / Shipment",
+      "payloadKeys": "frId, packages, lane, shipmentId"
+    },
+    {
+      "name": "PUTAWAY_COMPLETED",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "Task / Report",
+      "payloadKeys": "location, product, qty, reason"
+    },
+    {
+      "name": "CYCLE_COUNT_SUBMITTED",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "Task / Report",
+      "payloadKeys": "location, product, qty, reason"
+    },
+    {
+      "name": "STOCK_DISCREPANCY_REPORTED",
+      "section": "C.3",
+      "producer": "wms",
+      "aggregate": "Task / Report",
+      "payloadKeys": "location, product, qty, reason"
+    },
+    {
+      "name": "SHIPMENT_PLANNED",
+      "section": "C.3",
+      "producer": "fleet",
+      "aggregate": "Shipment",
+      "payloadKeys": "shipmentId, vehicle, driver, doIds, stops"
+    },
+    {
+      "name": "SHIPMENT_DISPATCHED",
+      "section": "C.3",
+      "producer": "fleet",
+      "aggregate": "Shipment",
+      "payloadKeys": "shipmentId, dispatchedAt, doIds"
+    },
+    {
+      "name": "STOP_ARRIVED",
+      "section": "C.3",
+      "producer": "fleet",
+      "aggregate": "DeliveryAttempt",
+      "payloadKeys": "attemptId, doId, arrivedAt, geoPoint"
+    },
+    {
+      "name": "DELIVERY_COMPLETED",
+      "section": "C.3",
+      "producer": "fleet",
+      "aggregate": "DeliveryAttempt",
+      "payloadKeys": "doId, attemptNo, delivered qty/line, reasonCode, evidence"
+    },
+    {
+      "name": "DELIVERY_FAILED",
+      "section": "C.3",
+      "producer": "fleet",
+      "aggregate": "DeliveryAttempt",
+      "payloadKeys": "doId, attemptNo, delivered qty/line, reasonCode, evidence"
+    },
+    {
+      "name": "POD_CONFIRMED",
+      "section": "C.3",
+      "producer": "fleet",
+      "aggregate": "ProofOfDelivery",
+      "payloadKeys": "doId, evidence ids, recipient"
+    },
+    {
+      "name": "POD_MISSING",
+      "section": "C.3",
+      "producer": "fleet",
+      "aggregate": "ProofOfDelivery",
+      "payloadKeys": "doId, evidence ids, recipient"
+    },
+    {
+      "name": "SHIPMENT_COMPLETED",
+      "section": "C.3",
+      "producer": "fleet",
+      "aggregate": "Shipment",
+      "payloadKeys": "shipmentId, returned lines"
+    },
+    {
+      "name": "INVOICE_PREPARED",
+      "section": "C.4",
+      "producer": "invoicing",
+      "aggregate": "Invoice",
+      "payloadKeys": "invoiceId, reservedNumber"
+    },
+    {
+      "name": "INVOICE_ISSUED",
+      "section": "C.4",
+      "producer": "invoicing",
+      "aggregate": "Invoice",
+      "payloadKeys": "invoiceId, number, lines, amounts, tax, invoiceDate, topBasis, dueDate, dimensions"
+    },
+    {
+      "name": "INVOICE_CANCELLED",
+      "section": "C.4",
+      "producer": "invoicing",
+      "aggregate": "Invoice",
+      "payloadKeys": "invoiceId, reason"
+    },
+    {
+      "name": "TAX_INVOICE_NUMBER_ASSIGNED",
+      "section": "C.4",
+      "producer": "tax",
+      "aggregate": "Invoice (ref)",
+      "payloadKeys": "invoiceId, taxInvoiceNo"
+    },
+    {
+      "name": "SALES_RETURN_REQUESTED",
+      "section": "C.4",
+      "producer": "returns",
+      "aggregate": "SalesReturn",
+      "payloadKeys": "returnId, lines, condition, reason"
+    },
+    {
+      "name": "SALES_RETURN_APPROVED",
+      "section": "C.4",
+      "producer": "returns",
+      "aggregate": "SalesReturn",
+      "payloadKeys": "returnId, lines, condition, reason"
+    },
+    {
+      "name": "SALES_RETURN_RECEIVED",
+      "section": "C.4",
+      "producer": "returns",
+      "aggregate": "SalesReturn",
+      "payloadKeys": "returnId, lines, condition, reason"
+    },
+    {
+      "name": "CREDIT_NOTE_ISSUED",
+      "section": "C.4",
+      "producer": "returns",
+      "aggregate": "CreditNote",
+      "payloadKeys": "creditNoteId, invoiceId, amount, tax"
+    },
+    {
+      "name": "RECEIVABLE_OPENED",
+      "section": "C.4",
+      "producer": "ar",
+      "aggregate": "Receivable",
+      "payloadKeys": "invoiceId, amount, dueDate"
+    },
+    {
+      "name": "RECEIVABLE_DUE",
+      "section": "C.4",
+      "producer": "ar (scheduler)",
+      "aggregate": "Receivable",
+      "payloadKeys": "invoiceId, outstanding, bucket"
+    },
+    {
+      "name": "RECEIVABLE_OVERDUE",
+      "section": "C.4",
+      "producer": "ar (scheduler)",
+      "aggregate": "Receivable",
+      "payloadKeys": "invoiceId, outstanding, bucket"
+    },
+    {
+      "name": "RECEIVABLE_SETTLED",
+      "section": "C.4",
+      "producer": "ar",
+      "aggregate": "Receivable",
+      "payloadKeys": "invoiceId, settledAt"
+    },
+    {
+      "name": "RECEIVABLE_DISPUTED",
+      "section": "C.4",
+      "producer": "ar",
+      "aggregate": "Receivable",
+      "payloadKeys": "invoiceId, reason"
+    },
+    {
+      "name": "RECEIVABLE_DISPUTE_RESOLVED",
+      "section": "C.4",
+      "producer": "ar",
+      "aggregate": "Receivable",
+      "payloadKeys": "invoiceId, reason"
+    },
+    {
+      "name": "RECEIVABLE_WRITTEN_OFF",
+      "section": "C.4",
+      "producer": "ar",
+      "aggregate": "Receivable",
+      "payloadKeys": "invoiceId, amount, approvalRef"
+    },
+    {
+      "name": "COLLECTION_TASK_CREATED",
+      "section": "C.4",
+      "producer": "ar",
+      "aggregate": "CollectionTask",
+      "payloadKeys": "taskId, assignee, receivables, outcome"
+    },
+    {
+      "name": "COLLECTION_TASK_COMPLETED",
+      "section": "C.4",
+      "producer": "ar",
+      "aggregate": "CollectionTask",
+      "payloadKeys": "taskId, assignee, receivables, outcome"
+    },
+    {
+      "name": "COLLECTION_ATTEMPT_FAILED",
+      "section": "C.4",
+      "producer": "ar",
+      "aggregate": "CollectionTask",
+      "payloadKeys": "taskId, assignee, receivables, outcome"
+    },
+    {
+      "name": "PAYMENT_COLLECTED",
+      "section": "C.4",
+      "producer": "sfa / fleet",
+      "aggregate": "PaymentEvidence",
+      "payloadKeys": "evidenceId (client key), customer, method, amount, proposedAllocations, media, collector"
+    },
+    {
+      "name": "CASH_HANDED_OVER",
+      "section": "C.4",
+      "producer": "sfa / fleet",
+      "aggregate": "CashHandoverDeclaration",
+      "payloadKeys": "declarationId, collector, evidenceIds, total"
+    },
+    {
+      "name": "PAYMENT_RECEIVED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "Payment",
+      "payloadKeys": "paymentId, channel, method, amount"
+    },
+    {
+      "name": "PAYMENT_VERIFIED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "Payment",
+      "payloadKeys": "paymentId, method, bankAccount, bankLineRef?, verifiedBy"
+    },
+    {
+      "name": "PAYMENT_REJECTED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "Payment",
+      "payloadKeys": "paymentId, reason"
+    },
+    {
+      "name": "PAYMENT_BOUNCED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "Payment",
+      "payloadKeys": "paymentId, reason"
+    },
+    {
+      "name": "PAYMENT_REVERSED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "Payment",
+      "payloadKeys": "paymentId, reason"
+    },
+    {
+      "name": "PAYMENT_APPLIED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "PaymentApplication",
+      "payloadKeys": "applicationId, paymentId, receivableId, amount"
+    },
+    {
+      "name": "PAYMENT_APPLICATION_REVERSED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "PaymentApplication",
+      "payloadKeys": "applicationId, paymentId, receivableId, amount"
+    },
+    {
+      "name": "CUSTOMER_CREDIT_CREATED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "CustomerCreditLedger",
+      "payloadKeys": "customerId, amount, sourceRef"
+    },
+    {
+      "name": "CASH_CUSTODY_VERIFIED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "CashCustodyRecord",
+      "payloadKeys": "custodyId, declared, counted, resolution"
+    },
+    {
+      "name": "CASH_CUSTODY_DISCREPANCY_RECORDED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "CashCustodyRecord",
+      "payloadKeys": "custodyId, declared, counted, resolution"
+    },
+    {
+      "name": "CASH_CUSTODY_DISCREPANCY_RESOLVED",
+      "section": "C.4",
+      "producer": "payments",
+      "aggregate": "CashCustodyRecord",
+      "payloadKeys": "custodyId, declared, counted, resolution"
+    },
+    {
+      "name": "INVENTORY_RECEIVED",
+      "section": "C.5",
+      "producer": "inventory",
+      "aggregate": "InventoryMovement",
+      "payloadKeys": "movementId, sourceRef (GR), product, qty, unitCost, value"
+    },
+    {
+      "name": "INVENTORY_ISSUED",
+      "section": "C.5",
+      "producer": "inventory",
+      "aggregate": "InventoryMovement",
+      "payloadKeys": "movementId, doId, value, fromCondition → IN_TRANSIT_DELIVERY"
+    },
+    {
+      "name": "INVENTORY_RETURNED",
+      "section": "C.5",
+      "producer": "inventory",
+      "aggregate": "InventoryMovement",
+      "payloadKeys": "movementId, source (transit/customer return), condition, value"
+    },
+    {
+      "name": "INVENTORY_COST_RECOGNIZED",
+      "section": "C.5",
+      "producer": "inventory",
+      "aggregate": "InventoryMovement",
+      "payloadKeys": "invoiceId, invoiceLineId, qty, costValue"
+    },
+    {
+      "name": "INVENTORY_TRANSFERRED_OUT",
+      "section": "C.5",
+      "producer": "inventory",
+      "aggregate": "InventoryMovement",
+      "payloadKeys": "transferId, from/to, value"
+    },
+    {
+      "name": "INVENTORY_TRANSFERRED_IN",
+      "section": "C.5",
+      "producer": "inventory",
+      "aggregate": "InventoryMovement",
+      "payloadKeys": "transferId, from/to, value"
+    },
+    {
+      "name": "INVENTORY_ADJUSTED",
+      "section": "C.5",
+      "producer": "inventory",
+      "aggregate": "StockAdjustment",
+      "payloadKeys": "adjustmentId, lines ±, value, reason"
+    },
+    {
+      "name": "PURCHASE_ORDER_APPROVED",
+      "section": "C.5",
+      "producer": "procurement",
+      "aggregate": "PurchaseOrder",
+      "payloadKeys": "poId, lines, expectedDate"
+    },
+    {
+      "name": "PURCHASE_ORDER_CLOSED",
+      "section": "C.5",
+      "producer": "procurement",
+      "aggregate": "PurchaseOrder",
+      "payloadKeys": "poId, lines, expectedDate"
+    },
+    {
+      "name": "GOODS_RECEIPT_POSTED",
+      "section": "C.5",
+      "producer": "procurement",
+      "aggregate": "GoodsReceipt",
+      "payloadKeys": "grId, poId, lines, value"
+    },
+    {
+      "name": "SUPPLIER_INVOICE_MATCH_EXCEPTION",
+      "section": "C.5",
+      "producer": "procurement",
+      "aggregate": "SupplierInvoice",
+      "payloadKeys": "invoiceId, variances / amounts, tax"
+    },
+    {
+      "name": "SUPPLIER_INVOICE_POSTED",
+      "section": "C.5",
+      "producer": "procurement",
+      "aggregate": "SupplierInvoice",
+      "payloadKeys": "invoiceId, variances / amounts, tax"
+    },
+    {
+      "name": "PAYABLE_OPENED",
+      "section": "C.5",
+      "producer": "ap",
+      "aggregate": "Payable",
+      "payloadKeys": "payableId, amount, dueDate"
+    },
+    {
+      "name": "PAYABLE_SETTLED",
+      "section": "C.5",
+      "producer": "ap",
+      "aggregate": "Payable",
+      "payloadKeys": "payableId, amount, dueDate"
+    },
+    {
+      "name": "SUPPLIER_PAYMENT_APPROVED",
+      "section": "C.5",
+      "producer": "ap",
+      "aggregate": "SupplierPayment",
+      "payloadKeys": "paymentId, applications, bankAccount"
+    },
+    {
+      "name": "SUPPLIER_PAYMENT_EXECUTED",
+      "section": "C.5",
+      "producer": "ap",
+      "aggregate": "SupplierPayment",
+      "payloadKeys": "paymentId, applications, bankAccount"
+    },
+    {
+      "name": "JOURNAL_POSTED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "Journal",
+      "payloadKeys": "journalId, type, accountingDate, period, sourceEventId?, totals"
+    },
+    {
+      "name": "JOURNAL_REVERSED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "Journal",
+      "payloadKeys": "journalId, type, accountingDate, period, sourceEventId?, totals"
+    },
+    {
+      "name": "POSTING_FAILED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "PostingRecord",
+      "payloadKeys": "eventId, reason"
+    },
+    {
+      "name": "POSTING_DEFERRED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "PostingRecord",
+      "payloadKeys": "eventId, reason"
+    },
+    {
+      "name": "ACCOUNTING_PERIOD_SOFT_CLOSED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "AccountingPeriod",
+      "payloadKeys": "periodId, state, reason?"
+    },
+    {
+      "name": "ACCOUNTING_PERIOD_CLOSED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "AccountingPeriod",
+      "payloadKeys": "periodId, state, reason?"
+    },
+    {
+      "name": "ACCOUNTING_PERIOD_REOPENED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "AccountingPeriod",
+      "payloadKeys": "periodId, state, reason?"
+    },
+    {
+      "name": "BANK_STATEMENT_LINE_IMPORTED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "BankStatementLine",
+      "payloadKeys": "lineId, bankAccount, date, amount, reference"
+    },
+    {
+      "name": "BANK_STATEMENT_LINE_RECONCILED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "BankStatementLine",
+      "payloadKeys": "lineId, bankAccount, date, amount, reference"
+    },
+    {
+      "name": "PETTY_CASH_EXPENSE_APPROVED",
+      "section": "C.6",
+      "producer": "finance",
+      "aggregate": "PettyCashExpense",
+      "payloadKeys": "expenseId, amount, category"
+    },
+    {
+      "name": "APPROVAL_REQUESTED",
+      "section": "C.7",
+      "producer": "approval",
+      "aggregate": "ApprovalRequest",
+      "payloadKeys": "requestId, type, subjectRef, ownerDomain, decision"
+    },
+    {
+      "name": "APPROVAL_DECIDED",
+      "section": "C.7",
+      "producer": "approval",
+      "aggregate": "ApprovalRequest",
+      "payloadKeys": "requestId, type, subjectRef, ownerDomain, decision"
+    },
+    {
+      "name": "EXCEPTION_OPENED",
+      "section": "C.7",
+      "producer": "platform",
+      "aggregate": "ExceptionItem",
+      "payloadKeys": "itemId, queueCode, subjectRef"
+    },
+    {
+      "name": "EXCEPTION_RESOLVED",
+      "section": "C.7",
+      "producer": "platform",
+      "aggregate": "ExceptionItem",
+      "payloadKeys": "itemId, queueCode, subjectRef"
+    },
+    {
+      "name": "SYNC_BATCH_COMPLETED",
+      "section": "C.7",
+      "producer": "integration",
+      "aggregate": "SyncBatch",
+      "payloadKeys": "batchId, instance, counters / error"
+    },
+    {
+      "name": "SYNC_BATCH_FAILED",
+      "section": "C.7",
+      "producer": "integration",
+      "aggregate": "SyncBatch",
+      "payloadKeys": "batchId, instance, counters / error"
+    },
+    {
+      "name": "MASTER_MAPPING_REQUIRED",
+      "section": "C.7",
+      "producer": "integration",
+      "aggregate": "Mapping",
+      "payloadKeys": "system, instance, entityType, externalId, canonicalId"
+    },
+    {
+      "name": "MASTER_MAPPING_CHANGED",
+      "section": "C.7",
+      "producer": "integration",
+      "aggregate": "Mapping",
+      "payloadKeys": "system, instance, entityType, externalId, canonicalId"
+    },
+    {
+      "name": "RECONCILIATION_VARIANCE_DETECTED",
+      "section": "C.7",
+      "producer": "integration",
+      "aggregate": "ReconciliationResult",
+      "payloadKeys": "scope, metric, sourceValue, pssValue"
+    },
+    {
+      "name": "LOCATION_CAPTURED",
+      "section": "C.7",
+      "producer": "geo",
+      "aggregate": "Location",
+      "payloadKeys": "locationId, subjectRef, point, plusCode, adminCodes, datasetVersion"
+    },
+    {
+      "name": "LOCATION_VERIFIED",
+      "section": "C.7",
+      "producer": "geo",
+      "aggregate": "Location",
+      "payloadKeys": "locationId, subjectRef, point, plusCode, adminCodes, datasetVersion"
+    },
+    {
+      "name": "ADMIN_AREA_DATASET_ACTIVATED",
+      "section": "C.7",
+      "producer": "geo",
+      "aggregate": "AdminAreaDataset",
+      "payloadKeys": "datasetVersion"
+    },
+    {
+      "name": "VISIT_STARTED",
+      "section": "C.7",
+      "producer": "sfa",
+      "aggregate": "Visit",
+      "payloadKeys": "visitId, outletId, salesperson, times, geo"
+    },
+    {
+      "name": "VISIT_COMPLETED",
+      "section": "C.7",
+      "producer": "sfa",
+      "aggregate": "Visit",
+      "payloadKeys": "visitId, outletId, salesperson, times, geo"
+    },
+    {
+      "name": "VISIT_SKIPPED",
+      "section": "C.7",
+      "producer": "sfa",
+      "aggregate": "Visit",
+      "payloadKeys": "visitId, outletId, salesperson, times, geo"
+    },
+    {
+      "name": "ORDER_REQUEST_SUBMITTED",
+      "section": "C.7",
+      "producer": "sfa",
+      "aggregate": "OrderRequest",
+      "payloadKeys": "clientKey, lines, priceVersion, visitId"
+    },
+    {
+      "name": "PROSPECT_SUBMITTED",
+      "section": "C.7",
+      "producer": "sfa",
+      "aggregate": "Prospect",
+      "payloadKeys": "prospectId, data, locationId"
+    },
+    {
+      "name": "PROSPECT_APPROVED",
+      "section": "C.7",
+      "producer": "sfa",
+      "aggregate": "Prospect",
+      "payloadKeys": "prospectId, data, locationId"
+    },
+    {
+      "name": "USER_ACCESS_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "BRANCH_ACTIVATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "BRANCH_UPDATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "WAREHOUSE_ACTIVATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "WAREHOUSE_UPDATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "WMS_ENABLED_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "REFERENCE_VALUE_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "SALESPERSON_UPDATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "PRODUCT_MERGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "OUTLET_MERGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "PRINCIPAL_CREATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "PRINCIPAL_UPDATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "SUPPLIER_CREATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "SUPPLIER_UPDATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "PROMO_PROGRAM_ACTIVATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "PRINCIPAL_CLAIM_SUBMITTED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "PRINCIPAL_CLAIM_SETTLED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "EXTERNAL_STOCK_SNAPSHOT_RECEIVED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "INBOUND_EXPECTATION_CREATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "RECEIVABLE_DUE_DATE_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "SUPPLIER_RETURN_SHIPPED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "SUPPLIER_RETURN_SETTLED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "CHART_OF_ACCOUNTS_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "POSTING_RULE_ACTIVATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "BANK_ACCOUNT_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "SUBLEDGER_RECONCILIATION_COMPLETED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "FISCAL_YEAR_CREATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "TERRITORY_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "VEHICLE_UPDATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "CONNECTOR_INSTANCE_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "SALES_ORDER_SUPERSEDED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "DOCUMENT_NUMBER_VOIDED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "MEDIA_READY",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "MEDIA_QUARANTINED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "EXCEPTION_ESCALATED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "CONFIG_VALUE_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "FEATURE_FLAG_CHANGED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "CUTOVER_EXECUTED",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    },
+    {
+      "name": "CUTOVER_ROLLED_BACK",
+      "section": "C.8",
+      "producer": null,
+      "aggregate": null,
+      "payloadKeys": null
+    }
+  ]
+}

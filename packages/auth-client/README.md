@@ -1,0 +1,3 @@
+# @pss/auth-client
+
+Reserved for the auth-client platform capability. No business logic or runtime implementation is present in PLT-001.

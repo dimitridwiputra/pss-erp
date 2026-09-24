@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+  - domains/*
+
+engineStrict: true
+saveExact: true
+
+allowBuilds:
+  esbuild: true
