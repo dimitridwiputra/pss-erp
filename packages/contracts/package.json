@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./api": { "types": "./dist/api/health.d.ts", "default": "./dist/api/health.js" },
+    "./api": { "types": "./dist/api/index.d.ts", "default": "./dist/api/index.js" },
     "./events": { "types": "./dist/events/index.d.ts", "default": "./dist/events/index.js" },
     "./primitives": { "types": "./dist/primitives.d.ts", "default": "./dist/primitives.js" },
     "./registry": { "types": "./dist/registry/index.d.ts", "default": "./dist/registry/index.js" }

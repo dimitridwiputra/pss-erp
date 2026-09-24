@@ -4,7 +4,7 @@ Greenfield implementation of the PSS operating and finance platform. The product
 
 ## Current status
 
-The repository has a runnable **PLT-001 platform skeleton**, partial **PLT-003 contracts**, initial **PLT-002 fitness checks**, and **UX-001 design tokens**. The five processes expose health endpoints; the API health response uses the shared contract. Appendix C's 164 event names are cataloged, but only `DELIVERY_ORDER_CLOSED` v1 has a validated payload schema. There are no operational records, login, finance posting, or integrations yet. See [implementation status](docs/IMPLEMENTATION_STATUS.md) for verified and pending work.
+The repository has a runnable **PLT-001 platform skeleton**, partial **PLT-003 contracts**, initial **PLT-002 fitness checks**, a partial **PLT-007 API error boundary**, and **UX-001 design tokens**. The five processes expose health endpoints; the API health response uses the shared contract. Appendix C's 164 event names are cataloged, but only `DELIVERY_ORDER_CLOSED` v1 has a validated payload schema. There are no operational records, login, finance posting, or integrations yet. See [implementation status](docs/IMPLEMENTATION_STATUS.md) for verified and pending work.
 
 ## Requirements
 

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { checkEventSchemaCompatibility, checkOpenApiCompatibility } from './compatibility.mjs';
 
 const require = createRequire(import.meta.url);
-const { HealthResponseSchema, eventCatalog, eventSchemaRegistry } = require('../dist');
+const { HealthResponseSchema, ProblemDetailsSchema, eventCatalog, eventSchemaRegistry } = require('../dist');
 const root = new URL('../../../', import.meta.url);
 
 function toJson(value) {
@@ -27,10 +27,13 @@ function createDocuments() {
     paths: Object.fromEntries(['/health/live', '/health/ready'].map((path) => [path, {
       get: {
         operationId: path === '/health/live' ? 'getLiveness' : 'getReadiness',
-        responses: { '200': { description: 'Process health', content: { 'application/json': { schema: { $ref: '#/components/schemas/HealthResponse' } } } } },
+        responses: {
+          '200': { description: 'Process health', content: { 'application/json': { schema: { $ref: '#/components/schemas/HealthResponse' } } } },
+          default: { description: 'Problem details', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },
+        },
       },
     }])),
-    components: { schemas: { HealthResponse: response } },
+    components: { schemas: { HealthResponse: response, ProblemDetails: z.toJSONSchema(ProblemDetailsSchema) } },
   };
   return {
     'docs/api/openapi.json': openapi,
