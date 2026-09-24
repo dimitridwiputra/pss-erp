@@ -1,0 +1,4066 @@
+[
+  {
+    "id": "PLT-001",
+    "name": "Skeleton monorepo & workspace",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S1",
+    "dependencies": [],
+    "user": "Engineer",
+    "outcome": "Engineer (manusia atau agent) meng-clone repo dan langsung memiliki workspace pnpm + Turborepo dengan deployable, modul domain kosong berstruktur, packages dasar, skrip CI target, dan dokumen tata kelola di tempatnya.",
+    "state": "available",
+    "availablePath": "/",
+    "note": "Halaman fondasi dan endpoint kesehatan dapat dilihat. Belum ada transaksi ERP."
+  },
+  {
+    "id": "OBS-001",
+    "name": "Structured log, correlation ID, tracing",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S2",
+    "dependencies": [
+      "PLT-001"
+    ],
+    "user": "Engineer",
+    "outcome": "Engineer dapat menelusuri satu transaksi dari request UI sampai jurnal dengan satu correlationId, melihat trace lintas service/job, dan tidak pernah menemukan PII/secret di log.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-002",
+    "name": "Fitness function CI (architecture/contracts/db/ui check)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S2",
+    "dependencies": [
+      "PLT-001"
+    ],
+    "user": "Engineer",
+    "outcome": "CI menolak otomatis pelanggaran: impor lintas domain terlarang, akses skema DB domain lain, event tak terdaftar, migrasi tidak terdokumentasi/destruktif, enum mentah di UI, komponen duplikat, literal principal/cabang, mutasi tanpa audit, posting finance tanpa idempotensi, versi skema event tak cocok (ARC §20), ditambah aturan PRD.",
+    "state": "partial",
+    "note": "Pemeriksaan batas modul, kontrak, migrasi, dan UI awal tersedia; cakupan perilaku bisnis belum lengkap."
+  },
+  {
+    "id": "PLT-003",
+    "name": "Package contracts (Zod, OpenAPI, registry skema event)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S2",
+    "dependencies": [
+      "PLT-001"
+    ],
+    "user": "Engineer",
+    "outcome": "Semua DTO API, envelope & payload event, command antar-modul, dan registry (status, error, reason code, permission, config key) didefinisikan sekali di packages/contracts dan dipakai di seluruh repo.",
+    "state": "partial",
+    "note": "Katalog event dan registry tersedia; payload dan endpoint bisnis belum lengkap."
+  },
+  {
+    "id": "PLT-011",
+    "name": "Lingkungan dev/staging/prod via IaC",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S2",
+    "dependencies": [
+      "PLT-001"
+    ],
+    "user": "Engineer",
+    "outcome": "Engineer membuat/memperbarui lingkungan dengan IaC; staging identik secara struktur dengan produksi; deploy otomatis ke staging dan promosi terkontrol ke produksi.",
+    "state": "partial",
+    "note": "Layanan lokal berjalan; staging dan produksi berbasis IaC belum tersedia."
+  },
+  {
+    "id": "UX-001",
+    "name": "packages/ui: token, komponen dasar, template halaman A–D",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S2",
+    "dependencies": [
+      "PLT-001"
+    ],
+    "user": "Semua (engineer sebagai konsumen)",
+    "outcome": "Semua produk memakai komponen yang sama: tombol, task card, status pill, input, selection card, scan screen, exception sheet, confirmation, toast, tabel, dan template halaman A–D.",
+    "state": "partial",
+    "note": "Token desain tersedia; komponen dan templat halaman kerja belum lengkap."
+  },
+  {
+    "id": "AUD-001",
+    "name": "Audit log transaksional",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S3",
+    "dependencies": [
+      "PLT-003"
+    ],
+    "user": "Internal Audit",
+    "outcome": "Setiap mutasi state, approval, override, penyesuaian, keputusan pembayaran, serah terima kas, jurnal, close/reopen, merge, override mapping, perubahan role/permission, dan perubahan kredensial integrasi tercatat dengan actor, aksi, entitas, before/after (atau diff material), waktu, requestId/correlationId, dan reason code; auditor mencari dan mengekspornya.",
+    "state": "planned"
+  },
+  {
+    "id": "IDN-001",
+    "name": "Login OIDC & sesi (web + mobile)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S3",
+    "dependencies": [
+      "PLT-011"
+    ],
+    "user": "Semua pengguna, semua produk",
+    "outcome": "Pengguna masuk sekali dengan satu akun PSS dan langsung melihat produk yang menjadi haknya.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-004",
+    "name": "Transactional outbox & dispatcher event",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S3",
+    "dependencies": [
+      "PLT-003"
+    ],
+    "user": "Sistem",
+    "outcome": "Event ditulis ke tabel outbox dalam transaksi yang sama dengan perubahan state; dispatcher mengirimnya ke konsumen dengan jaminan at-least-once dan urutan per aggregate.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-006",
+    "name": "Penyimpanan idempotency key command (≥ 7 hari)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S3",
+    "dependencies": [
+      "PLT-003"
+    ],
+    "user": "Sistem",
+    "outcome": "Pengguna dapat menekan ulang atau perangkat dapat mengirim ulang tanpa risiko ganda; respons ulang identik dengan respons pertama.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-007",
+    "name": "Model error RFC 9457 + permittedActions",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S3",
+    "dependencies": [
+      "PLT-003"
+    ],
+    "user": "Semua (engineer & pengguna)",
+    "outcome": "Setiap error API punya kode stabil yang dipetakan ke judul, penjelasan, dan tombol pemulihan di UI; engineer punya satu cara melempar dan menangani error.",
+    "state": "partial",
+    "note": "Format error API seragam di empat backend; alur bisnis dan pemetaan copy lengkap belum tersedia."
+  },
+  {
+    "id": "RBAC-001",
+    "name": "Model & registry role, permission, scope",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S3",
+    "dependencies": [
+      "PLT-003"
+    ],
+    "user": "System Admin; engineer (registry di kode)",
+    "outcome": "Satu daftar kanonik role, permission, dan scope yang dipakai semua layanan dan UI.",
+    "state": "planned"
+  },
+  {
+    "id": "RBAC-002",
+    "name": "Otorisasi server-side (permission × scope × state)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S3",
+    "dependencies": [
+      "RBAC-001"
+    ],
+    "user": "Sistem (semua command/query)",
+    "outcome": "Pengguna hanya melihat dan mengubah data dalam scope-nya, secara konsisten di semua produk.",
+    "state": "planned"
+  },
+  {
+    "id": "SEC-001",
+    "name": "Proteksi data pribadi (masking log, enkripsi, retensi)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S3",
+    "dependencies": [
+      "OBS-001"
+    ],
+    "user": "— (semua sistem; pemilik kebijakan: Legal/Compliance)",
+    "outcome": "Data pribadi diklasifikasikan, dienkripsi, di-masking di log & UI sesuai izin, hanya diakses role berizin dengan jejak audit, dan dihapus/dianonimkan sesuai retensi.",
+    "state": "planned"
+  },
+  {
+    "id": "UX-002",
+    "name": "Registry status vocabulary & i18n Bahasa Indonesia (Appendix M)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S3",
+    "dependencies": [
+      "UX-001"
+    ],
+    "user": "Semua",
+    "outcome": "Setiap state dari setiap state machine tampil dengan label, warna (tone), dan ikon yang sama di semua produk, sesuai role bila perlu.",
+    "state": "planned"
+  },
+  {
+    "id": "APR-001",
+    "name": "Approval engine (request, step, keputusan, delegasi, kedaluwarsa, SoD)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S4",
+    "dependencies": [
+      "RBAC-002",
+      "AUD-001"
+    ],
+    "user": "Approver (semua role penyetuju)",
+    "outcome": "Domain membuat ApprovalRequest untuk subject tertentu; engine menentukan step & approver berdasarkan tipe, nilai, dan scope; approver memutuskan; domain pemilik menjalankan efeknya; semua tercatat.",
+    "state": "planned"
+  },
+  {
+    "id": "DQ-001",
+    "name": "Kerangka exception queue (owner, alasan, SLA, aksi, resolusi, audit)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S4",
+    "dependencies": [
+      "RBAC-002",
+      "AUD-001"
+    ],
+    "user": "Semua role antrian",
+    "outcome": "Setiap masalah menjadi item dengan owner role, alasan, SLA, aksi yang diizinkan, dan status; pengguna mengerjakan item dari satu pola antrian; eskalasi otomatis bila SLA lewat.",
+    "state": "planned"
+  },
+  {
+    "id": "IDN-002",
+    "name": "MFA untuk role sensitif",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S4",
+    "dependencies": [
+      "IDN-001"
+    ],
+    "user": "Kasir, AR Officer, Finance Maker/Approver, Controller, CFO, Direksi, Branch Manager, Internal Audit, System Admin",
+    "outcome": "Pengguna sensitif masuk dengan langkah verifikasi kedua, tanpa mengganggu pengguna lapangan.",
+    "state": "planned"
+  },
+  {
+    "id": "IDN-003",
+    "name": "Manajemen user (buat, nonaktifkan, reset, penugasan role)",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S4",
+    "dependencies": [
+      "IDN-001",
+      "RBAC-001"
+    ],
+    "user": "System Admin (Konsol Sistem, ADM-008)",
+    "outcome": "System Admin membuat, menonaktifkan, dan memberi role kepada user dengan scope yang tepat dalam satu layar.",
+    "state": "planned"
+  },
+  {
+    "id": "IDN-004",
+    "name": "Registrasi & pencabutan perangkat; handheld bersama",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S4",
+    "dependencies": [
+      "IDN-001"
+    ],
+    "user": "System Admin; secara tidak langsung Salesperson, Driver, Petugas Gudang",
+    "outcome": "Perangkat terdaftar otomatis saat login pertama. Admin bisa mencabut perangkat hilang dalam satu klik.",
+    "state": "planned"
+  },
+  {
+    "id": "MED-001",
+    "name": "Media/evidence (pre-signed, immutable, validasi tipe/ukuran/malware)",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S4",
+    "dependencies": [
+      "PLT-011"
+    ],
+    "user": "Semua (pengunggah & peninjau bukti)",
+    "outcome": "Aplikasi meminta URL unggah, mengunggah langsung ke storage (termasuk tertunda dari perangkat offline), sistem memvalidasi dan mengikat media ke subject; peninjau membuka lewat URL sementara.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-005",
+    "name": "Inbox dedup consumer, retry, DLQ, replay",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S4",
+    "dependencies": [
+      "PLT-004"
+    ],
+    "user": "Sistem / Operator",
+    "outcome": "Setiap konsumen mencatat eventId yang sudah diproses dalam transaksi yang sama dengan efeknya; duplikat diabaikan; kegagalan di-retry dengan backoff lalu masuk DLQ yang dapat diputar ulang.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-008",
+    "name": "Kerangka BFF / Experience API per produk",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S4",
+    "dependencies": [
+      "PLT-003",
+      "RBAC-002"
+    ],
+    "user": "Semua (engineer sebagai pembangun layar)",
+    "outcome": "Setiap produk punya BFF dengan endpoint per layar yang mengembalikan data siap tampil (status berlabel, permittedActions, scope sudah difilter) dalam satu round-trip.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-009",
+    "name": "Registry konfigurasi & policy effective-dated (Appendix N)",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S4",
+    "dependencies": [
+      "PLT-003",
+      "AUD-001"
+    ],
+    "user": "Admin (System Admin & owner bisnis per key)",
+    "outcome": "Semua nilai konfigurasi bisnis dikelola di satu registry dengan default eksplisit, scope, owner, berlaku-dari, dan approval; aplikasi membaca nilai yang berlaku pada tanggal bisnis transaksi.",
+    "state": "planned"
+  },
+  {
+    "id": "ADM-008",
+    "name": "Konsol Sistem (user, role, config, flag, connector)",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S5",
+    "dependencies": [
+      "IDN-003",
+      "PLT-009"
+    ],
+    "user": "System Admin",
+    "outcome": "System Admin mengelola user, penugasan role, perangkat, nilai konfigurasi, feature flag, dan instance connector dari satu konsol, tanpa akses mutasi bisnis.",
+    "state": "planned"
+  },
+  {
+    "id": "APR-002",
+    "name": "Kotak persetujuan lintas produk",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S5",
+    "dependencies": [
+      "APR-001",
+      "PLT-008"
+    ],
+    "user": "Approver",
+    "outcome": "Satu kotak persetujuan di setiap produk desktop (dan ringkas di tablet supervisor) berisi semua request yang dapat diputuskan user, dengan konteks cukup untuk memutuskan tanpa membuka layar lain.",
+    "state": "planned"
+  },
+  {
+    "id": "DOC-001",
+    "name": "Penomoran dokumen per cabang/tipe/tahun",
+    "phase": "F0",
+    "priority": "P0",
+    "pod": "Platform",
+    "sprint": "S5",
+    "dependencies": [
+      "PLT-009"
+    ],
+    "user": "Sistem",
+    "outcome": "Setiap dokumen PSS menerima nomor dari sequence per (tipe, cabang, periode) sesuai format berversi; nomor batal tetap tercatat.",
+    "state": "planned"
+  },
+  {
+    "id": "DOC-002",
+    "name": "Render & cetak PDF (template, tanda SALINAN, audit cetak ulang)",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S5",
+    "dependencies": [
+      "MED-001"
+    ],
+    "user": "Admin (semua pencetak dokumen)",
+    "outcome": "Pengguna menekan Cetak; PDF dirender dari template berversi dengan data dokumen; cetak kedua dst. bertanda \"SALINAN ke-n\"; PDF asli disimpan sebagai media immutable.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-005",
+    "name": "External entity mapping & riwayat",
+    "phase": "F1",
+    "priority": "P0",
+    "pod": "Integrasi",
+    "sprint": "S5",
+    "dependencies": [
+      "PLT-003",
+      "AUD-001"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Setiap kode eksternal (system, instance, entity, external id) terhubung ke tepat satu entitas canonical ACTIVE, dengan metode, confidence, pengambil keputusan, dan riwayat.",
+    "state": "planned"
+  },
+  {
+    "id": "MDM-001",
+    "name": "Organisasi & cabang",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S5",
+    "dependencies": [
+      "RBAC-002"
+    ],
+    "user": "Master Data Steward (PSS Admin)",
+    "outcome": "Steward mengelola cabang di satu tempat, dan semua produk langsung memakainya.",
+    "state": "planned"
+  },
+  {
+    "id": "NTF-001",
+    "name": "Notifikasi in-app",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S5",
+    "dependencies": [
+      "PLT-004"
+    ],
+    "user": "Semua",
+    "outcome": "Ikon lonceng dengan daftar pemberitahuan (baru/dibaca) yang menaut ke objek; aturan pemberitahuan per event & role.",
+    "state": "planned"
+  },
+  {
+    "id": "OBS-002",
+    "name": "Health, metrik bisnis/integrasi, dashboard, alert",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S5",
+    "dependencies": [
+      "OBS-001"
+    ],
+    "user": "Engineer (on-call)",
+    "outcome": "Dashboard engineering standar dan alert bertautan runbook untuk kondisi kritis.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-010",
+    "name": "Feature flag (OpenFeature) per organisasi/cabang/role",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S5",
+    "dependencies": [
+      "PLT-009"
+    ],
+    "user": "Admin",
+    "outcome": "System Admin menyalakan/mematikan kemampuan per organisasi/cabang/role; kode memeriksa flag lewat OpenFeature SDK.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-012",
+    "name": "Backup, restore, runbook DR",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S5",
+    "dependencies": [
+      "PLT-011"
+    ],
+    "user": "Engineer",
+    "outcome": "Engineer dapat memulihkan database ke titik waktu tertentu dan memulihkan bukti/arsip dari storage, mengikuti runbook yang diuji berkala.",
+    "state": "planned"
+  },
+  {
+    "id": "RBAC-003",
+    "name": "App entitlement & navigasi berbasis entitlement",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S5",
+    "dependencies": [
+      "RBAC-002"
+    ],
+    "user": "Semua pengguna",
+    "outcome": "Setiap pengguna hanya melihat produk dan menu yang relevan dengan pekerjaannya.",
+    "state": "planned"
+  },
+  {
+    "id": "UX-003",
+    "name": "State standar: loading, kosong, error, offline",
+    "phase": "F0",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S5",
+    "dependencies": [
+      "UX-001"
+    ],
+    "user": "Semua",
+    "outcome": "Setiap layar menampilkan skeleton saat memuat, pesan kosong yang menjelaskan langkah berikutnya, error dengan aksi pemulihan, dan banner offline di mobile.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-001",
+    "name": "Chart of Accounts & grup akun (versi, control account)",
+    "phase": "F4",
+    "priority": "P0",
+    "pod": "Finance",
+    "sprint": "S6",
+    "dependencies": [
+      "PLT-009"
+    ],
+    "user": "Controller (PSS Keuangan)",
+    "outcome": "Controller memuat dan memelihara COA (kode, nama, tipe, grup, saldo normal, boleh diposting, control account, dimensi wajib, status, berlaku-dari), memetakan setiap role akun ke akun COA, dan melihat grup akun sebagai baris laporan.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-004",
+    "name": "Beranda PSS Keuangan (antrian kerja)",
+    "phase": "F4",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S6",
+    "dependencies": [
+      "PLT-008",
+      "DQ-001"
+    ],
+    "user": "Finance (semua role keuangan)",
+    "outcome": "Beranda per role: antrian keuangan dengan jumlah & SLA, approval menunggu, dan status periode berjalan (OPEN/SOFT_CLOSE, checklist close).",
+    "state": "planned"
+  },
+  {
+    "id": "INT-001",
+    "name": "Kerangka & kontrak connector",
+    "phase": "F2",
+    "priority": "P0",
+    "pod": "Integrasi",
+    "sprint": "S6",
+    "dependencies": [
+      "PLT-003"
+    ],
+    "user": "Engineer",
+    "outcome": "Engineer membangun connector baru dengan mengimplementasikan satu kontrak (identify, supportedEntities, direction, transport, syncType, fetch/receive, validate, normalize, toCanonical, fromCanonical, deliver, health, mappingVersion) dan mendapat pipeline, staging, retry, dan monitoring secara otomatis.",
+    "state": "planned"
+  },
+  {
+    "id": "MDM-002",
+    "name": "Gudang (identitas, tipe termasuk VEHICLE, wms_enabled)",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S6",
+    "dependencies": [
+      "MDM-001"
+    ],
+    "user": "Master Data Steward; Admin Gudang (baca)",
+    "outcome": "Setiap gudang punya identitas, tipe, cabang, dan mode yang terlihat.",
+    "state": "planned"
+  },
+  {
+    "id": "MDM-003",
+    "name": "Reference data dimensi bisnis (revenue stream, channel, subchannel, segmen, order source, source system/app)",
+    "phase": "F1",
+    "priority": "P0",
+    "pod": "Data & Reporting",
+    "sprint": "S6",
+    "dependencies": [
+      "PLT-009"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Steward mengelola daftar nilai dimensi. Semua layar dan laporan memakai daftar yang sama.",
+    "state": "planned"
+  },
+  {
+    "id": "MDM-004",
+    "name": "Salesperson & tim (atribusi) + kode eksternal",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S6",
+    "dependencies": [
+      "MDM-001",
+      "INT-005"
+    ],
+    "user": "Master Data Steward; Supervisor Sales (baca)",
+    "outcome": "Satu salesperson terlihat dengan semua penjualannya lintas sumber.",
+    "state": "planned"
+  },
+  {
+    "id": "PRI-001",
+    "name": "Master principal",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S6",
+    "dependencies": [
+      "MDM-001"
+    ],
+    "user": "Master Data Steward; Admin Komersial",
+    "outcome": "Setiap principal punya identitas, status, dan referensi perjanjian.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-003",
+    "name": "Tahun fiskal & periode",
+    "phase": "F4",
+    "priority": "P0",
+    "pod": "Finance",
+    "sprint": "S7",
+    "dependencies": [
+      "FIN-001"
+    ],
+    "user": "Controller",
+    "outcome": "Controller membuat tahun fiskal; sistem membentuk 12 periode bulanan dengan tanggal mulai/akhir, status awal FUTURE, dan periode pertama OPEN pada tanggal go-live.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-003",
+    "name": "Raw landing (object storage, hash, batch)",
+    "phase": "F2",
+    "priority": "P0",
+    "pod": "Integrasi",
+    "sprint": "S7",
+    "dependencies": [
+      "INT-001",
+      "MED-001"
+    ],
+    "user": "Sistem",
+    "outcome": "Setiap file/payload yang diterima disimpan utuh di object storage dengan hash SHA-256 dan metadata batch sebelum diproses; dapat diputar ulang dan diperiksa oleh pihak berizin.",
+    "state": "planned"
+  },
+  {
+    "id": "PRI-003",
+    "name": "Principal System Policy: model, approval, effective dating",
+    "phase": "F1",
+    "priority": "P0",
+    "pod": "Data & Reporting",
+    "sprint": "S7",
+    "dependencies": [
+      "PRI-001",
+      "APR-001"
+    ],
+    "user": "Admin Komersial (pengusul); CFO/COO (penyetuju); Controller (baca)",
+    "outcome": "Admin Komersial mengusulkan baris policy per (principal/stream, cabang/gudang, proses, tanggal berlaku). Setelah disetujui, seluruh sistem mengikuti policy itu tanpa perubahan kode.",
+    "state": "planned"
+  },
+  {
+    "id": "CLS-001",
+    "name": "State periode OPEN/SOFT_CLOSE/CLOSED & lock",
+    "phase": "F4",
+    "priority": "P0",
+    "pod": "Finance",
+    "sprint": "S8",
+    "dependencies": [
+      "FIN-003"
+    ],
+    "user": "Controller",
+    "outcome": "Controller memindahkan periode OPEN → SOFT_CLOSE → CLOSED (lewat checklist & approval); sistem menegakkan aturan posting per status secara konsisten untuk semua jalur posting.",
+    "state": "planned"
+  },
+  {
+    "id": "CUS-001",
+    "name": "Customer canonical (bill-to)",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S8",
+    "dependencies": [
+      "MDM-001",
+      "MDM-003"
+    ],
+    "user": "Master Data Steward (PSS Admin)",
+    "outcome": "Setiap pembeli punya satu kode PSS (CUS-…) yang dipakai semua produk.",
+    "state": "planned"
+  },
+  {
+    "id": "CUS-002",
+    "name": "Outlet (ship-to)",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S8",
+    "dependencies": [
+      "CUS-001"
+    ],
+    "user": "Master Data Steward; Salesperson & Driver (baca)",
+    "outcome": "Setiap toko fisik punya identitas (OUT-…), alamat, dan lokasi, serta terhubung ke satu customer.",
+    "state": "planned"
+  },
+  {
+    "id": "CUS-003",
+    "name": "Deteksi kemungkinan duplikat customer/outlet (peringatan)",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S8",
+    "dependencies": [
+      "CUS-002",
+      "DQ-001"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Steward melihat kandidat duplikat dengan alasannya dan memutuskan.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-004",
+    "name": "State machine staging, validasi & normalisasi",
+    "phase": "F2",
+    "priority": "P0",
+    "pod": "Integrasi",
+    "sprint": "S8",
+    "dependencies": [
+      "INT-003"
+    ],
+    "user": "Sistem; Integration Operator (hasil)",
+    "outcome": "Setiap baris sumber punya status jelas (RECEIVED → VALIDATED → NORMALIZED → MAPPED → APPLIED, atau REJECTED / PENDING_MAPPING / DUPLICATE / POSSIBLE_DUPLICATE / POLICY_REJECTED / DOMAIN_REJECTED / SUPERSEDED) dengan alasan berbahasa Indonesia dan riwayat transisi.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-012",
+    "name": "Agen upload on-prem (tool existing: rclone/SFTP)",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S8",
+    "dependencies": [
+      "INT-003"
+    ],
+    "user": "Integration Operator",
+    "outcome": "PC cabang mengunggah file ekspor terjadwal ke Hub memakai tool yang sudah ada (rclone/klien SFTP + task scheduler), dengan identitas layanan per cabang.",
+    "state": "planned"
+  },
+  {
+    "id": "PRI-004",
+    "name": "Resolver policy (presedensi, business date)",
+    "phase": "F1",
+    "priority": "P0",
+    "pod": "Data & Reporting",
+    "sprint": "S8",
+    "dependencies": [
+      "PRI-003"
+    ],
+    "user": "Sistem (orders, integration, SFA, fulfillment, inventory, invoicing, credit, ar)",
+    "outcome": "Domain memanggil satu fungsi dan menerima keputusan authority beserta mode.",
+    "state": "planned"
+  },
+  {
+    "id": "TAX-001",
+    "name": "Kode pajak, tarif effective-dated, pemetaan akun pajak",
+    "phase": "F4",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S8",
+    "dependencies": [
+      "FIN-001",
+      "PLT-009"
+    ],
+    "user": "Finance/Tax (Finance Maker dengan tax.rate.manage), Controller",
+    "outcome": "Finance/Tax mengelola kode pajak dan tarif berlaku; semua dokumen memakainya otomatis sesuai tanggal dokumen.",
+    "state": "planned"
+  },
+  {
+    "id": "CUS-004",
+    "name": "Status kualitas master & review steward",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S9",
+    "dependencies": [
+      "CUS-001",
+      "DQ-001"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Steward memiliki antrian review. Data yang benar diaktifkan; data yang salah diperbaiki atau digabung.",
+    "state": "planned"
+  },
+  {
+    "id": "CUS-005",
+    "name": "Kontak, alamat, NPWP/NIK terbatas",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S9",
+    "dependencies": [
+      "CUS-001",
+      "SEC-001"
+    ],
+    "user": "Master Data Steward; Finance/Tax (baca NPWP)",
+    "outcome": "Data kontak lengkap untuk yang membutuhkan, dan tersembunyi untuk yang tidak.",
+    "state": "planned"
+  },
+  {
+    "id": "GL-001",
+    "name": "Posting rule berversi & role akun",
+    "phase": "F4",
+    "priority": "P0",
+    "pod": "Finance",
+    "sprint": "S9",
+    "dependencies": [
+      "FIN-001"
+    ],
+    "user": "Controller",
+    "outcome": "Controller melihat dan mengelola aturan posting per event type: kondisi, baris (role akun, sisi debit/kredit, sumber nilai dari payload, dimensi), versi, dan tanggal berlaku; setiap jurnal SYSTEM menunjuk versi rule yang dipakai.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-007",
+    "name": "Dedup stable key & fingerprint kemungkinan duplikat",
+    "phase": "F2",
+    "priority": "P0",
+    "pod": "Integrasi",
+    "sprint": "S9",
+    "dependencies": [
+      "INT-004"
+    ],
+    "user": "Sistem / Sales Admin (keputusan)",
+    "outcome": "Pengiriman ulang record yang sama tidak pernah membuat entitas kedua; record berubah memperbarui versi; order yang mirip lintas sumber ditandai \"kemungkinan ganda\" untuk diputuskan Sales Admin; tidak ada penggabungan otomatis.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-013",
+    "name": "Sync Monitor",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S9",
+    "dependencies": [
+      "INT-004"
+    ],
+    "user": "Integration Operator",
+    "outcome": "Daftar instance dengan health, batch terakhir, counter per status, lag, backlog, error terakhir; drill ke batch & record.",
+    "state": "planned"
+  },
+  {
+    "id": "MDM-005",
+    "name": "Referensi termin pembayaran",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S9",
+    "dependencies": [
+      "PLT-009"
+    ],
+    "user": "Finance (Controller / AR Officer)",
+    "outcome": "Finance mengelola daftar termin; profil kredit dan order memilih dari daftar.",
+    "state": "planned"
+  },
+  {
+    "id": "MDM-006",
+    "name": "Merge master dengan tombstone + approval",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S9",
+    "dependencies": [
+      "APR-001",
+      "INT-005"
+    ],
+    "user": "Master Data Steward (pengaju); Controller atau steward lain (penyetuju)",
+    "outcome": "Steward memilih data yang dipertahankan dan data duplikat, lalu setelah disetujui semua referensi otomatis mengarah ke data yang dipertahankan.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-009",
+    "name": "Aggregate order external-origin (authority map, provenance)",
+    "phase": "F2",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S9",
+    "dependencies": [
+      "PRI-004",
+      "INT-005"
+    ],
+    "user": "Sistem (dipanggil Integration)",
+    "outcome": "Setiap pesanan eksternal menjadi satu order PSS dengan provenance dan authority map; tidak ada yang ganda.",
+    "state": "planned"
+  },
+  {
+    "id": "PRD-001",
+    "name": "Produk/SKU (principal, brand, kategori, status)",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S9",
+    "dependencies": [
+      "PRI-001"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Satu produk canonical dengan principal, brand, kategori, kode pajak, dan status.",
+    "state": "planned"
+  },
+  {
+    "id": "AR-001",
+    "name": "AR subledger append-only",
+    "phase": "F2",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S10",
+    "dependencies": [
+      "BIL-005"
+    ],
+    "user": "Sistem; AR Officer (lihat)",
+    "outcome": "Setiap invoice punya receivable dengan riwayat entri (invoice, nota kredit, application, write-off, saldo awal) dan outstanding yang akurat.",
+    "state": "planned"
+  },
+  {
+    "id": "BIL-005",
+    "name": "Invoice external-origin (ND6/FoxPro)",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S10",
+    "dependencies": [
+      "ORD-009"
+    ],
+    "user": "Sistem",
+    "outcome": "Invoice sumber tercatat sebagai satu invoice canonical dengan nomor aslinya.",
+    "state": "planned"
+  },
+  {
+    "id": "CST-001",
+    "name": "Read model operasional (projector idempotent, rebuildable)",
+    "phase": "F3",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S10",
+    "dependencies": [
+      "PLT-005"
+    ],
+    "user": "Sistem",
+    "outcome": "Semua layar operasional membaca read model yang selalu mutakhir dalam hitungan detik dan dapat dibangun ulang dari event.",
+    "state": "planned"
+  },
+  {
+    "id": "GL-002",
+    "name": "Posting engine dari event (idempotent, balance, cek periode)",
+    "phase": "F4",
+    "priority": "P0",
+    "pod": "Finance",
+    "sprint": "S10",
+    "dependencies": [
+      "GL-001",
+      "FIN-003",
+      "PLT-005"
+    ],
+    "user": "Sistem",
+    "outcome": "Setiap event ekonomi menghasilkan tepat satu jurnal SYSTEM yang seimbang di periode yang benar, atau masuk antrian yang jelas (gagal / menunggu keputusan periode) — tidak ada yang hilang diam-diam.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-015",
+    "name": "Retry, DLQ, replay batch",
+    "phase": "F2",
+    "priority": "P0",
+    "pod": "Integrasi",
+    "sprint": "S10",
+    "dependencies": [
+      "INT-004",
+      "PLT-005"
+    ],
+    "user": "Integration Operator",
+    "outcome": "Kegagalan sementara dicoba ulang otomatis dengan backoff; setelah habis, batch masuk antrian dengan aksi Coba Lagi, Unggah File Manual; operator dapat memutar ulang batch (replay) dari raw tanpa duplikasi.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-016",
+    "name": "Record legacy pasca-cutover & order PENDING_MATCH",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S10",
+    "dependencies": [
+      "INT-007",
+      "PRI-004"
+    ],
+    "user": "Sales Admin, Integration Operator",
+    "outcome": "(a) Record legacy bertanggal ≥ cutover ditolak kebijakan dan muncul di antrian untuk diselidiki; (b) bila policy mengizinkan \"manual pending match\", order manual PSS berstatus PENDING_MATCH dan saat record eksternal tiba, Hub mengusulkan pasangan; setelah dikonfirmasi, record eksternal menjadi authority dan order manual SUPERSEDED_BY_EXTERNAL (tidak dihapus).",
+    "state": "planned"
+  },
+  {
+    "id": "PRD-002",
+    "name": "UOM & konversi",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S10",
+    "dependencies": [
+      "PRD-001"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Setiap produk punya satuan dasar dan konversi yang jelas. Pengguna memesan dalam satuan yang biasa dipakai.",
+    "state": "planned"
+  },
+  {
+    "id": "PRD-003",
+    "name": "Atribut logistik (berat, volume) & flag lot/expiry",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S10",
+    "dependencies": [
+      "PRD-001"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Produk memiliki berat, volume, dan penanda lot/expiry yang dipakai oleh gudang dan armada.",
+    "state": "planned"
+  },
+  {
+    "id": "PRD-004",
+    "name": "Barcode & kode SKU principal",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S10",
+    "dependencies": [
+      "PRD-001",
+      "INT-005"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Setiap produk bisa ditemukan lewat barcode atau kode principal.",
+    "state": "planned"
+  },
+  {
+    "id": "PRI-002",
+    "name": "Master supplier & relasi principal",
+    "phase": "F1",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S10",
+    "dependencies": [
+      "PRI-001"
+    ],
+    "user": "Master Data Steward; Staf Pembelian (baca)",
+    "outcome": "Supplier tercatat dengan NPWP, termin, dan relasi principal.",
+    "state": "planned"
+  },
+  {
+    "id": "ADM-004",
+    "name": "Ruang kerja integrasi (Sync Monitor, unggah file, perbaiki & proses ulang)",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S11",
+    "dependencies": [
+      "INT-013",
+      "INT-015"
+    ],
+    "user": "Integration Operator",
+    "outcome": "Satu ruang kerja: status connector, batch terakhir, record ditolak dengan alasan per baris, unggah file manual, coba lagi / proses ulang.",
+    "state": "planned"
+  },
+  {
+    "id": "AR-006",
+    "name": "Receivable external-origin & saldo awal per invoice",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S11",
+    "dependencies": [
+      "AR-001"
+    ],
+    "user": "Sistem; Controller (saldo awal)",
+    "outcome": "Piutang sistem lama tampil per invoice; saat cutover, saldo terbuka menjadi saldo awal yang ditagih PSS.",
+    "state": "planned"
+  },
+  {
+    "id": "CST-002",
+    "name": "Dashboard Hari Ini + filter cabang/principal/stream/channel/sumber",
+    "phase": "F3",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S11",
+    "dependencies": [
+      "CST-001",
+      "RPT-001"
+    ],
+    "user": "Management, Branch Manager",
+    "outcome": "Dashboard: order hari ini (jumlah & nilai), terkirim, diinvoice, tertagih, exception terbuka, kesegaran sumber — dengan filter standar.",
+    "state": "planned"
+  },
+  {
+    "id": "CST-003",
+    "name": "Funnel operasional & breakdown dimensi",
+    "phase": "F3",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S11",
+    "dependencies": [
+      "CST-001"
+    ],
+    "user": "Management",
+    "outcome": "Funnel order → dikonfirmasi → dikirim → diinvoice → tertagih dengan breakdown per dimensi bisnis.",
+    "state": "planned"
+  },
+  {
+    "id": "CST-005",
+    "name": "Kesehatan sumber & kesegaran data",
+    "phase": "F3",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S11",
+    "dependencies": [
+      "INT-013"
+    ],
+    "user": "Management, Integration Operator",
+    "outcome": "Panel per sumber (sistem × instance × entitas): terakhir berhasil, umur, antrian exception, variance.",
+    "state": "planned"
+  },
+  {
+    "id": "GL-003",
+    "name": "Antrian posting gagal & \"Menunggu Keputusan Periode\"",
+    "phase": "F4",
+    "priority": "P0",
+    "pod": "Finance",
+    "sprint": "S11",
+    "dependencies": [
+      "GL-002",
+      "DQ-001"
+    ],
+    "user": "Controller (PSS Keuangan)",
+    "outcome": "Controller melihat dua antrian: (1) posting gagal beserta alasan dan tautan perbaikan; (2) transaksi untuk periode terkunci, dengan pilihan \"Posting di periode terbuka pertama\" (default) atau \"Ajukan buka periode\".",
+    "state": "planned"
+  },
+  {
+    "id": "GL-008",
+    "name": "Neraca Saldo",
+    "phase": "F4",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S11",
+    "dependencies": [
+      "GL-002"
+    ],
+    "user": "Finance",
+    "outcome": "Neraca Saldo per periode (atau rentang) per akun dengan saldo awal, debit, kredit, saldo akhir; filter dimensi; total debit = total kredit.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-006",
+    "name": "Antrian mapping + saran + auto-resume",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S11",
+    "dependencies": [
+      "INT-005",
+      "DQ-001"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Satu item antrian per kode eksternal belum dikenali (bukan per record), dengan jumlah record menunggu, saran berperingkat (aturan deterministik dulu, lalu fuzzy), dan setelah diputuskan semua record menunggu otomatis lanjut.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-009",
+    "name": "Connector file generik (template CSV/XLSX)",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S11",
+    "dependencies": [
+      "INT-004"
+    ],
+    "user": "Integration Operator",
+    "outcome": "Operator mengunduh template resmi per entitas, mengisi, mengunggah; file diproses lewat pipeline standar dengan laporan per baris.",
+    "state": "planned"
+  },
+  {
+    "id": "INV-009",
+    "name": "Snapshot stok eksternal (untuk rekonsiliasi saja)",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S11",
+    "dependencies": [
+      "MDM-002",
+      "PRD-002"
+    ],
+    "user": "Sistem (dari Integration); Management (lihat)",
+    "outcome": "Control Station menampilkan stok sistem lama dengan tanggal datanya.",
+    "state": "planned"
+  },
+  {
+    "id": "PAY-008",
+    "name": "Pembayaran external-origin",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S11",
+    "dependencies": [
+      "AR-001"
+    ],
+    "user": "Sistem (dari Integration Hub)",
+    "outcome": "Pembayaran dari sistem lama tampil sebagai Payment canonical beserta alokasinya, dengan sumber yang jelas, tanpa perlu verifikasi ulang di PSS.",
+    "state": "planned"
+  },
+  {
+    "id": "RPT-001",
+    "name": "Definisi metrik penjualan canonical (semantik tanggal)",
+    "phase": "F3",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S11",
+    "dependencies": [
+      "ORD-009",
+      "BIL-005"
+    ],
+    "user": "Management",
+    "outcome": "Setiap metrik punya definisi berversi: nama, rumus (dari fakta canonical), filter status (hanya APPLIED, tidak SUPERSEDED/CANCELLED — REQ-192), semantik tanggal, satuan, dimensi yang valid; definisi tampil di setiap angka.",
+    "state": "planned"
+  },
+  {
+    "id": "SRC-001",
+    "name": "Pencarian objek (customer, produk, dokumen)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Platform",
+    "sprint": "S11",
+    "dependencies": [
+      "CUS-002",
+      "PRD-001"
+    ],
+    "user": "Semua desktop",
+    "outcome": "Satu kotak pencarian (pintasan keyboard) menemukan customer/outlet, produk, dan dokumen (SO, DO, invoice, payment, PO) berdasarkan nama, kode canonical, kode eksternal, atau nomor dokumen, lalu membuka halaman objek.",
+    "state": "planned"
+  },
+  {
+    "id": "ADM-003",
+    "name": "Ruang kerja data utama (toko/produk belum dikenali, duplikat)",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S12",
+    "dependencies": [
+      "INT-006",
+      "CUS-003"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Steward mengerjakan satu antrian: melihat record eksternal, saran kandidat canonical berperingkat, lalu memetakan, membuat baru, atau menolak; record yang menunggu otomatis lanjut.",
+    "state": "planned"
+  },
+  {
+    "id": "COM-001",
+    "name": "Price list effective-dated",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S12",
+    "dependencies": [
+      "PRD-001",
+      "MDM-003"
+    ],
+    "user": "Admin Komersial (pengusul); Branch Manager/CFO (penyetuju aktivasi)",
+    "outcome": "Admin Komersial menyiapkan daftar harga baru, lalu setelah disetujui harga berlaku otomatis pada tanggalnya.",
+    "state": "planned"
+  },
+  {
+    "id": "CUS-006",
+    "name": "Impor/ekspor massal master lewat connector file generik",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S12",
+    "dependencies": [
+      "CUS-002",
+      "INT-009"
+    ],
+    "user": "Master Data Steward",
+    "outcome": "Steward mengunggah template CSV/XLSX, melihat hasil per baris, dan memperbaiki yang gagal.",
+    "state": "planned"
+  },
+  {
+    "id": "GL-004",
+    "name": "Jurnal posted immutable; reversal & jurnal pengganti",
+    "phase": "F4",
+    "priority": "P0",
+    "pod": "Finance",
+    "sprint": "S12",
+    "dependencies": [
+      "GL-002"
+    ],
+    "user": "Finance Maker (pengaju), Finance Approver",
+    "outcome": "Untuk mengoreksi jurnal MANUAL, Finance Maker mengajukan pembalikan (jurnal REVERSAL bersisi terbalik) dan jurnal pengganti bila perlu; jurnal SYSTEM hanya dikoreksi lewat event pembalik dari domain sumber.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-002",
+    "name": "Konfigurasi connector instance & referensi kredensial",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S12",
+    "dependencies": [
+      "INT-001",
+      "ADM-008"
+    ],
+    "user": "Integration Operator; System Admin (kredensial)",
+    "outcome": "Operator mendaftarkan instance: sistem, nama instance, principal(s), cabang(s), entitas, jadwal, transport, versi mapping, owner, enabled; System Admin menautkan referensi kredensial di secret manager.",
+    "state": "planned"
+  },
+  {
+    "id": "PUR-001",
+    "name": "Purchase order",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S12",
+    "dependencies": [
+      "PRI-002",
+      "COM-001"
+    ],
+    "user": "Staf Pembelian (PSS Admin, ADM-005); approver",
+    "outcome": "Staf Pembelian membuat PO dengan harga beli dan gudang tujuan; PO disetujui lalu dikirim ke supplier.",
+    "state": "planned"
+  },
+  {
+    "id": "PUR-005",
+    "name": "Pembelian external-origin (visibilitas & rekonsiliasi)",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S12",
+    "dependencies": [
+      "PRI-002"
+    ],
+    "user": "Sistem; Management (lihat)",
+    "outcome": "Pembelian legacy tercatat sebagai record canonical OBSERVED.",
+    "state": "planned"
+  },
+  {
+    "id": "AR-003",
+    "name": "Dispute",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S13",
+    "dependencies": [
+      "AR-001"
+    ],
+    "user": "AR Officer",
+    "outcome": "AR Officer menandai sengketa dengan alasan, dan penagihan berhenti sampai diselesaikan.",
+    "state": "planned"
+  },
+  {
+    "id": "CLS-002",
+    "name": "Reopen terkendali",
+    "phase": "F4",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S13",
+    "dependencies": [
+      "CLS-001",
+      "APR-001"
+    ],
+    "user": "Controller (pengaju), CFO (approver)",
+    "outcome": "Controller mengajukan reopen dengan alasan & dampak; CFO menyetujui; periode kembali SOFT_CLOSE sehingga hanya penyesuaian & posting tertunda yang masuk; lalu periode wajib ditutup ulang lewat checklist.",
+    "state": "planned"
+  },
+  {
+    "id": "COM-002",
+    "name": "Resolusi harga sinkron + versi harga",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S13",
+    "dependencies": [
+      "COM-001"
+    ],
+    "user": "Sistem (orders, SFA, Admin)",
+    "outcome": "Admin dan Salesperson melihat harga yang benar; bila harga berubah sejak cache, pengguna diminta mengonfirmasi harga baru.",
+    "state": "planned"
+  },
+  {
+    "id": "CRD-001",
+    "name": "Profil kredit customer",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S13",
+    "dependencies": [
+      "CUS-001",
+      "MDM-005"
+    ],
+    "user": "AR Officer; Finance Approver (perubahan limit)",
+    "outcome": "Setiap customer punya satu profil kredit yang dipakai semua kanal order.",
+    "state": "planned"
+  },
+  {
+    "id": "CRD-002",
+    "name": "Evaluasi kredit sinkron",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S13",
+    "dependencies": [
+      "CRD-001",
+      "AR-001"
+    ],
+    "user": "Sistem",
+    "outcome": "Setiap order MANAGED langsung mendapat keputusan kredit dengan alasan.",
+    "state": "planned"
+  },
+  {
+    "id": "CST-004",
+    "name": "Ringkasan piutang (dari data canonical)",
+    "phase": "F3",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S13",
+    "dependencies": [
+      "CST-001",
+      "AR-006"
+    ],
+    "user": "Management, AR",
+    "outcome": "Ringkasan outstanding & aging per cabang/principal/stream/salesperson dari receivable canonical (impor + native), dengan penanda sumber.",
+    "state": "planned"
+  },
+  {
+    "id": "CST-006",
+    "name": "Halaman objek & alur dokumen (drill-down)",
+    "phase": "F3",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S13",
+    "dependencies": [
+      "CST-001"
+    ],
+    "user": "Semua desktop",
+    "outcome": "Halaman objek (order, DO, invoice, payment, customer, produk, batch impor) menampilkan status per dimensi (bukan gabungan) dan alur dokumen terkait sebagai timeline dengan tautan.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-007",
+    "name": "Neraca",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S13",
+    "dependencies": [
+      "GL-008"
+    ],
+    "user": "Controller, CFO",
+    "outcome": "Neraca per tanggal akhir periode dengan perbandingan, laba berjalan dihitung dari P&L, dan drill-down.",
+    "state": "planned"
+  },
+  {
+    "id": "GL-005",
+    "name": "Wizard manual journal & template kategori",
+    "phase": "F4",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S13",
+    "dependencies": [
+      "GL-004",
+      "MED-001"
+    ],
+    "user": "Finance Maker (PSS Keuangan)",
+    "outcome": "Finance Maker memilih tujuan jurnal (kategori), mengisi konteks minimum, sistem membangun baris dari template, maker meninjau debit/kredit, mengunggah bukti, lalu mengajukan approval.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-008",
+    "name": "Command impor canonical (master & transaksi external-origin)",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S13",
+    "dependencies": [
+      "INT-007",
+      "ORD-009",
+      "BIL-005",
+      "AR-006",
+      "PAY-008",
+      "INV-009",
+      "PUR-005"
+    ],
+    "user": "Sistem",
+    "outcome": "Record MAPPED/dedup-lolos memanggil command domain (ImportExternalSalesOrder, ImportExternalInvoice, PostOpeningReceivables / impor receivable external-origin (AR-006), ImportExternalPayment, ImportExternalStockSnapshot, ImportExternalPurchase, master upsert) dengan provenance & authority map; hasil APPLIED atau DOMAIN_REJECTED dengan alasan domain.",
+    "state": "planned"
+  },
+  {
+    "id": "INV-001",
+    "name": "Ledger movement persediaan (kosakata canonical)",
+    "phase": "F5",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S13",
+    "dependencies": [
+      "MDM-002",
+      "PRD-002"
+    ],
+    "user": "Sistem; Admin Gudang & Finance (lihat kartu stok)",
+    "outcome": "Kartu stok per produk/gudang menampilkan setiap pergerakan dengan dokumen sumbernya.",
+    "state": "planned"
+  },
+  {
+    "id": "PUR-002",
+    "name": "Ekspektasi penerimaan",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S13",
+    "dependencies": [
+      "PUR-001"
+    ],
+    "user": "Admin Gudang; Petugas Gudang (F9)",
+    "outcome": "Gudang melihat daftar kedatangan per tanggal dengan qty yang diharapkan.",
+    "state": "planned"
+  },
+  {
+    "id": "TAX-002",
+    "name": "PPN per baris invoice & nota kredit",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S13",
+    "dependencies": [
+      "TAX-001"
+    ],
+    "user": "Sistem; Sales Admin (lihat)",
+    "outcome": "Invoice menampilkan DPP, PPN, dan total yang benar tanpa hitungan manual.",
+    "state": "planned"
+  },
+  {
+    "id": "TAX-003",
+    "name": "PPN Masukan pada invoice supplier",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S13",
+    "dependencies": [
+      "TAX-001"
+    ],
+    "user": "Staf Pembelian; Finance",
+    "outcome": "Invoice supplier mencatat PPN Masukan beserta nomor faktur pajak supplier.",
+    "state": "planned"
+  },
+  {
+    "id": "AR-004",
+    "name": "Write-off lewat approval",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S14",
+    "dependencies": [
+      "AR-001",
+      "APR-001"
+    ],
+    "user": "AR Officer (pengaju); Finance Approver / CFO",
+    "outcome": "Pengajuan write-off dengan bukti; setelah disetujui piutang ditutup dan GL terposting.",
+    "state": "planned"
+  },
+  {
+    "id": "DQ-002",
+    "name": "Antrian \"Perlu Ditindaklanjuti\" terpadu per role",
+    "phase": "F3",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S14",
+    "dependencies": [
+      "DQ-001",
+      "CST-001"
+    ],
+    "user": "Semua desktop",
+    "outcome": "Setiap user desktop punya satu daftar \"Perlu Ditindaklanjuti\" berisi item dari semua antrian yang owner role-nya ia pegang, plus approval yang menunggu.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-002",
+    "name": "Dimensi finansial & cost center",
+    "phase": "F4",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S14",
+    "dependencies": [
+      "FIN-001",
+      "MDM-003"
+    ],
+    "user": "Controller",
+    "outcome": "Setiap baris jurnal membawa dimensi: branch, principal, revenue_stream, cost_center, dan customer/supplier untuk control account. Controller mengatur cost center dan dimensi wajib per akun.",
+    "state": "planned"
+  },
+  {
+    "id": "GL-006",
+    "name": "Approval jurnal (maker ≠ approver)",
+    "phase": "F4",
+    "priority": "P0",
+    "pod": "Finance",
+    "sprint": "S14",
+    "dependencies": [
+      "GL-005",
+      "APR-001"
+    ],
+    "user": "Finance Approver",
+    "outcome": "Approver melihat jurnal yang diajukan dengan bukti dan dampak, lalu Setujui & Posting atau Tolak dengan alasan; sistem menjamin approver ≠ maker.",
+    "state": "planned"
+  },
+  {
+    "id": "GL-009",
+    "name": "Template jurnal berulang (akrual, prepayment, penyusutan)",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S14",
+    "dependencies": [
+      "GL-005"
+    ],
+    "user": "Finance Maker",
+    "outcome": "Finance Maker membuat jadwal jurnal berulang (template + nominal + frekuensi + periode mulai/akhir); setiap periode sistem membuat DRAFT dan mengajukannya untuk approval.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-010",
+    "name": "Connector ND6",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S14",
+    "dependencies": [
+      "INT-008"
+    ],
+    "user": "Integration Operator",
+    "outcome": "Data ND6 (master, order, invoice bila ada, status pengiriman/retur bila ada, snapshot stok) masuk otomatis/terjadwal per instance ND6 dan menjadi canonical dengan authority map sesuai policy.",
+    "state": "planned"
+  },
+  {
+    "id": "INV-002",
+    "name": "Saldo & availability (on hand − reservasi)",
+    "phase": "F5",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S14",
+    "dependencies": [
+      "INV-001"
+    ],
+    "user": "Sistem (orders, SFA); Sales Admin",
+    "outcome": "Admin dan Sales melihat stok tersedia yang akurat; order tidak pernah melebihi stok.",
+    "state": "planned"
+  },
+  {
+    "id": "INV-003",
+    "name": "Costing moving average (policy)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S14",
+    "dependencies": [
+      "INV-001"
+    ],
+    "user": "Sistem; Controller (policy)",
+    "outcome": "Setiap movement keluar memakai cost rata-rata terkini; setiap invoice memiliki HPP per baris.",
+    "state": "planned"
+  },
+  {
+    "id": "INV-004",
+    "name": "Stok Dalam Pengiriman & retur barang tidak terkirim",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S14",
+    "dependencies": [
+      "INV-001"
+    ],
+    "user": "Admin Gudang; Finance",
+    "outcome": "Admin melihat barang di perjalanan per surat jalan; barang yang kembali diterima ke gudang dengan satu langkah.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-001",
+    "name": "Buat pesanan (Admin: WhatsApp/telepon/walk-in)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S14",
+    "dependencies": [
+      "ORD-009",
+      "COM-002",
+      "CRD-002"
+    ],
+    "user": "Sales Admin (PSS Admin, layar ADM-002)",
+    "outcome": "Sales Admin membuat pesanan dengan toko, produk, dan qty. Harga, kredit, dan stok dicek otomatis.",
+    "state": "planned"
+  },
+  {
+    "id": "PAY-001",
+    "name": "Pencatatan pembayaran (kasir, transfer, giro)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S14",
+    "dependencies": [
+      "AR-001"
+    ],
+    "user": "Kasir, AR Officer (PSS Keuangan — FIN-005)",
+    "outcome": "Kasir/AR Officer mencatat pembayaran dalam satu form singkat. Pembayaran lapangan dan COD otomatis tercatat dari bukti yang disinkronkan.",
+    "state": "planned"
+  },
+  {
+    "id": "PUR-003",
+    "name": "Penerimaan barang (finansial; gudang non-WMS)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S14",
+    "dependencies": [
+      "PUR-002",
+      "INV-001"
+    ],
+    "user": "Admin Gudang (non-WMS); Petugas Gudang via WMS-003 (F9)",
+    "outcome": "Penerimaan dicatat dari ekspektasi dengan default qty; selisih dan kerusakan tercatat.",
+    "state": "planned"
+  },
+  {
+    "id": "PUR-004",
+    "name": "Invoice supplier & pencocokan PO–penerimaan–invoice",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S14",
+    "dependencies": [
+      "PUR-003",
+      "TAX-003"
+    ],
+    "user": "Staf Pembelian; Finance Maker",
+    "outcome": "Invoice supplier dicocokkan otomatis; selisih jelas dan harus diputuskan.",
+    "state": "planned"
+  },
+  {
+    "id": "RPT-002",
+    "name": "Proyeksi laporan principal (spesifikasi berversi)",
+    "phase": "F6",
+    "priority": "P2",
+    "pod": "Data & Reporting",
+    "sprint": "S14",
+    "dependencies": [
+      "RPT-001"
+    ],
+    "user": "Komersial (COMMERCIAL_ADMIN)",
+    "outcome": "Komersial mengelola spesifikasi laporan per principal (metrik RPT-001, dimensi, format kolom, jadwal) dan menghasilkan file untuk dikirim.",
+    "state": "planned"
+  },
+  {
+    "id": "ADM-001",
+    "name": "Beranda PSS Admin & antrian kerja",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S15",
+    "dependencies": [
+      "DQ-002"
+    ],
+    "user": "Sales Admin (dan peran admin lain)",
+    "outcome": "Beranda menampilkan antrian milik role user, diurutkan SLA, dengan jumlah per antrian dan item berikutnya.",
+    "state": "planned"
+  },
+  {
+    "id": "ADM-002",
+    "name": "Entri pesanan cepat",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S15",
+    "dependencies": [
+      "ORD-001"
+    ],
+    "user": "Sales Admin",
+    "outcome": "Admin memilih toko, mengetik kode/nama barang dan qty dengan keyboard, melihat harga resmi & status kredit/stok langsung, lalu Kirim dalam hitungan detik.",
+    "state": "planned"
+  },
+  {
+    "id": "CSH-001",
+    "name": "Serah terima kas & verifikasi kasir (slip/QR)",
+    "phase": "F5",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S15",
+    "dependencies": [
+      "PAY-001",
+      "DOC-002"
+    ],
+    "user": "Kasir (PSS Keuangan); collector (Admin mewakili sebelum F7/F8)",
+    "outcome": "Penagih menyerahkan kas dengan slip ber-QR yang berisi daftar pembayaran. Kasir memindai, menghitung, dan menekan satu tombol. Semua pembayaran di slip terverifikasi sekaligus bila jumlahnya cocok.",
+    "state": "planned"
+  },
+  {
+    "id": "DWH-001",
+    "name": "DW V3: layer & load dari event/snapshot/raw landing",
+    "phase": "F6",
+    "priority": "P2",
+    "pod": "Data & Reporting",
+    "sprint": "S15",
+    "dependencies": [
+      "CST-001",
+      "INT-003"
+    ],
+    "user": "Data Analyst",
+    "outcome": "Data Analyst memiliki layer raw/stg/dim/fact/mart/audit yang dimuat inkremental dari event & snapshot PSS, dengan lineage dan SCD untuk dimensi utama.",
+    "state": "planned"
+  },
+  {
+    "id": "GL-007",
+    "name": "Buku Besar & inquiry jurnal (drill ke dokumen)",
+    "phase": "F4",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S15",
+    "dependencies": [
+      "GL-002"
+    ],
+    "user": "Finance",
+    "outcome": "Buku Besar per akun & periode dengan saldo awal, mutasi (baris jurnal), saldo akhir, filter dimensi, dan drill ke jurnal → dokumen sumber → record sumber (impor).",
+    "state": "planned"
+  },
+  {
+    "id": "INT-011",
+    "name": "Connector FoxPro (read-only)",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S15",
+    "dependencies": [
+      "INT-008"
+    ],
+    "user": "Integration Operator",
+    "outcome": "Data FoxPro per cabang (customer, produk, order/penjualan, invoice, payment/AR, stok) masuk terjadwal lewat ekspor file (mis. DBF/CSV) yang diunggah agen on-prem (INT-012) dan menjadi canonical.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-014",
+    "name": "Rekonsiliasi terhadap control total & nilai sumber",
+    "phase": "F2",
+    "priority": "P1",
+    "pod": "Integrasi",
+    "sprint": "S15",
+    "dependencies": [
+      "INT-008"
+    ],
+    "user": "Integration Operator / Finance",
+    "outcome": "Setiap batch dan setiap hari dibandingkan dengan control total sumber (jumlah baris, total nilai penjualan/invoice/payment per cabang/tanggal) dan dengan nilai canonical; selisih menjadi item.",
+    "state": "planned"
+  },
+  {
+    "id": "MIG-001",
+    "name": "Saldo awal GL & subledger pada tanggal go-live",
+    "phase": "F4",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S15",
+    "dependencies": [
+      "GL-004",
+      "AR-006"
+    ],
+    "user": "Controller",
+    "outcome": "Controller mengimpor Neraca Saldo awal per akun & dimensi dan saldo awal subledger per dokumen; sistem memvalidasi kecocokan total subledger vs akun control, lalu memposting satu jurnal OPENING yang disetujui.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-002",
+    "name": "Validasi pesanan (mapping, harga, policy, blokir SKU mandated)",
+    "phase": "F5",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S15",
+    "dependencies": [
+      "ORD-001",
+      "PRI-004"
+    ],
+    "user": "Sistem",
+    "outcome": "Order yang valid lanjut otomatis; order bermasalah langsung terlihat dengan alasan yang jelas.",
+    "state": "planned"
+  },
+  {
+    "id": "ADM-005",
+    "name": "Ruang kerja pembelian",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S16",
+    "dependencies": [
+      "PUR-001"
+    ],
+    "user": "Procurement Officer",
+    "outcome": "Satu ruang kerja: PO per status, ekspektasi penerimaan, invoice supplier untuk dicocokkan, dan selisih yang perlu tindakan.",
+    "state": "planned"
+  },
+  {
+    "id": "AP-001",
+    "name": "AP subledger",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S16",
+    "dependencies": [
+      "PUR-004"
+    ],
+    "user": "Finance (FINANCE_MAKER), Sistem",
+    "outcome": "Setiap invoice supplier yang diposting menjadi Payable dengan riwayat entri dan outstanding akurat per supplier.",
+    "state": "planned"
+  },
+  {
+    "id": "BNK-001",
+    "name": "Rekening bank & kas",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S16",
+    "dependencies": [
+      "FIN-001"
+    ],
+    "user": "Controller",
+    "outcome": "Controller mendaftarkan rekening bank, kas cabang, dan kas kecil beserta akun GL, cabang, template mutasi, dan cabang lain yang boleh memakai rekening itu untuk verifikasi pembayaran.",
+    "state": "planned"
+  },
+  {
+    "id": "CLS-003",
+    "name": "Checklist Tutup Buku (owner, status, bukti)",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S16",
+    "dependencies": [
+      "CLS-001"
+    ],
+    "user": "Controller",
+    "outcome": "Saat periode SOFT_CLOSE, sistem membuat checklist dari template berversi: task otomatis (PASSED/FAILED dari CLS-004) dan manual (akrual, penyusutan, pajak, review TB) dengan owner role, tenggat, dan bukti.",
+    "state": "planned"
+  },
+  {
+    "id": "COM-003",
+    "name": "Diskon baris & funded_by",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S16",
+    "dependencies": [
+      "COM-002"
+    ],
+    "user": "Sales Admin; Salesperson (dalam batas)",
+    "outcome": "Diskon diberikan per baris dalam batas role; di atas batas, sistem meminta persetujuan.",
+    "state": "planned"
+  },
+  {
+    "id": "COM-004",
+    "name": "Override harga/diskon lewat approval",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S16",
+    "dependencies": [
+      "COM-003",
+      "APR-001"
+    ],
+    "user": "Supervisor Sales, Branch Manager (penyetuju); Sales Admin/Salesperson (pengaju)",
+    "outcome": "Pengaju mengirim permintaan; penyetuju memutuskan dari kotak persetujuan; order lanjut otomatis.",
+    "state": "planned"
+  },
+  {
+    "id": "COM-005",
+    "name": "Penentuan revenue stream per baris (snapshot)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S16",
+    "dependencies": [
+      "MDM-003",
+      "PRD-001"
+    ],
+    "user": "Sistem",
+    "outcome": "Setiap baris order punya stream yang benar tanpa input manual.",
+    "state": "planned"
+  },
+  {
+    "id": "CRD-003",
+    "name": "Credit hold & override lewat approval",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S16",
+    "dependencies": [
+      "CRD-002",
+      "APR-001"
+    ],
+    "user": "Branch Manager, Finance Approver, CFO",
+    "outcome": "Penyetuju melihat konteks (limit, eksposur, overdue, riwayat bayar) dan menyetujui atau menolak dalam satu layar.",
+    "state": "planned"
+  },
+  {
+    "id": "CRD-004",
+    "name": "Pre-check kredit (untuk Admin/SFA)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S16",
+    "dependencies": [
+      "CRD-002"
+    ],
+    "user": "Sales Admin; Salesperson (via SFA-009)",
+    "outcome": "Saat menyusun pesanan, pengguna melihat apakah pesanan kemungkinan butuh persetujuan.",
+    "state": "planned"
+  },
+  {
+    "id": "DWH-002",
+    "name": "Mart Finance (TB, P&L, Neraca, Arus Kas, per dimensi)",
+    "phase": "F6",
+    "priority": "P2",
+    "pod": "Data & Reporting",
+    "sprint": "S16",
+    "dependencies": [
+      "DWH-001",
+      "GL-002"
+    ],
+    "user": "Data Analyst, Finance",
+    "outcome": "Mart saldo & mutasi per akun/periode/dimensi dan tampilan P&L/BS/CF mengikuti ReportLayout yang sama dengan FIN-006..008.",
+    "state": "planned"
+  },
+  {
+    "id": "DWH-003",
+    "name": "Dataset audit & rekonsiliasi",
+    "phase": "F6",
+    "priority": "P2",
+    "pod": "Data & Reporting",
+    "sprint": "S16",
+    "dependencies": [
+      "DWH-001"
+    ],
+    "user": "Internal Audit",
+    "outcome": "Layer audit berisi ekspor audit log, hasil rekonsiliasi (subledger↔GL, bank, integrasi), keputusan approval, cetak ulang dokumen, dan lineage record sumber, dapat di-query auditor.",
+    "state": "planned"
+  },
+  {
+    "id": "INV-006",
+    "name": "Penyesuaian stok (request → approval → posting)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S16",
+    "dependencies": [
+      "INV-001",
+      "APR-001"
+    ],
+    "user": "Admin Gudang (pengaju); Branch Manager / Finance Approver (penyetuju)",
+    "outcome": "Admin mengajukan penyesuaian dengan alasan dan foto; penyetuju memutuskan; stok dan GL terkoreksi.",
+    "state": "planned"
+  },
+  {
+    "id": "INV-007",
+    "name": "Stock opname (gudang non-WMS)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S16",
+    "dependencies": [
+      "INV-006"
+    ],
+    "user": "Admin Gudang; Finance (reviewer)",
+    "outcome": "Opname terjadwal dengan hitungan buta; selisih otomatis menjadi pengajuan penyesuaian.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-003",
+    "name": "Konfirmasi & reservasi (tanpa oversell)",
+    "phase": "F5",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S16",
+    "dependencies": [
+      "ORD-002",
+      "INV-002"
+    ],
+    "user": "Sistem (otomatis); Sales Admin (keputusan partial)",
+    "outcome": "Order yang memenuhi syarat terkonfirmasi otomatis. Order yang kurang stok atau terkena hold kredit menunggu keputusan dengan pilihan yang jelas.",
+    "state": "planned"
+  },
+  {
+    "id": "ADM-006",
+    "name": "Ruang kerja gudang non-WMS (siap kirim, terima barang, opname)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S17",
+    "dependencies": [
+      "FUL-003",
+      "PUR-003",
+      "INV-007"
+    ],
+    "user": "Admin Gudang",
+    "outcome": "Admin Gudang punya daftar kerja: pesanan untuk disiapkan (cetak picking list & surat jalan), tandai siap dengan qty & short, dispatch, terima barang PO/retur/transfer, dan opname.",
+    "state": "planned"
+  },
+  {
+    "id": "BIL-001",
+    "name": "Invoice draf & cetak \"Siap Kirim\"",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S17",
+    "dependencies": [
+      "FUL-002",
+      "TAX-002"
+    ],
+    "user": "Sistem; Sales Admin (cetak)",
+    "outcome": "Invoice dicetak bersama surat jalan dengan nomor tetap, tetapi baru menjadi tagihan saat pengiriman dikonfirmasi.",
+    "state": "planned"
+  },
+  {
+    "id": "BIL-002",
+    "name": "Penerbitan invoice sesuai recognition policy",
+    "phase": "F5",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S17",
+    "dependencies": [
+      "BIL-001",
+      "FUL-004"
+    ],
+    "user": "Sistem",
+    "outcome": "Invoice terbit otomatis tepat saat peristiwa pengakuan terjadi, dengan qty yang benar-benar terkirim.",
+    "state": "planned"
+  },
+  {
+    "id": "BNK-002",
+    "name": "Impor mutasi bank (template per bank)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S17",
+    "dependencies": [
+      "BNK-001",
+      "INT-009"
+    ],
+    "user": "Kasir, Finance",
+    "outcome": "Kasir/Finance mengunggah file mutasi (CSV/XLSX) untuk rekening tertentu; sistem memetakan kolom sesuai template bank, menolak duplikat, dan menampilkan baris yang masuk.",
+    "state": "planned"
+  },
+  {
+    "id": "BNK-006",
+    "name": "Transfer antar rekening",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S17",
+    "dependencies": [
+      "BNK-001",
+      "GL-006"
+    ],
+    "user": "Finance Maker",
+    "outcome": "Finance Maker mencatat transfer (dari → ke, nominal, tanggal, bukti); setelah disetujui, jurnal memindahkan saldo; kedua sisi dicocokkan dengan mutasi.",
+    "state": "planned"
+  },
+  {
+    "id": "DWH-004",
+    "name": "Pensiun loader DW2 lama (paralel run)",
+    "phase": "F6",
+    "priority": "P2",
+    "pod": "Data & Reporting",
+    "sprint": "S17",
+    "dependencies": [
+      "DWH-001"
+    ],
+    "user": "Data Analyst",
+    "outcome": "Setelah DW V3 menghasilkan angka yang cocok dengan DW2 untuk metrik yang disepakati selama periode paralel, loader DW2 dimatikan dan laporan dialihkan.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-010",
+    "name": "Rekonsiliasi subledger ↔ GL (AR, AP, persediaan, kas dalam perjalanan)",
+    "phase": "F6",
+    "priority": "P0",
+    "pod": "Finance",
+    "sprint": "S17",
+    "dependencies": [
+      "GL-002",
+      "AR-001",
+      "AP-001",
+      "INV-003"
+    ],
+    "user": "Controller",
+    "outcome": "Setiap hari dan saat close, sistem membandingkan saldo control account GL dengan saldo subledger per tanggal dan per dimensi, menampilkan selisih beserta penyebab kandidat (event tanpa jurnal, posting FAILED/DEFERRED, jurnal tanpa event), dan membuka item bila tidak nol.",
+    "state": "planned"
+  },
+  {
+    "id": "FUL-001",
+    "name": "Fulfillment request & aturan release",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S17",
+    "dependencies": [
+      "ORD-003"
+    ],
+    "user": "Sistem; Admin Gudang (lihat antrian)",
+    "outcome": "Setiap order terkonfirmasi otomatis menjadi perintah siapkan barang di antrian gudang yang benar.",
+    "state": "planned"
+  },
+  {
+    "id": "FUL-002",
+    "name": "Delivery Order & surat jalan",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S17",
+    "dependencies": [
+      "FUL-001",
+      "DOC-002"
+    ],
+    "user": "Admin Gudang",
+    "outcome": "Surat jalan tercetak dengan nomor PSS, daftar barang, dan kolom tanda tangan penerima; dapat dicetak ulang sebagai SALINAN.",
+    "state": "planned"
+  },
+  {
+    "id": "FUL-003",
+    "name": "Siap kirim & dispatch manual (gudang non-WMS)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S17",
+    "dependencies": [
+      "FUL-002",
+      "INV-004"
+    ],
+    "user": "Admin Gudang (PSS Admin, ADM-006)",
+    "outcome": "Admin Gudang menandai \"siap kirim\" (dengan qty kurang bila ada) dan \"berangkat\" per surat jalan.",
+    "state": "planned"
+  },
+  {
+    "id": "FUL-004",
+    "name": "Konfirmasi pengiriman oleh Admin (dari surat jalan bertanda tangan)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S17",
+    "dependencies": [
+      "FUL-003"
+    ],
+    "user": "Sales Admin (PSS Admin, ADM-007)",
+    "outcome": "Admin memindai QR surat jalan kembali, mengisi qty terkirim (default penuh), dan memotret surat jalan; sistem lalu menerbitkan invoice sesuai policy.",
+    "state": "planned"
+  },
+  {
+    "id": "RPT-004",
+    "name": "Akses BI untuk analis",
+    "phase": "F6",
+    "priority": "P2",
+    "pod": "Data & Reporting",
+    "sprint": "S17",
+    "dependencies": [
+      "DWH-001"
+    ],
+    "user": "Data Analyst",
+    "outcome": "Analis mengakses mart DW lewat BI tool (OD-181) dengan row-level security per scope dan kamus data dari registry metrik.",
+    "state": "planned"
+  },
+  {
+    "id": "ADM-007",
+    "name": "Konfirmasi pengiriman & surat jalan kembali",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S18",
+    "dependencies": [
+      "FUL-004"
+    ],
+    "user": "Sales Admin",
+    "outcome": "Sales Admin memindai/memilih surat jalan yang kembali, mengisi qty terkirim per baris (default penuh), mengunggah foto surat jalan bertanda tangan, dan menekan Konfirmasi Pengiriman.",
+    "state": "planned"
+  },
+  {
+    "id": "AR-002",
+    "name": "Scheduler aging",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S18",
+    "dependencies": [
+      "BIL-003"
+    ],
+    "user": "Sistem",
+    "outcome": "Setiap piutang otomatis menjadi \"Jatuh tempo hari ini\" atau \"Terlambat n hari\".",
+    "state": "planned"
+  },
+  {
+    "id": "AR-005",
+    "name": "Pembuatan & penugasan collection task",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S18",
+    "dependencies": [
+      "AR-002"
+    ],
+    "user": "Sistem; AR Officer (penugasan ulang)",
+    "outcome": "Setiap penagih punya daftar tugas per toko berisi invoice yang harus ditagih.",
+    "state": "planned"
+  },
+  {
+    "id": "AR-007",
+    "name": "Kartu piutang customer & laporan umur piutang",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S18",
+    "dependencies": [
+      "AR-002"
+    ],
+    "user": "AR Officer; Supervisor; Salesperson (ringkas)",
+    "outcome": "Kartu piutang per customer dan laporan umur piutang per cabang/principal/salesperson.",
+    "state": "planned"
+  },
+  {
+    "id": "BIL-003",
+    "name": "Due date & basis TOP",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S18",
+    "dependencies": [
+      "BIL-002",
+      "MDM-005"
+    ],
+    "user": "Sistem",
+    "outcome": "Setiap invoice punya jatuh tempo yang benar dan dapat dijelaskan.",
+    "state": "planned"
+  },
+  {
+    "id": "BIL-004",
+    "name": "Pengelompokan invoice (DO × principal)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S18",
+    "dependencies": [
+      "BIL-001"
+    ],
+    "user": "Sistem; Finance (konfigurasi)",
+    "outcome": "Invoice terbentuk otomatis sesuai aturan tanpa pemisahan manual.",
+    "state": "planned"
+  },
+  {
+    "id": "BNK-003",
+    "name": "Rekonsiliasi bank",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S18",
+    "dependencies": [
+      "BNK-002",
+      "GL-002"
+    ],
+    "user": "Finance (FINANCE_MAKER), Controller",
+    "outcome": "Per rekening per periode, Finance melihat saldo mutasi vs saldo GL, daftar baris mutasi yang belum cocok dan jurnal bank yang belum ada di mutasi, lalu mencocokkan, membuat jurnal dari template, atau menandai item rekonsiliasi (misal setoran dalam perjalanan), sampai selisih = 0 atau terjelaskan.",
+    "state": "planned"
+  },
+  {
+    "id": "BNK-004",
+    "name": "Kas kecil cabang",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S18",
+    "dependencies": [
+      "BNK-001",
+      "APR-001",
+      "MED-001"
+    ],
+    "user": "Kasir (pencatat), Branch Manager (approver)",
+    "outcome": "Kasir mencatat pengeluaran kas kecil dengan kategori, nominal, foto bukti; Branch Manager menyetujui; jurnal terbentuk otomatis; dana kas kecil diisi ulang lewat transfer.",
+    "state": "planned"
+  },
+  {
+    "id": "CLS-004",
+    "name": "Cek otomatis close (cutoff, kelengkapan, subledger ↔ GL)",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S18",
+    "dependencies": [
+      "CLS-003",
+      "FIN-010"
+    ],
+    "user": "Sistem",
+    "outcome": "Task AUTO di checklist diperiksa sistem dan menampilkan PASSED/FAILED beserta daftar penyebab yang dapat diklik.",
+    "state": "planned"
+  },
+  {
+    "id": "FUL-005",
+    "name": "Terima short / backorder",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S18",
+    "dependencies": [
+      "FUL-004"
+    ],
+    "user": "Sales Admin",
+    "outcome": "Sales Admin memilih terima kurang, siapkan ulang, atau backorder.",
+    "state": "planned"
+  },
+  {
+    "id": "PAY-002",
+    "name": "Verifikasi pembayaran (mutasi bank / hitung kas)",
+    "phase": "F5",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S18",
+    "dependencies": [
+      "PAY-001",
+      "BNK-002"
+    ],
+    "user": "Kasir, AR Officer (PSS Keuangan — FIN-005)",
+    "outcome": "Kasir/AR Officer memverifikasi setiap pembayaran terhadap bukti objektif: hasil hitung serah terima kas (tunai), baris mutasi bank (transfer), atau pencairan giro. Setelah VERIFIED, uang tercatat di Kas/Bank.",
+    "state": "planned"
+  },
+  {
+    "id": "BNK-005",
+    "name": "Biaya bank & jurnal dari mutasi (template)",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S19",
+    "dependencies": [
+      "BNK-003",
+      "GL-005"
+    ],
+    "user": "Finance Maker",
+    "outcome": "Dari baris mutasi UNMATCHED, Finance Maker memilih template (Biaya Bank, Bunga, Pajak Bunga, MDR); sistem membangun jurnal & mengajukan approval; setelah posting, baris MATCHED/RECONCILED.",
+    "state": "planned"
+  },
+  {
+    "id": "CLS-005",
+    "name": "Approval close & re-close",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S19",
+    "dependencies": [
+      "CLS-003",
+      "APR-001"
+    ],
+    "user": "CFO",
+    "outcome": "Controller mengajukan checklist yang lengkap; CFO meninjau ringkasan (TB, P&L ringkas, hasil rekonsiliasi, posting terlambat, waiver) lalu menyetujui; sistem menutup periode.",
+    "state": "planned"
+  },
+  {
+    "id": "COL-001",
+    "name": "Antrian tagihan AR Officer (tanpa aplikasi lapangan)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S19",
+    "dependencies": [
+      "AR-005"
+    ],
+    "user": "AR Officer (PSS Keuangan)",
+    "outcome": "AR Officer melihat daftar tugas tagih per customer, menugaskan ke penagih, mencatat hasil panggilan/kunjungan, dan melihat janji bayar.",
+    "state": "planned"
+  },
+  {
+    "id": "CSH-002",
+    "name": "Selisih kas & approval",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S19",
+    "dependencies": [
+      "CSH-001",
+      "APR-001"
+    ],
+    "user": "Kasir (pengaju), Branch Manager (approver)",
+    "outcome": "Kasir memilih penyebab selisih, Branch Manager menyetujui, dan sistem menyelesaikan payment serta jurnal sesuai pilihan.",
+    "state": "planned"
+  },
+  {
+    "id": "CSH-003",
+    "name": "Exception kas dalam perjalanan terlambat",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S19",
+    "dependencies": [
+      "CSH-001",
+      "DQ-001"
+    ],
+    "user": "Kasir, Branch Manager",
+    "outcome": "Kasir dan Branch Manager otomatis melihat penagih yang kasnya belum disetor melewati batas jam, lengkap dengan nominal dan umur.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-006",
+    "name": "Laba Rugi (dimensi, perbandingan periode)",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S19",
+    "dependencies": [
+      "GL-008",
+      "FIN-002"
+    ],
+    "user": "Controller, CFO",
+    "outcome": "Laporan Laba Rugi untuk periode/rentang dengan perbandingan (periode lalu, tahun lalu), filter dimensi, subtotal (penjualan neto, HPP, laba kotor, beban, laba usaha, dst. sesuai layout), dan drill-down.",
+    "state": "planned"
+  },
+  {
+    "id": "PAY-003",
+    "name": "Payment application (multi-invoice, parsial)",
+    "phase": "F5",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S19",
+    "dependencies": [
+      "PAY-002"
+    ],
+    "user": "AR Officer (PSS Keuangan — ruang kerja FIN-005)",
+    "outcome": "AR Officer mengalokasikan pembayaran yang sudah terverifikasi ke satu atau banyak invoice dalam satu layar, dengan usulan alokasi dari lapangan sebagai default, lalu sistem memperbarui piutang secara otomatis.",
+    "state": "planned"
+  },
+  {
+    "id": "CLS-006",
+    "name": "Penyesuaian audit",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S20",
+    "dependencies": [
+      "CLS-005",
+      "GL-006"
+    ],
+    "user": "Controller",
+    "outcome": "Controller mencatat jurnal penyesuaian audit (kategori \"Penyesuaian Audit\") dengan referensi temuan, ke periode yang di-reopen atau ke periode penyesuaian tahunan; laporan dapat ditampilkan \"sebelum audit\" dan \"setelah audit\".",
+    "state": "planned"
+  },
+  {
+    "id": "CST-007",
+    "name": "KPI kas & keuangan di Control Station",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Data & Reporting",
+    "sprint": "S20",
+    "dependencies": [
+      "FIN-006",
+      "CST-002"
+    ],
+    "user": "CFO, Management",
+    "outcome": "Panel: kas & bank (GL), kas di tangan penagih, dana belum dialokasikan, piutang vs AR_CONTROL, status close periode, laba kotor bulan berjalan.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-008",
+    "name": "Arus Kas (indirect)",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S20",
+    "dependencies": [
+      "FIN-006",
+      "FIN-007"
+    ],
+    "user": "Controller, CFO",
+    "outcome": "Laporan Arus Kas metode tidak langsung: laba bersih, penyesuaian non-kas, perubahan modal kerja (piutang, persediaan, utang), investasi, pendanaan; dengan rekonsiliasi ke perubahan saldo kas & bank.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-009",
+    "name": "Drill-down laporan → GL → jurnal → dokumen → record sumber",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S20",
+    "dependencies": [
+      "FIN-006",
+      "GL-007",
+      "CST-006"
+    ],
+    "user": "Finance, Audit",
+    "outcome": "Dari angka laporan, klik bertingkat: baris GL → jurnal (dengan rule & event) → dokumen operasional (invoice, payment, GR, dll.) → record sumber (batch & baris impor, bila external-origin) atau bukti media (jurnal manual).",
+    "state": "planned"
+  },
+  {
+    "id": "GL-010",
+    "name": "Jurnal & rekap PPN",
+    "phase": "F6",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S20",
+    "dependencies": [
+      "TAX-002",
+      "TAX-003",
+      "GL-002"
+    ],
+    "user": "Finance/Tax",
+    "outcome": "Rekap PPN per masa pajak: PPN Keluaran (invoice − nota kredit), PPN Masukan (invoice supplier, kas kecil), selisih vs saldo GL VAT_OUTPUT/VAT_INPUT, dan jurnal kompensasi/penyetoran lewat template.",
+    "state": "planned"
+  },
+  {
+    "id": "INV-005",
+    "name": "Transfer stok antar gudang/cabang",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "INV-001",
+      "DOC-002"
+    ],
+    "user": "Admin Gudang (asal & tujuan)",
+    "outcome": "Gudang asal mengirim dengan dokumen transfer; gudang tujuan menerima dan mencatat selisih.",
+    "state": "planned"
+  },
+  {
+    "id": "INV-008",
+    "name": "Rekonsiliasi snapshot eksternal ↔ ledger finansial",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "INV-009",
+      "INV-002"
+    ],
+    "user": "Admin Gudang; Finance",
+    "outcome": "Laporan harian selisih per SKU/gudang antara snapshot sumber dan ledger PSS.",
+    "state": "planned"
+  },
+  {
+    "id": "MIG-002",
+    "name": "Cutover per stream/cabang lewat policy effective-dated",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "PRI-004",
+      "INT-016"
+    ],
+    "user": "Controller, Ops (COMMERCIAL_ADMIN pengusul; CFO/COO penyetuju)",
+    "outcome": "Ops menyiapkan paket cutover (daftar baris policy + checklist prasyarat), mendapat persetujuan, dan pada tanggal D proses berpindah otomatis; Control Station menampilkan status cutover per stream/cabang.",
+    "state": "planned"
+  },
+  {
+    "id": "MIG-003",
+    "name": "Paralel run & rekonsiliasi legacy ↔ PSS",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "INT-014"
+    ],
+    "user": "Finance, Ops",
+    "outcome": "Selama periode paralel (default ≥ 2 minggu, ASUMSI), transaksi dicatat di kedua sistem; laporan harian membandingkan metrik (jumlah & nilai order, invoice, pembayaran, stok) per cabang/stream; selisih dijelaskan sampai dalam toleransi.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-004",
+    "name": "Stok kurang: konfirmasi sebagian, backorder, batal baris",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "ORD-003"
+    ],
+    "user": "Sales Admin",
+    "outcome": "Sales Admin memutuskan dari satu antrian dengan pilihan yang jelas.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-005",
+    "name": "Pembatalan pesanan",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "ORD-003"
+    ],
+    "user": "Sales Admin; Branch Manager",
+    "outcome": "Pesanan dibatalkan dengan alasan; stok dilepas dan gudang tidak menyiapkan barang.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-006",
+    "name": "Konflik amendemen eksternal",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "ORD-009",
+      "FUL-001"
+    ],
+    "user": "Sales Admin",
+    "outcome": "Perubahan yang aman diterapkan otomatis; yang tidak aman masuk antrian untuk diputuskan.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-007",
+    "name": "Review kemungkinan duplikat & PENDING_MATCH",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "INT-016"
+    ],
+    "user": "Sales Admin",
+    "outcome": "Sales Admin melihat pasangan kandidat dan memutuskan: berbeda atau duplikat.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-008",
+    "name": "Status pesanan lintas dimensi",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "CST-001"
+    ],
+    "user": "Sales Admin; Salesperson (lewat SFA-010)",
+    "outcome": "Satu status yang mudah dipahami beserta rincian per tahap bila dibuka.",
+    "state": "planned"
+  },
+  {
+    "id": "RET-001",
+    "name": "Permintaan retur penjualan & approval",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S20",
+    "dependencies": [
+      "BIL-002",
+      "APR-001"
+    ],
+    "user": "Sales Admin; (F7) Salesperson; (F8) Driver",
+    "outcome": "Retur diajukan dengan alasan, foto, dan referensi invoice; disetujui bila perlu.",
+    "state": "planned"
+  },
+  {
+    "id": "AP-002",
+    "name": "Jadwal jatuh tempo & usulan pembayaran supplier",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S21",
+    "dependencies": [
+      "AP-001"
+    ],
+    "user": "Finance (FINANCE_MAKER)",
+    "outcome": "Finance melihat payable yang jatuh tempo dalam rentang tanggal, memilih yang akan dibayar, dan membuat draf pembayaran.",
+    "state": "planned"
+  },
+  {
+    "id": "AP-003",
+    "name": "Pembayaran supplier (approval, posting)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S21",
+    "dependencies": [
+      "AP-002",
+      "APR-001"
+    ],
+    "user": "Finance Maker (pembuat), Finance Approver (penyetuju)",
+    "outcome": "Maker mengajukan, Approver menyetujui, Maker mencatat eksekusi setelah transfer di bank; utang berkurang dan jurnal terbentuk otomatis.",
+    "state": "planned"
+  },
+  {
+    "id": "FIN-005",
+    "name": "Ruang kerja Kasir & AR (verifikasi, apply)",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Finance",
+    "sprint": "S21",
+    "dependencies": [
+      "PAY-002",
+      "PAY-003"
+    ],
+    "user": "Kasir, AR Officer",
+    "outcome": "Ruang kerja bertab: Terima Kas (CSH-001), Menunggu Verifikasi (PAY-002), Belum Dialokasikan (PAY-003/004), Giro (PAY-005), Tagihan (COL-001), dengan jumlah dan SLA di setiap tab.",
+    "state": "planned"
+  },
+  {
+    "id": "GEO-001",
+    "name": "Lokasi & riwayat capture (PostGIS)",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S21",
+    "dependencies": [
+      "PLT-011"
+    ],
+    "user": "Sistem (konsumen: SFA, Fleet, master-data); verifikator: Master Data Steward / GIS Admin",
+    "outcome": "Setiap outlet punya Location dengan status (UNMAPPED/CAPTURED/VERIFIED/NEEDS_REVIEW/REJECTED) dan riwayat capture; steward memverifikasi kandidat.",
+    "state": "planned"
+  },
+  {
+    "id": "GEO-008",
+    "name": "Komponen peta (MapLibre) & sumber tile",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S21",
+    "dependencies": [
+      "UX-001"
+    ],
+    "user": "Semua layar dengan peta",
+    "outcome": "Satu komponen peta standar (marker, cluster, poligon, rute) dengan sumber tile dari konfigurasi.",
+    "state": "planned"
+  },
+  {
+    "id": "MIG-004",
+    "name": "Rollback lewat revert policy & runbook",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S21",
+    "dependencies": [
+      "MIG-002"
+    ],
+    "user": "Ops",
+    "outcome": "Ops mengeksekusi rollback: baris policy baru mengembalikan authority ke sistem lama mulai tanggal R; transaksi PSS yang sudah ada diselesaikan sesuai runbook; data tidak dihapus.",
+    "state": "planned"
+  },
+  {
+    "id": "PAY-004",
+    "name": "Unapplied, lebih bayar & saldo kredit customer",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S21",
+    "dependencies": [
+      "PAY-003"
+    ],
+    "user": "AR Officer (PSS Keuangan — FIN-005)",
+    "outcome": "AR Officer melihat semua dana belum teralokasi per customer dengan umurnya, memindahkannya ke kredit customer, lalu memakai kredit tersebut untuk invoice berikutnya.",
+    "state": "planned"
+  },
+  {
+    "id": "PAY-005",
+    "name": "Giro/cek: jatuh tempo, cair, tolak",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S21",
+    "dependencies": [
+      "PAY-002"
+    ],
+    "user": "AR Officer",
+    "outcome": "AR Officer melihat giro yang akan jatuh tempo, menandai cair saat mutasi masuk, atau menandai ditolak dengan satu aksi.",
+    "state": "planned"
+  },
+  {
+    "id": "PAY-006",
+    "name": "Pembalikan application",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S21",
+    "dependencies": [
+      "PAY-003",
+      "APR-001"
+    ],
+    "user": "AR Officer (pengaju), Finance Approver",
+    "outcome": "AR Officer membalik application yang salah lalu mengalokasikan ulang; bila periode application sudah SOFT_CLOSE/CLOSED, pembalikan lewat persetujuan.",
+    "state": "planned"
+  },
+  {
+    "id": "PAY-007",
+    "name": "Saran pencocokan pembayaran ↔ mutasi bank",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S21",
+    "dependencies": [
+      "BNK-002",
+      "PAY-001"
+    ],
+    "user": "Kasir, AR Officer",
+    "outcome": "Untuk setiap payment transfer/giro, sistem menampilkan kandidat baris mutasi berperingkat beserta alasannya; untuk mutasi tanpa pasangan, sistem menyarankan customer/invoice.",
+    "state": "planned"
+  },
+  {
+    "id": "PLT-013",
+    "name": "Inti offline klien (antrian persisten, idempotency klien, status sinkronisasi)",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S21",
+    "dependencies": [
+      "PLT-006"
+    ],
+    "user": "Sales, Driver (Petugas Gudang untuk outage singkat)",
+    "outcome": "Aplikasi lapangan memakai satu pustaka: snapshot, antrian mutasi, unggah media tertunda, status sinkron, dan penanganan sesi habis — sehingga pekerjaan tidak pernah hilang.",
+    "state": "planned"
+  },
+  {
+    "id": "RET-002",
+    "name": "Penerimaan barang retur & kondisi",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S21",
+    "dependencies": [
+      "RET-001",
+      "INV-001"
+    ],
+    "user": "Admin Gudang",
+    "outcome": "Gudang menerima barang retur dengan qty & kondisi; stok baik masuk gudang, rusak masuk karantina.",
+    "state": "planned"
+  },
+  {
+    "id": "RET-003",
+    "name": "Nota kredit",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S21",
+    "dependencies": [
+      "RET-002",
+      "TAX-002"
+    ],
+    "user": "AR Officer",
+    "outcome": "AR Officer menerbitkan nota kredit yang mengurangi piutang dan PPN secara benar.",
+    "state": "planned"
+  },
+  {
+    "id": "TAX-004",
+    "name": "Nomor faktur pajak & ekspor data faktur",
+    "phase": "F5",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S21",
+    "dependencies": [
+      "TAX-002"
+    ],
+    "user": "Finance/Tax",
+    "outcome": "Finance/Tax melihat daftar invoice yang perlu faktur pajak, mengelola nomor/referensinya, dan mengekspor data dalam format impor resmi.",
+    "state": "planned"
+  },
+  {
+    "id": "COL-002",
+    "name": "Eksekusi penagihan & bukti di lapangan → Payment menunggu verifikasi",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S22",
+    "dependencies": [
+      "PAY-001",
+      "AR-005"
+    ],
+    "user": "Salesperson (PSS Sales)",
+    "outcome": "Salesperson mencatat pembayaran di toko (bisa offline), sistem membuatnya menjadi Payment PENDING_VERIFICATION setelah sinkron.",
+    "state": "planned"
+  },
+  {
+    "id": "GEO-002",
+    "name": "Plus Code turunan",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S22",
+    "dependencies": [
+      "GEO-001"
+    ],
+    "user": "Sistem",
+    "outcome": "Setiap lokasi menampilkan Plus Code (dihitung server) yang dapat disalin/dibagikan.",
+    "state": "planned"
+  },
+  {
+    "id": "GEO-003",
+    "name": "Poligon administratif berversi & re-resolusi",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S22",
+    "dependencies": [
+      "GEO-001"
+    ],
+    "user": "GIS Admin (Konsol Sistem)",
+    "outcome": "GIS Admin memuat dataset poligon (dengan kode BPS/Kemendagri), mengaktifkannya, dan sistem me-resolve ulang kode wilayah semua lokasi.",
+    "state": "planned"
+  },
+  {
+    "id": "GEO-004",
+    "name": "Pencarian terdekat (nearby)",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S22",
+    "dependencies": [
+      "GEO-001"
+    ],
+    "user": "Sistem (konsumen SFA-005, Fleet)",
+    "outcome": "API mengembalikan subjek (outlet) terdekat dalam radius, terurut jarak, difilter daftar ID yang diizinkan pemanggil.",
+    "state": "planned"
+  },
+  {
+    "id": "GEO-005",
+    "name": "Geofence",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S22",
+    "dependencies": [
+      "GEO-001"
+    ],
+    "user": "Sistem (konsumen SFA-003, DLV-003)",
+    "outcome": "Geofence per outlet (lingkaran radius dari config atau poligon khusus) tersedia untuk perangkat (snapshot) dan server (validasi).",
+    "state": "planned"
+  },
+  {
+    "id": "GEO-006",
+    "name": "Geometri territory",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S22",
+    "dependencies": [
+      "GEO-003"
+    ],
+    "user": "GIS Admin",
+    "outcome": "GIS Admin menggambar atau mengimpor poligon territory; sistem menampilkan outlet di dalamnya untuk penugasan (SUP-002).",
+    "state": "planned"
+  },
+  {
+    "id": "GEO-007",
+    "name": "Metrik kelengkapan GIS",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S22",
+    "dependencies": [
+      "GEO-001"
+    ],
+    "user": "Management, Supervisor",
+    "outcome": "Metrik: % outlet aktif dengan lokasi VERIFIED/CAPTURED/UNMAPPED per cabang/territory/salesperson; tren; antrian tugas rekam lokasi.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-001",
+    "name": "Beranda Hari Ini",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S22",
+    "dependencies": [
+      "PLT-008",
+      "PLT-013"
+    ],
+    "user": "Salesperson (PSS Sales)",
+    "outcome": "Membuka aplikasi langsung melihat kunjungan berikutnya, tagihan yang harus ditagih, pesanan bermasalah, dan progres hari ini.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-007",
+    "name": "Daftar toko baru (prospek)",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S22",
+    "dependencies": [
+      "SFA-008"
+    ],
+    "user": "Salesperson",
+    "outcome": "Salesperson mendaftarkan toko baru (nama, pemilik, telepon, foto, lokasi) sebagai prospek; supervisor menyetujui menjadi customer.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-008",
+    "name": "Rekam lokasi toko",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S22",
+    "dependencies": [
+      "GEO-001",
+      "GEO-003"
+    ],
+    "user": "Salesperson",
+    "outcome": "Di toko, salesperson menekan Rekam Lokasi; titik & akurasi tersimpan sebagai capture yang menunggu verifikasi.",
+    "state": "planned"
+  },
+  {
+    "id": "CUS-007",
+    "name": "Konversi prospek (approval supervisor)",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Data & Reporting",
+    "sprint": "S23",
+    "dependencies": [
+      "SFA-007",
+      "APR-001"
+    ],
+    "user": "Supervisor Sales (PSS Supervisor)",
+    "outcome": "Supervisor menyetujui prospek dalam satu klik; customer dan outlet otomatis terbentuk.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-002",
+    "name": "Rencana kunjungan",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S23",
+    "dependencies": [
+      "SUP-002"
+    ],
+    "user": "Salesperson",
+    "outcome": "Salesperson melihat daftar toko hari ini berurutan, dapat mengubah urutan, dan menambah kunjungan tak terencana.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-003",
+    "name": "Mulai/akhiri kunjungan (GPS, peringatan geofence)",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S23",
+    "dependencies": [
+      "GEO-005",
+      "SFA-002"
+    ],
+    "user": "Salesperson",
+    "outcome": "Salesperson menekan Mulai Kunjungan; waktu dan GPS tercatat; bila jauh dari toko, muncul peringatan, bukan blokir.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-004",
+    "name": "Lewati kunjungan dengan alasan",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S23",
+    "dependencies": [
+      "SFA-002"
+    ],
+    "user": "Salesperson",
+    "outcome": "Salesperson memilih alasan dari daftar dan (opsional) foto.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-005",
+    "name": "Toko terdekat",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S23",
+    "dependencies": [
+      "GEO-004"
+    ],
+    "user": "Salesperson",
+    "outcome": "Daftar toko terdekat dalam territory, dengan jarak, status tagihan, dan aksi Kunjungi.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-006",
+    "name": "Detail toko",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S23",
+    "dependencies": [
+      "CUS-002",
+      "AR-007"
+    ],
+    "user": "Salesperson",
+    "outcome": "Satu layar ringkasan toko dengan aksi Buat Pesanan, Tagih, Foto Toko.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-009",
+    "name": "Input pesanan (katalog terfilter policy, harga cache, indikator kredit)",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S23",
+    "dependencies": [
+      "ORD-001",
+      "COM-002",
+      "CRD-004",
+      "PRI-004"
+    ],
+    "user": "Salesperson",
+    "outcome": "Salesperson memilih produk dari katalog yang sudah terfilter policy, melihat harga dan indikator kredit, lalu mengirim; bila offline, order tersimpan dan terkirim otomatis.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-010",
+    "name": "Status pesanan",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S23",
+    "dependencies": [
+      "ORD-008"
+    ],
+    "user": "Salesperson",
+    "outcome": "Daftar pesanan milik salesperson dengan satu status yang mudah dipahami dan alasan singkat bila bermasalah.",
+    "state": "planned"
+  },
+  {
+    "id": "SUP-002",
+    "name": "Rencana rute tim",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S23",
+    "dependencies": [
+      "GEO-006"
+    ],
+    "user": "Supervisor Sales",
+    "outcome": "Supervisor menyusun pola kunjungan mingguan per salesperson (toko × hari), sistem menghasilkan VisitPlan harian.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-011",
+    "name": "Tagihan toko",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S24",
+    "dependencies": [
+      "AR-005"
+    ],
+    "user": "Salesperson",
+    "outcome": "Daftar tugas tagih per toko dengan invoice, jatuh tempo, sisa, dan aksi Terima Pembayaran atau Catat Tidak Tertagih.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-012",
+    "name": "Terima pembayaran & bukti",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S24",
+    "dependencies": [
+      "COL-002",
+      "MED-001"
+    ],
+    "user": "Salesperson",
+    "outcome": "Salesperson memilih metode, nominal, invoice yang dibayar, dan foto bukti; toko menerima bukti terima digital/cetak.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-013",
+    "name": "Kas di tangan & serah terima",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S24",
+    "dependencies": [
+      "CSH-001"
+    ],
+    "user": "Salesperson",
+    "outcome": "Salesperson melihat total tunai di tangan per toko, membuat deklarasi serah terima, dan menunjukkan QR ke kasir.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-014",
+    "name": "Foto toko",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S24",
+    "dependencies": [
+      "MED-001"
+    ],
+    "user": "Salesperson",
+    "outcome": "Salesperson mengambil foto toko/display dengan kategori dan tersimpan di kunjungan.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-015",
+    "name": "Sinkronisasi offline & status \"Tersimpan / Menunggu Sinkronisasi / Perlu Diperiksa\"",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S24",
+    "dependencies": [
+      "PLT-013"
+    ],
+    "user": "Salesperson",
+    "outcome": "Semua pekerjaan tersimpan di perangkat dan terkirim otomatis; hanya tiga status yang terlihat; item bermasalah menjelaskan apa yang perlu dilakukan.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-016",
+    "name": "Panduan order principal mandated (koeksistensi ND6)",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S24",
+    "dependencies": [
+      "PRI-004"
+    ],
+    "user": "Salesperson",
+    "outcome": "Saat toko butuh produk principal mandated, salesperson melihat panduan jelas \"Pesan lewat ND6\" beserta langkahnya, bukan katalog PSS.",
+    "state": "planned"
+  },
+  {
+    "id": "SUP-001",
+    "name": "Beranda Supervisor Sales (tim hari ini)",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S24",
+    "dependencies": [
+      "PLT-008"
+    ],
+    "user": "Supervisor Sales (PSS Supervisor)",
+    "outcome": "Satu layar per salesperson: kunjungan (selesai/rencana), pesanan, tagihan tertagih, kas di tangan, dan item yang perlu tindakan.",
+    "state": "planned"
+  },
+  {
+    "id": "SUP-003",
+    "name": "Pantau kunjungan & tagihan tim",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S24",
+    "dependencies": [
+      "SFA-003",
+      "SFA-012"
+    ],
+    "user": "Supervisor Sales",
+    "outcome": "Timeline harian per salesperson dan daftar tagihan tim dengan hasil.",
+    "state": "planned"
+  },
+  {
+    "id": "SUP-004",
+    "name": "Approve prospek & override diskon",
+    "phase": "F7",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S24",
+    "dependencies": [
+      "CUS-007",
+      "COM-004"
+    ],
+    "user": "Supervisor Sales",
+    "outcome": "Supervisor melihat prospek (foto, lokasi, data) dan permintaan diskon (toko, barang, diskon diminta vs batas) lalu menyetujui/menolak.",
+    "state": "planned"
+  },
+  {
+    "id": "DLV-001",
+    "name": "Rute hari ini",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "FLT-005",
+      "PLT-013"
+    ],
+    "user": "Driver (PSS Antar)",
+    "outcome": "Setelah dispatch, driver melihat daftar stop berurutan dengan koli dan COD, tersimpan di perangkat.",
+    "state": "planned"
+  },
+  {
+    "id": "DLV-002",
+    "name": "Stop berikutnya & navigasi",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "DLV-001"
+    ],
+    "user": "Driver",
+    "outcome": "Layar stop berikutnya: nama toko, alamat, patokan, telepon, koli, COD, tombol Navigasi yang membuka aplikasi peta perangkat.",
+    "state": "planned"
+  },
+  {
+    "id": "DLV-003",
+    "name": "Sudah Sampai",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "DLV-002"
+    ],
+    "user": "Driver",
+    "outcome": "Satu tap Sudah Sampai mencatat waktu & posisi; layar beralih ke pilihan hasil.",
+    "state": "planned"
+  },
+  {
+    "id": "DLV-004",
+    "name": "Terkirim penuh / sebagian",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "DLV-003"
+    ],
+    "user": "Driver",
+    "outcome": "Driver menekan Terkirim (penuh) atau Sebagian lalu mengurangi qty per barang dengan alasan; data langsung menjadi dasar invoice.",
+    "state": "planned"
+  },
+  {
+    "id": "DLV-005",
+    "name": "Gagal kirim & alasan",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "DLV-003"
+    ],
+    "user": "Driver",
+    "outcome": "Driver memilih alasan (toko tutup, menolak, alamat tidak ditemukan, tidak ada uang COD, lainnya) + foto; stop selesai sebagai gagal.",
+    "state": "planned"
+  },
+  {
+    "id": "DLV-006",
+    "name": "Bukti pengiriman (penerima, tanda tangan / foto invoice)",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "DLV-004",
+      "MED-001"
+    ],
+    "user": "Driver",
+    "outcome": "Driver mengisi nama penerima dan mengambil foto surat jalan/invoice bertanda tangan (atau tanda tangan digital bila diaktifkan).",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-001",
+    "name": "Master kendaraan",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "MDM-001"
+    ],
+    "user": "Fleet Admin (PSS Admin)",
+    "outcome": "Fleet Admin mengelola kendaraan: nomor polisi, tipe, kapasitas (kg, m³, karton), cabang, status (Aktif/Servis/Nonaktif), label QR kendaraan.",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-002",
+    "name": "Antrian delivery job",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "FUL-001"
+    ],
+    "user": "Dispatcher",
+    "outcome": "Antrian job dari DO yang dirilis, dengan lokasi toko, koli/berat (dari PRD-003 dimensi), COD, tanggal kirim diminta, dan status kesiapan gudang.",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-003",
+    "name": "Susun shipment & rute (estimasi OSRM)",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "FLT-002",
+      "FLT-001"
+    ],
+    "user": "Dispatcher",
+    "outcome": "Dispatcher memilih job ke shipment, memilih kendaraan & driver, mengatur urutan stop; sistem menampilkan estimasi jarak & durasi dari OSRM dan kapasitas (FLT-004).",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-005",
+    "name": "Dispatch & manifest",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "FLT-003",
+      "DOC-002"
+    ],
+    "user": "Dispatcher",
+    "outcome": "Dispatcher menekan Berangkatkan setelah semua DO dimuat; manifest tercetak; rute tersimpan di perangkat driver.",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-007",
+    "name": "Jadwal ulang / kembali ke gudang",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S25",
+    "dependencies": [
+      "DLV-005",
+      "INV-004"
+    ],
+    "user": "Dispatcher",
+    "outcome": "Untuk DO gagal/sebagian, Dispatcher memilih Jadwal Ulang (tetap di kendaraan/dimuat ulang besok) atau Kembalikan ke Gudang; saat shipment selesai, barang tidak terkirim diterima kembali.",
+    "state": "planned"
+  },
+  {
+    "id": "ADM-009",
+    "name": "Ruang kerja Dispatcher",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S26",
+    "dependencies": [
+      "FLT-002",
+      "FLT-007"
+    ],
+    "user": "Dispatcher",
+    "outcome": "Papan dengan kolom: Job menunggu → Rencana shipment (peta & kapasitas) → Siap dispatch → Sedang jalan (exception).",
+    "state": "planned"
+  },
+  {
+    "id": "DLV-007",
+    "name": "Terima COD",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "DLV-004",
+      "PAY-001"
+    ],
+    "user": "Driver",
+    "outcome": "Setelah terkirim, driver melihat nominal COD (disesuaikan qty terkirim), menerima tunai/transfer, dan mencatatnya.",
+    "state": "planned"
+  },
+  {
+    "id": "DLV-008",
+    "name": "Serah terima kas driver",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "DLV-007",
+      "CSH-001"
+    ],
+    "user": "Driver",
+    "outcome": "Di akhir rute, driver membuat deklarasi kas dan menunjukkan QR ke kasir.",
+    "state": "planned"
+  },
+  {
+    "id": "DLV-009",
+    "name": "Offline driver",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "PLT-013"
+    ],
+    "user": "Driver",
+    "outcome": "Semua aksi stop tersimpan dan terkirim otomatis; driver melihat berapa item belum terkirim.",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-004",
+    "name": "Kapasitas kendaraan",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "FLT-003",
+      "PRD-003"
+    ],
+    "user": "Dispatcher",
+    "outcome": "Saat menyusun shipment, sistem menampilkan persentase muatan (berat, volume, karton) dan memperingatkan bila melebihi kapasitas.",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-006",
+    "name": "Exception pengiriman live",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "DLV-005",
+      "DQ-001"
+    ],
+    "user": "Dispatcher",
+    "outcome": "Dispatcher melihat exception rute berjalan: gagal kirim, stop terlambat vs estimasi, driver tidak sinkron lama, POD belum ada; dengan aksi (hubungi driver, jadwal ulang, kembalikan).",
+    "state": "planned"
+  },
+  {
+    "id": "SUP-005",
+    "name": "Supervisor pengiriman",
+    "phase": "F8",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "FLT-006"
+    ],
+    "user": "Supervisor Pengiriman",
+    "outcome": "Papan rute hari ini: per shipment progres stop, gagal kirim, POD belum ada, kas driver belum disetor.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-001",
+    "name": "Layout lokasi (zona → bin)",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "MDM-002"
+    ],
+    "user": "Admin Gudang (PSS Admin / konsol gudang)",
+    "outcome": "Admin Gudang mendefinisikan zona → lorong → rak → bin, tipe (PICK, BULK, STAGING, RECEIVING, QUARANTINE, DOCK), kapasitas opsional, dan mencetak label lokasi.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-002",
+    "name": "Opening count per lokasi & aktivasi wms_enabled",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "WMS-001",
+      "INV-002"
+    ],
+    "user": "Admin Gudang",
+    "outcome": "Gudang dihitung per lokasi; total per SKU dibandingkan dengan saldo finansial; setelah cocok (atau selisih disetujui), WMS diaktifkan.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-005",
+    "name": "Alokasi lokasi/lot (FEFO)",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "FUL-001",
+      "WMS-002"
+    ],
+    "user": "Sistem",
+    "outcome": "Saat fulfillment dirilis, sistem menentukan lokasi & lot per baris (FEFO) dan membuat tugas pick.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-006",
+    "name": "Pick",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S26",
+    "dependencies": [
+      "WMS-005"
+    ],
+    "user": "Petugas Gudang (PSS Gudang)",
+    "outcome": "Petugas mengikuti tugas berikutnya: lokasi → scan lokasi → barang & qty → scan barang → konfirmasi → otomatis ke tugas berikutnya.",
+    "state": "planned"
+  },
+  {
+    "id": "SUP-006",
+    "name": "Supervisor gudang",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "WMS-015"
+    ],
+    "user": "Supervisor Gudang",
+    "outcome": "Supervisor melihat antrian tugas per tipe, petugas aktif, tugas macet, dan hasil cycle count yang perlu review; dapat menugaskan ulang.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-003",
+    "name": "Receiving",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "PUR-002",
+      "WMS-012"
+    ],
+    "user": "Petugas Gudang (PSS Gudang)",
+    "outcome": "Petugas memindai ekspektasi penerimaan, memindai barang, mengisi qty/lot/expiry/kondisi; hasil menjadi GoodsReceipt POSTED.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-004",
+    "name": "Putaway",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "WMS-003"
+    ],
+    "user": "Petugas Gudang",
+    "outcome": "Petugas mendapat tugas putaway dengan lokasi saran, scan unit/barang, scan lokasi tujuan, konfirmasi.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-007",
+    "name": "Pack",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "WMS-006"
+    ],
+    "user": "Petugas Gudang",
+    "outcome": "Petugas memindai barang hasil pick ke unit kemasan (karton/koli) berlabel; jumlah koli per DO tercatat.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-008",
+    "name": "Stage",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "WMS-007"
+    ],
+    "user": "Petugas Gudang",
+    "outcome": "Petugas memindai koli ke lajur staging per shipment/rute; FR menjadi READY.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-009",
+    "name": "Load",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "WMS-008",
+      "FLT-003"
+    ],
+    "user": "Petugas Gudang",
+    "outcome": "Petugas memindai kendaraan lalu setiap koli; sistem menyatakan shipment siap dispatch saat semua koli dimuat.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-010",
+    "name": "Cycle count buta",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "WMS-002"
+    ],
+    "user": "Petugas Gudang",
+    "outcome": "Petugas menerima tugas hitung lokasi tertentu tanpa melihat qty sistem, memindai dan memasukkan jumlah; supervisor meninjau selisih.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-011",
+    "name": "Laporkan selisih / barang rusak",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "INV-006"
+    ],
+    "user": "Petugas Gudang",
+    "outcome": "Dari tugas apa pun, petugas menekan Laporkan Masalah, memilih jenis (rusak, hilang, lebih, salah lokasi), qty, foto.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-012",
+    "name": "Unit gudang & label QR",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "DOC-002"
+    ],
+    "user": "Petugas Gudang",
+    "outcome": "Unit (palet, karton, koli) dan lokasi punya label QR standar yang dapat dicetak ulang.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-013",
+    "name": "Rekonsiliasi fisik ↔ finansial (REQ-130)",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "WMS-002",
+      "INV-002"
+    ],
+    "user": "Admin Gudang, Finance",
+    "outcome": "Laporan harian per gudang/SKU/lot/kondisi: Σ fisik WMS vs saldo inventory, dengan selisih dan penyebab kandidat (tugas terbuka, movement tertunda).",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-015",
+    "name": "Dashboard gudang",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S27",
+    "dependencies": [
+      "WMS-006",
+      "WMS-010"
+    ],
+    "user": "Admin/Supervisor Gudang",
+    "outcome": "Dashboard: tugas per tipe & status, petugas aktif, tugas macet, FR menunggu, short hari ini, cycle count menunggu review, selisih.",
+    "state": "planned"
+  },
+  {
+    "id": "WMS-014",
+    "name": "Antrian outage singkat & fallback kertas",
+    "phase": "F9",
+    "priority": "P2",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S28",
+    "dependencies": [
+      "PLT-013"
+    ],
+    "user": "Petugas Gudang",
+    "outcome": "Saat koneksi putus, petugas tetap mengonfirmasi tugas yang sudah dimuat; konfirmasi dikirim saat tersambung. Bila outage > batas, petugas beralih ke daftar cetak.",
+    "state": "planned"
+  },
+  {
+    "id": "BNK-007",
+    "name": "Integrasi API bank",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Finance",
+    "sprint": "S30",
+    "dependencies": [
+      "BNK-002"
+    ],
+    "user": "Finance",
+    "outcome": "Mutasi rekening terpilih masuk otomatis berkala lewat API bank, dengan jalur dan validasi yang sama dengan BNK-002.",
+    "state": "planned"
+  },
+  {
+    "id": "COM-006",
+    "name": "Mesin promo",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S30",
+    "dependencies": [
+      "COM-003"
+    ],
+    "user": "Admin Komersial",
+    "outcome": "Promo dikonfigurasi sekali dan diterapkan otomatis di order.",
+    "state": "planned"
+  },
+  {
+    "id": "COM-007",
+    "name": "Klaim & rebate principal",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S30",
+    "dependencies": [
+      "COM-006"
+    ],
+    "user": "Admin Komersial; Finance",
+    "outcome": "Sistem mengumpulkan diskon/promo funded_by = PRINCIPAL menjadi klaim per principal per periode.",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-008",
+    "name": "Optimasi rute VROOM",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S30",
+    "dependencies": [
+      "FLT-003"
+    ],
+    "user": "Dispatcher",
+    "outcome": "Dispatcher meminta usulan pembagian job ke kendaraan dan urutan stop; sistem memberi usulan dari VROOM yang dapat diubah sebelum disimpan.",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-009",
+    "name": "GPS kendaraan selama rute aktif",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S30",
+    "dependencies": [
+      "DLV-001"
+    ],
+    "user": "Dispatcher",
+    "outcome": "Selama shipment DISPATCHED, aplikasi driver mengirim posisi berkala; dispatcher melihat posisi & ETA di peta; pelacakan berhenti otomatis saat rute selesai.",
+    "state": "planned"
+  },
+  {
+    "id": "FLT-010",
+    "name": "BBM & ekonomi rute",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S30",
+    "dependencies": [
+      "FLT-009",
+      "BNK-004"
+    ],
+    "user": "Fleet Admin",
+    "outcome": "Biaya BBM/tol/parkir per shipment (dari kas kecil atau kartu BBM) tertaut ke shipment; laporan biaya per km/drop/karton.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-017",
+    "name": "Ekspor outbound ke DMS principal",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Integrasi",
+    "sprint": "S30",
+    "dependencies": [
+      "INT-001"
+    ],
+    "user": "Integration Operator",
+    "outcome": "Data canonical yang dikontrakkan dikirim ke DMS dalam format yang ditentukan, terjadwal, dengan status kirim.",
+    "state": "planned"
+  },
+  {
+    "id": "NTF-002",
+    "name": "Notifikasi push / WhatsApp",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Platform",
+    "sprint": "S30",
+    "dependencies": [
+      "NTF-001"
+    ],
+    "user": "Semua",
+    "outcome": "Kejadian penting (approval mendesak, kas terlambat, gagal kirim) dikirim sebagai web push / WhatsApp Business ke pengguna yang mengaktifkan.",
+    "state": "planned"
+  },
+  {
+    "id": "ORD-010",
+    "name": "Intake order WhatsApp Business (dengan konfirmasi manusia)",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S30",
+    "dependencies": [
+      "ORD-001"
+    ],
+    "user": "Sales Admin",
+    "outcome": "Pesan WhatsApp masuk sebagai draf pesanan yang tinggal diperiksa dan dikonfirmasi.",
+    "state": "planned"
+  },
+  {
+    "id": "RPT-003",
+    "name": "Record atribusi pelaporan (nonaktif sampai disetujui)",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Data & Reporting",
+    "sprint": "S30",
+    "dependencies": [
+      "RPT-002"
+    ],
+    "user": "Komersial",
+    "outcome": "Record atribusi terpisah (periode, dari → ke, porsi, alasan) yang diterapkan di laporan tertentu, hanya aktif setelah disetujui.",
+    "state": "planned"
+  },
+  {
+    "id": "SFA-017",
+    "name": "Penjualan Kanvas",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Lapangan (Geo/Sales/Antar/Gudang)",
+    "sprint": "S30",
+    "dependencies": [
+      "SFA-009",
+      "INV-005",
+      "BIL-002",
+      "CSH-001"
+    ],
+    "user": "Salesperson kanvas",
+    "outcome": "Salesperson kanvas memuat stok ke kendaraan, menjual di toko dengan invoice langsung, menerima pembayaran, lalu membongkar sisa dan menyetor kas.",
+    "state": "planned"
+  },
+  {
+    "id": "INT-018",
+    "name": "Connector DMS-X baru",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Integrasi",
+    "sprint": "S31",
+    "dependencies": [
+      "INT-001"
+    ],
+    "user": "Integration Operator",
+    "outcome": "Connector DMS-X dibangun di atas kontrak INT-001 dan policy baru dikonfigurasi; domain tidak berubah.",
+    "state": "planned"
+  },
+  {
+    "id": "PAY-009",
+    "name": "QRIS / Virtual Account",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S31",
+    "dependencies": [
+      "PAY-007"
+    ],
+    "user": "AR Officer",
+    "outcome": "Invoice dapat membawa kode QRIS/VA; notifikasi pembayaran dari penyedia langsung menjadi Payment dengan customer & invoice yang tepat.",
+    "state": "planned"
+  },
+  {
+    "id": "RET-004",
+    "name": "Retur ke principal",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S31",
+    "dependencies": [
+      "RET-002",
+      "PUR-004"
+    ],
+    "user": "Staf Pembelian",
+    "outcome": "Retur ke principal tercatat dan mengurangi utang setelah disetujui principal.",
+    "state": "planned"
+  },
+  {
+    "id": "TAX-005",
+    "name": "Integrasi langsung sistem faktur pajak DJP",
+    "phase": "F10",
+    "priority": "P3",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S32",
+    "dependencies": [
+      "TAX-004"
+    ],
+    "user": "Finance/Tax",
+    "outcome": "Faktur pajak dibuat dan nomornya kembali otomatis.",
+    "state": "planned"
+  }
+]

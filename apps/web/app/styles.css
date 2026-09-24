@@ -8,6 +8,8 @@ body { margin: 0; background: var(--pss-cream-50); color: var(--gray-950); font-
 .eyebrow, .section-label { color: var(--pss-red-600); font-size: 12px; font-weight: 800; letter-spacing: .17em; }
 h1 { color: var(--pss-navy-950); font-size: clamp(42px, 6vw, 76px); line-height: 1.08; letter-spacing: -.055em; margin: 20px 0 26px; }
 .lead { color: var(--gray-600); font-size: 19px; line-height: 1.65; max-width: 710px; }
+.home-primary-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 26px; min-height: 50px; margin-top: 22px; padding: 12px 18px; border-radius: var(--radius-default); background: var(--pss-navy-900); color: var(--pss-white); text-decoration: none; font-size: 14px; font-weight: 750; }
+.home-primary-link:hover, .home-primary-link:focus-visible { background: var(--pss-navy-950); }
 .status-panel { display: flex; justify-content: space-between; align-items: flex-start; gap: 35px; padding: 34px 38px; border: 1px solid var(--gray-200); background: var(--pss-white); border-radius: var(--radius-panel); box-shadow: var(--shadow-md); }
 .status-panel h2 { color: var(--pss-navy-950); margin: 10px 0; font-size: 24px; }
 .status-panel p:not(.section-label) { color: var(--gray-600); line-height: 1.6; max-width: 610px; margin-bottom: 0; }

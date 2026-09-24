@@ -22,6 +22,8 @@ pnpm dev:up
 
 `pnpm dev:up` starts local services and all five apps. It also locates Docker Desktop installed at `~/Applications/Docker.app` on this Mac. Open <http://localhost:3000>. Stop the app processes with Ctrl+C; local service containers remain running. If the Docker CLI is not on your PATH, stop containers with `~/Applications/Docker.app/Contents/Resources/bin/docker compose down` from this directory. No production credentials are included.
 
+In local development, open <http://localhost:3000/fitur> to browse all **280 PRD features** with their phase, sprint, and current implementation status. The home page links there as well. The directory is read-only and only appears in development; it does not create transaction screens for features that have not been built.
+
 If Docker is unavailable and you only need the skeleton health endpoints, run `pnpm dev` after install. The services do not yet depend on their databases.
 
 | Deployable | Port | Health |
@@ -43,6 +45,7 @@ pnpm architecture:check
 pnpm contracts:check
 pnpm db:check
 pnpm ui:check
+pnpm features:check
 pnpm test
 pnpm test:integration
 pnpm test:e2e

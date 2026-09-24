@@ -28,6 +28,8 @@ jobs:
         run: pnpm db:check
       - name: UI token and copy check
         run: pnpm ui:check
+      - name: Feature directory source check
+        run: pnpm features:check
       - name: Secret pattern check
         run: pnpm secrets:check
       - name: Unit tests

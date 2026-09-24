@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "node ../../scripts/generate-feature-catalog.mjs --check && next build",
     "start": "next start -p 3000",
     "lint": "eslint app",
     "typecheck": "tsc --noEmit"

@@ -1,0 +1,27 @@
+{
+  "PLT-001": {
+    "state": "available",
+    "availablePath": "/",
+    "note": "Halaman fondasi dan endpoint kesehatan dapat dilihat. Belum ada transaksi ERP."
+  },
+  "PLT-002": {
+    "state": "partial",
+    "note": "Pemeriksaan batas modul, kontrak, migrasi, dan UI awal tersedia; cakupan perilaku bisnis belum lengkap."
+  },
+  "PLT-003": {
+    "state": "partial",
+    "note": "Katalog event dan registry tersedia; payload dan endpoint bisnis belum lengkap."
+  },
+  "PLT-007": {
+    "state": "partial",
+    "note": "Format error API seragam di empat backend; alur bisnis dan pemetaan copy lengkap belum tersedia."
+  },
+  "PLT-011": {
+    "state": "partial",
+    "note": "Layanan lokal berjalan; staging dan produksi berbasis IaC belum tersedia."
+  },
+  "UX-001": {
+    "state": "partial",
+    "note": "Token desain tersedia; komponen dan templat halaman kerja belum lengkap."
+  }
+}
