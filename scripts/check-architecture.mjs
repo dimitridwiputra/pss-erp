@@ -4,7 +4,7 @@ import ts from 'typescript';
 
 const root = new URL('../', import.meta.url).pathname;
 const sourceExtensions = /\.[cm]?[jt]sx?$/;
-const ignoredDirectories = new Set(['node_modules', 'dist', '.next', '.turbo']);
+const ignoredDirectories = new Set(['node_modules', 'dist', '.next', '.turbo', 'storybook-static']);
 
 export async function sourceFiles(directory, extensions = sourceExtensions) {
   const result = [];

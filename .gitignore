@@ -4,10 +4,10 @@ dist/
 .turbo/
 coverage/
 playwright-report/
+storybook-static/
 test-results/
 .env
 .env.*
 !.env.example
 *.tsbuildinfo
 .DS_Store
-

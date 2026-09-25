@@ -8,6 +8,8 @@
     "preinstall": "node scripts/check-toolchain.mjs",
     "dev": "turbo run dev",
     "dev:up": "bash scripts/dev-up.sh",
+    "storybook": "pnpm --filter @pss/web storybook",
+    "test:a11y": "pnpm --filter @pss/web test:a11y",
     "build": "turbo run build",
     "lint": "turbo run lint && eslint scripts tests eslint.config.mjs && node scripts/check-workspace.mjs && node scripts/check-code-quality.mjs",
     "typecheck": "turbo run typecheck",

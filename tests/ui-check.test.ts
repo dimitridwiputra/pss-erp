@@ -12,5 +12,7 @@ describe('UX-001 UI lint', () => {
     expect(checkUiSource({ path: 'apps/web/app/page.tsx', source: 'export const view = <button>Submit</button>;' }))
       .toEqual([expect.stringContaining('not actionable Indonesian copy')]);
     expect(checkUiSource({ path: 'apps/web/app/page.tsx', source: 'export const view = <button>Simpan</button>;' })).toEqual([]);
+    expect(checkUiSource({ path: 'apps/web/app/page.tsx', source: 'export const view = <Button label="Submit" />;' }))
+      .toEqual([expect.stringContaining('not actionable Indonesian copy')]);
   });
 });

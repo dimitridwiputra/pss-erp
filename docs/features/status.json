@@ -26,6 +26,6 @@
   },
   "UX-001": {
     "state": "partial",
-    "note": "Token desain tersedia; komponen dan templat halaman kerja belum lengkap."
+    "note": "Token, tombol, kolom teks, kartu tugas, formatter, templat A–D, Storybook empat state, dan pemeriksaan axe tersedia. Komponen lain dan regresi visual belum lengkap."
   }
 }

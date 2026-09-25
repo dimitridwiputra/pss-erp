@@ -2,15 +2,26 @@
   "name": "@pss/ui",
   "version": "0.1.0",
   "private": true,
-  "main": "./dist/tokens.js",
-  "types": "./dist/tokens.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/tokens.d.ts", "default": "./dist/tokens.js" },
-    "./tokens.css": "./tokens.css"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./tokens.css",
+    "./components.css": "./components.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "react": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.11",
+    "react": "19.3.0"
   }
 }

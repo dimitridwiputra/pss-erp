@@ -28,6 +28,12 @@ jobs:
         run: pnpm db:check
       - name: UI token and copy check
         run: pnpm ui:check
+      - name: Shared component stories
+        run: pnpm --filter @pss/web build-storybook
+      - name: Install browser for UI accessibility checks
+        run: pnpm --filter @pss/web exec playwright install --with-deps chromium
+      - name: Check template accessibility
+        run: pnpm test:a11y
       - name: Feature directory source check
         run: pnpm features:check
       - name: Secret pattern check

@@ -86,7 +86,7 @@
     "user": "Semua (engineer sebagai konsumen)",
     "outcome": "Semua produk memakai komponen yang sama: tombol, task card, status pill, input, selection card, scan screen, exception sheet, confirmation, toast, tabel, dan template halaman A–D.",
     "state": "partial",
-    "note": "Token desain tersedia; komponen dan templat halaman kerja belum lengkap."
+    "note": "Token, tombol, kolom teks, kartu tugas, formatter, templat A–D, Storybook empat state, dan pemeriksaan axe tersedia. Komponen lain dan regresi visual belum lengkap."
   },
   {
     "id": "AUD-001",

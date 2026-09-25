@@ -21,6 +21,16 @@ export function checkUiSource({ path, source }) {
         issues.push(`${path}:${line}: button label "${label}" is not actionable Indonesian copy (UX-001.AC02).`);
       }
     }
+    if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(file) === 'Button') {
+      const label = node.attributes.properties.find((property) => ts.isJsxAttribute(property) && property.name.text === 'label');
+      if (label && ts.isJsxAttribute(label) && label.initializer && ts.isStringLiteral(label.initializer)) {
+        const value = label.initializer.text.trim().toLowerCase();
+        if (bannedLabels.has(value)) {
+          const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
+          issues.push(`${path}:${line}: button label "${value}" is not actionable Indonesian copy (UX-001.AC02).`);
+        }
+      }
+    }
     ts.forEachChild(node, visit);
   }
   visit(file);
