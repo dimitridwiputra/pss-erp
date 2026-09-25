@@ -37,6 +37,7 @@ describe('PLT-007 problem response boundary', () => {
     expect(result.status).toBe(500);
     expect(result.contentType).toBe('application/problem+json');
     expect(result.headers['x-request-id']).toBe('req_123');
+    expect(result.headers['x-correlation-id']).toBe('corr_123');
     expect(result.body).toMatchObject({ code: 'INTERNAL', requestId: 'req_123', correlationId: 'corr_123', instance: '/test' });
     expect(JSON.stringify(result.body)).not.toContain('private-account-123');
     expect(JSON.stringify(result.body)).not.toContain('secret=hidden');

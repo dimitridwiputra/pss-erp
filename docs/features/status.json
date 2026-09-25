@@ -1,4 +1,8 @@
 {
+  "OBS-001": {
+    "state": "partial",
+    "note": "ID request dan korelasi serta log HTTP JSON tersedia di empat backend. Trace lintas event/job, masking payload bertanda, exporter, dan retensi belum tersedia."
+  },
   "PLT-001": {
     "state": "available",
     "availablePath": "/",

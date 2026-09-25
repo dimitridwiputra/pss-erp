@@ -16,7 +16,8 @@ describe('source-backed feature directory', () => {
     expect(parsed).toHaveLength(280);
     expect(parsed).toEqual(JSON.parse(generatedText));
     expect(parsed.filter((feature) => feature.state === 'available').map((feature) => feature.id)).toEqual(['PLT-001']);
-    expect(parsed.filter((feature) => feature.state === 'partial')).toHaveLength(5);
+    expect(parsed.filter((feature) => feature.state === 'partial')).toHaveLength(6);
+    expect(parsed.find((feature) => feature.id === 'OBS-001')).toMatchObject({ phase: 'F0', state: 'partial' });
     expect(parsed.find((feature) => feature.id === 'MDM-001')).toMatchObject({ phase: 'F1', state: 'planned' });
     expect(parsed.find((feature) => feature.id === 'PLT-001')?.availablePath).toBe('/');
   });

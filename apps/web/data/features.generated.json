@@ -25,7 +25,8 @@
     ],
     "user": "Engineer",
     "outcome": "Engineer dapat menelusuri satu transaksi dari request UI sampai jurnal dengan satu correlationId, melihat trace lintas service/job, dan tidak pernah menemukan PII/secret di log.",
-    "state": "planned"
+    "state": "partial",
+    "note": "ID request dan korelasi serta log HTTP JSON tersedia di empat backend. Trace lintas event/job, masking payload bertanda, exporter, dan retensi belum tersedia."
   },
   {
     "id": "PLT-002",
