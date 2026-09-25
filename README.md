@@ -54,6 +54,6 @@ pnpm test:e2e
 pnpm build
 ```
 
-`contracts:check` checks PRD catalog synchronization, generated OpenAPI/event documentation, and checked-in event/API compatibility baselines. `architecture:check` enforces initial import boundaries. `db:check` rejects selected destructive and wrongly owned SQL migrations; there are no real migrations yet. `ui:check` enforces initial token and copy rules. Integration and e2e checks still validate only the scaffold. The remaining PLT-003/PLT-002 scope and UX-001 fitness functions are pending.
+`contracts:check` checks PRD catalog synchronization, generated OpenAPI/event documentation, and checked-in event/API compatibility baselines. CI also compares these contracts with `origin/main`; locally, use `PSS_CONTRACT_BASE_REF=origin/main pnpm contracts:check` after fetching that ref. `architecture:check` enforces initial import boundaries. `db:check` rejects selected destructive and wrongly owned SQL migrations; there are no real migrations yet. `ui:check` enforces initial token and copy rules. Integration and e2e checks still validate only the scaffold. The remaining PLT-003/PLT-002 scope and UX-001 fitness functions are pending.
 
 Create a domain with `pnpm gen:domain <kebab-case-name>`. Existing domains are already scaffolded.

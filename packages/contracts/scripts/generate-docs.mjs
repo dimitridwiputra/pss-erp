@@ -2,6 +2,8 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { z } from 'zod';
 import { checkEventSchemaCompatibility, checkOpenApiCompatibility } from './compatibility.mjs';
+import { readContractDocumentFromGit } from './git-contract-baseline.mjs';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { HealthResponseSchema, ProblemDetailsSchema, eventCatalog, eventSchemaRegistry } = require('../dist');
@@ -69,7 +71,15 @@ if (check) {
   checkEventSchemaCompatibility(baseline, documents['docs/events/schemas.json']);
   const apiBaseline = JSON.parse(await readFile(new URL('docs/api/openapi-baseline.json', root), 'utf8'));
   checkOpenApiCompatibility(apiBaseline, documents['docs/api/openapi.json']);
-  process.stdout.write('Generated contract documents match source; event and API baselines remain backward compatible.\n');
+  const baseRef = process.env.PSS_CONTRACT_BASE_REF;
+  if (baseRef) {
+    const cwd = fileURLToPath(root);
+    const baseEvents = readContractDocumentFromGit(baseRef, 'docs/events/schemas.json', cwd);
+    const baseApi = readContractDocumentFromGit(baseRef, 'docs/api/openapi.json', cwd);
+    checkEventSchemaCompatibility(baseEvents, documents['docs/events/schemas.json']);
+    checkOpenApiCompatibility(baseApi, documents['docs/api/openapi.json']);
+  }
+  process.stdout.write(`Generated contract documents match source; event and API contracts are backward compatible with checked-in baselines${baseRef ? ` and ${baseRef}` : ''}.\n`);
 } else {
   process.stdout.write('Generated OpenAPI and event catalog/schema documents.\n');
 }

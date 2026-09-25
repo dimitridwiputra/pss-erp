@@ -9,6 +9,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24.19.0
@@ -23,7 +25,7 @@ jobs:
       - name: Architecture boundary check
         run: pnpm architecture:check
       - name: Contract check
-        run: pnpm contracts:check
+        run: PSS_CONTRACT_BASE_REF=origin/main pnpm contracts:check
       - name: Database migration check
         run: pnpm db:check
       - name: UI token and copy check

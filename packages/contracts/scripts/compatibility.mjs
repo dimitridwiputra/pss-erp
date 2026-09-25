@@ -24,6 +24,9 @@ export function checkOpenApiCompatibility(baseline, current) {
     for (const [method, operation] of Object.entries(methods)) {
       const nextOperation = current.paths?.[path]?.[method];
       if (!nextOperation) throw new Error(`Breaking OpenAPI change: ${method.toUpperCase()} ${path} was removed.`);
+      if (operation.requestBody && !isBackwardCompatible(operation.requestBody, nextOperation.requestBody)) {
+        throw new Error(`Breaking OpenAPI change: ${method.toUpperCase()} ${path} request body changed.`);
+      }
       for (const [status, response] of Object.entries(operation.responses ?? {})) {
         const nextResponse = nextOperation.responses?.[status];
         if (!nextResponse) throw new Error(`Breaking OpenAPI change: ${method.toUpperCase()} ${path} response ${status} was removed.`);

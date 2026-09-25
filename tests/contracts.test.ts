@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { BusinessDateSchema, MoneyAmountSchema } from '../packages/contracts/src/primitives';
 import { EventEnvelopeSchema, eventCatalog, parseEventForPublication } from '../packages/contracts/src/events';
 import { checkEventSchemaCompatibility, checkOpenApiCompatibility } from '../packages/contracts/scripts/compatibility.mjs';
+import { readContractDocumentFromGit } from '../packages/contracts/scripts/git-contract-baseline.mjs';
 
 const validClosedEvent = {
   eventId: '019a0000-0000-7000-8000-000000000001',
@@ -67,5 +68,30 @@ describe('PLT-003 event contracts', () => {
     const removedField = structuredClone(baseline);
     delete removedField.components.schemas.HealthResponse.properties.service;
     expect(() => checkOpenApiCompatibility(baseline, removedField)).toThrow(/Breaking OpenAPI change/);
+    const requestBaseline = structuredClone(baseline);
+    requestBaseline.paths['/health/live'].get.requestBody = {
+      required: true,
+      content: { 'application/json': { schema: { type: 'object', properties: { code: { type: 'string' } }, required: ['code'] } } },
+    };
+    const changedRequest = structuredClone(requestBaseline);
+    changedRequest.paths['/health/live'].get.requestBody.content['application/json'].schema.required = [];
+    expect(() => checkOpenApiCompatibility(requestBaseline, changedRequest)).toThrow(/request body changed/);
+  });
+
+  it('compares generated contracts with a Git base ref independently of editable baseline files', () => {
+    const root = new URL('../', import.meta.url).pathname;
+    const baseApi = readContractDocumentFromGit('HEAD', 'docs/api/openapi.json', root);
+    const baseEvents = readContractDocumentFromGit('HEAD', 'docs/events/schemas.json', root);
+    expect(() => checkOpenApiCompatibility(baseApi, baseApi)).not.toThrow();
+    expect(() => checkEventSchemaCompatibility(baseEvents, baseEvents)).not.toThrow();
+
+    const breakingApi = structuredClone(baseApi);
+    delete breakingApi.paths['/health/live'];
+    expect(() => checkOpenApiCompatibility(baseApi, breakingApi)).toThrow(/Breaking OpenAPI change/);
+    const breakingEvents = structuredClone(baseEvents);
+    delete breakingEvents.schemas['DELIVERY_ORDER_CLOSED@1'];
+    expect(() => checkEventSchemaCompatibility(baseEvents, breakingEvents)).toThrow(/Breaking change/);
+    expect(() => readContractDocumentFromGit('missing-main-ref', 'docs/api/openapi.json', root))
+      .toThrow(/compatibility cannot be verified/);
   });
 });
