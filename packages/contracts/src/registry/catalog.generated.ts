@@ -633,7 +633,7 @@ export const registryCatalog = {
     {
       "code": "VALIDATION_FAILED",
       "httpCategory": "422 · VALIDATION",
-      "description": "Input tidak valid, dengan `fieldErrors[]`"
+      "description": "Input semantik/domain tidak valid, dengan `fieldErrors[]`; bentuk permintaan yang malformed memakai 400 menurut PLT-003.AC03"
     },
     {
       "code": "UNAUTHENTICATED",

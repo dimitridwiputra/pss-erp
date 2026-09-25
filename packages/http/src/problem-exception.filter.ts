@@ -1,7 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
-import { createProblemDetails, DomainError, type ErrorCode, type FieldError } from '@pss/contracts';
+import { createProblemDetails, DomainError, MalformedRequestError, type ErrorCode } from '@pss/contracts';
 import { createServiceLogger, requestContextFrom, type ObservedRequest } from '@pss/observability';
-import { ZodError } from 'zod';
 
 type HttpRequest = ObservedRequest & {
   originalUrl?: string;
@@ -15,7 +14,6 @@ type HttpResponse = {
 };
 
 const httpCodeByStatus: Record<number, ErrorCode> = {
-  400: 'VALIDATION_FAILED',
   401: 'UNAUTHENTICATED',
   403: 'PERMISSION_DENIED',
   404: 'NOT_FOUND',
@@ -27,15 +25,10 @@ const httpCodeByStatus: Record<number, ErrorCode> = {
 
 function normalizeError(exception: unknown): DomainError | undefined {
   if (exception instanceof DomainError) return exception;
-  if (exception instanceof ZodError) {
-    const fieldErrors: FieldError[] = exception.issues.map((issue) => ({
-      path: issue.path.join('.') || 'input',
-      code: issue.code,
-      message: 'Periksa nilai ini.',
-    }));
-    return new DomainError('VALIDATION_FAILED', [], fieldErrors);
-  }
   if (exception instanceof HttpException) {
+    if (exception.getStatus() === 400) {
+      return new MalformedRequestError([{ path: 'input', code: 'invalid_format', message: 'Periksa format permintaan.' }]);
+    }
     const code = httpCodeByStatus[exception.getStatus()];
     return code ? new DomainError(code) : undefined;
   }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createProblemDetails, DomainError, ProblemDetailsSchema } from '../packages/contracts/src/api/problem';
+import { createProblemDetails, DomainError, MalformedRequestError, ProblemDetailsSchema } from '../packages/contracts/src/api/problem';
 import { ProblemExceptionFilter } from '../packages/http/src/problem-exception.filter';
+import { ZodValidationPipe } from '../packages/http/src/zod-validation.pipe';
+import { HealthResponseSchema } from '../packages/contracts/src/api/health';
 
 const context = { requestId: 'req-1', correlationId: 'corr-1', instance: '/test' };
 
@@ -43,16 +45,33 @@ describe('PLT-007 problem response boundary', () => {
     expect(JSON.stringify(result.body)).not.toContain('secret=hidden');
   });
 
-  it('returns field paths for Zod validation without exposing raw issue text', () => {
+  it('returns HTTP 400 with safe field paths for malformed requests', () => {
+    const pipe = new ZodValidationPipe(HealthResponseSchema);
+    let validation: unknown;
+    try { pipe.transform({ status: 'invalid', service: 'api' }); } catch (error) { validation = error; }
+    expect(validation).toBeInstanceOf(MalformedRequestError);
+    const result = invokeFilter(validation);
+    expect(result.status).toBe(400);
+    expect(result.contentType).toBe('application/problem+json');
+    expect(result.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      fieldErrors: expect.arrayContaining([{ path: 'status', code: 'invalid_value', message: 'Periksa nilai ini.' }]),
+      retryable: false,
+    });
+    expect(JSON.stringify(result.body)).not.toContain('expected');
+  });
+
+  it('keeps semantic validation at HTTP 422 with safe field paths', () => {
     const validation = ProblemDetailsSchema.safeParse({ status: 'invalid' });
     if (validation.success) throw new Error('Fixture must fail validation');
-    const result = invokeFilter(validation.error);
+    const result = invokeFilter(new DomainError('VALIDATION_FAILED', [], [{ path: 'status', code: 'invalid_value', message: 'Periksa nilai ini.' }]));
     expect(result.status).toBe(422);
     expect(result.body).toMatchObject({
       code: 'VALIDATION_FAILED',
-      fieldErrors: expect.arrayContaining([{ path: 'status', code: 'invalid_type', message: 'Periksa nilai ini.' }]),
+      fieldErrors: expect.arrayContaining([{ path: 'status', code: 'invalid_value', message: 'Periksa nilai ini.' }]),
       retryable: false,
     });
+    expect(invokeFilter(validation.error).status).toBe(500);
   });
 
   it('marks only transient registered errors as retryable', () => {

@@ -19463,6 +19463,7 @@ Semua error API mengikuti RFC 9457 (Problem Details) dengan ekstensi PSS (ADR-00
 
 - PLT-000.R50 **Bentuk respons** `application/problem+json`: `type` (URI registry), `title`, `status`, `detail`, `instance`, ditambah `code` (stabil, UPPER_SNAKE), `message` (Bahasa Indonesia aman untuk user), `requestId`, `correlationId`, `permittedActions[]`, `fieldErrors[]?` (path, code, message), `retryable` (bool).
 - PLT-000.R51 **Kategori** & status: VALIDATION (400/422), UNAUTHENTICATED (401), FORBIDDEN / SEGREGATION_OF_DUTIES (403), NOT_FOUND (404), CONFLICT / STALE_DATA / INVALID_STATE_TRANSITION / IDEMPOTENCY_KEY_REUSED (409), BUSINESS_RULE (422), RATE_LIMITED (429), DEPENDENCY_UNAVAILABLE (503), INTERNAL (500).
+- **Keputusan Product Owner, 25 Sep 2026:** permintaan masuk yang tidak memenuhi bentuk kontrak (body/query/parameter tidak valid) memakai HTTP 400 `VALIDATION_FAILED` dengan `fieldErrors[]`; validasi semantik/domain memakai HTTP 422 `VALIDATION_FAILED`. Kesalahan validasi respons internal tidak diperlakukan sebagai kesalahan permintaan pengguna.
 - PLT-000.R52 Error bisnis (422/409) **tidak** di-retry otomatis oleh klien; `retryable = true` hanya untuk 429/503/timeout.
 - PLT-000.R53 `message` tidak mengandung data yang tidak boleh dilihat user; detail teknis hanya di log (dengan requestId).
 - PLT-000.R54 Error domain dilempar sebagai tipe error bertipe (bukan string) dan dipetakan ke `code` di satu tempat per deployable.
@@ -19524,7 +19525,7 @@ Semua error API mengikuti RFC 9457 (Problem Details) dengan ekstensi PSS (ADR-00
 **MIGRATION / COEXISTENCE:** Tidak berlaku.
 **ACCEPTANCE CRITERIA:**
 - PLT-007.AC01 Given `ApplyPayment` melanggar SoD, Then 403 problem+json code `SEGREGATION_OF_DUTIES`, message Bahasa Indonesia, requestId.
-- PLT-007.AC02 Given validasi gagal, Then 422 dengan fieldErrors per field.
+- PLT-007.AC02 Given validasi semantik/domain gagal, Then 422 dengan fieldErrors per field; validasi bentuk permintaan mengikuti PLT-003.AC03 (400).
 - PLT-007.AC03 Given exception tak tertangani, Then 500 generik tanpa stack trace & event Sentry.
 - PLT-007.AC04 Given INVALID_STATE_TRANSITION, Then `permittedActions` berisi aksi valid.
 - PLT-007.AC05 Given kode baru tanpa copy, Then CI gagal.
@@ -22343,7 +22344,7 @@ Bentuk respons error mengikuti PLT-000.R50 (RFC 9457 + `code`, `message`, `reque
 | Code | HTTP · kategori | Keterangan |
 |---|---|---|
 | `INTERNAL` | 500 · INTERNAL | Kesalahan tak terduga. Pesan umum dan requestId ditampilkan |
-| `VALIDATION_FAILED` | 422 · VALIDATION | Input tidak valid, dengan `fieldErrors[]` |
+| `VALIDATION_FAILED` | 422 · VALIDATION | Input semantik/domain tidak valid, dengan `fieldErrors[]`; bentuk permintaan yang malformed memakai 400 menurut PLT-003.AC03 |
 | `UNAUTHENTICATED` | 401 · UNAUTHENTICATED | Tidak ada sesi atau token tidak valid |
 | `PERMISSION_DENIED` | 403 · FORBIDDEN | Di luar permission atau scope |
 | `NOT_FOUND` | 404 · NOT_FOUND | Objek tidak ada atau di luar scope |

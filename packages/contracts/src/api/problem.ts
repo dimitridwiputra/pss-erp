@@ -39,6 +39,14 @@ export class DomainError extends Error {
   }
 }
 
+/** A request-shape error is HTTP 400; domain validation keeps Appendix F's HTTP 422. */
+export class MalformedRequestError extends DomainError {
+  constructor(fieldErrors: FieldError[]) {
+    super('VALIDATION_FAILED', [], fieldErrors);
+    this.name = 'MalformedRequestError';
+  }
+}
+
 const internalCopy = { title: 'Terjadi kendala', message: 'Coba lagi sebentar lagi.' };
 const baseCopy: Record<string, { title: string; message: string }> = {
   INTERNAL: internalCopy,
@@ -61,7 +69,7 @@ export function createProblemDetails(
   const domainError = error instanceof DomainError ? error : undefined;
   const registered = domainError ? findErrorCode(domainError.code) : undefined;
   const code = registered ? domainError!.code : 'INTERNAL';
-  const status = Number.parseInt(registered?.httpCategory ?? '500', 10);
+  const status = error instanceof MalformedRequestError ? 400 : Number.parseInt(registered?.httpCategory ?? '500', 10);
   const domainCopy = registered && 'copyComplete' in registered && registered.copyComplete
     ? { title: registered.title, message: registered.explanation }
     : undefined;
