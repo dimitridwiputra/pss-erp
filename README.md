@@ -24,7 +24,7 @@ pnpm dev:up
 
 In local development, open <http://localhost:3000/fitur> to browse all **280 PRD features** with their phase, sprint, and current implementation status. The home page links there as well. The directory is read-only and only appears in development; it does not create transaction screens for features that have not been built.
 
-For the shared component and page-template preview, run `pnpm storybook` in a second Terminal window and open <http://localhost:6006>. The stories show four states of each current `@pss/ui` component and templates A–D with illustrative content; they are not ERP workflows. Run `pnpm test:a11y` to check the four empty templates with Playwright and axe (first install Chromium with `pnpm --filter @pss/web exec playwright install chromium`).
+For the shared component and page-template preview, run `pnpm storybook` in a second Terminal window and open <http://localhost:6006>. The stories show four states of each current `@pss/ui` component and templates A–D with illustrative content; they are not ERP workflows. Run `pnpm test:a11y` to check all 34 template/control states with Playwright and axe (first install Chromium with `pnpm --filter @pss/web exec playwright install chromium`).
 
 If Docker is unavailable and you only need the skeleton health endpoints, run `pnpm dev` after install. The services do not yet depend on their databases.
 
