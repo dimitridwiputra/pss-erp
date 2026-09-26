@@ -14,9 +14,15 @@ importers:
       '@types/node':
         specifier: 24.10.1
         version: 24.10.1
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
       eslint:
         specifier: 9.39.5
         version: 9.39.5(supports-color@7.2.0)
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
       turbo:
         specifier: 2.11.3
         version: 2.11.3
@@ -191,9 +197,6 @@ importers:
 
   domains/platform:
     dependencies:
-      '@pss/audit':
-        specifier: workspace:*
-        version: link:../audit
       '@pss/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

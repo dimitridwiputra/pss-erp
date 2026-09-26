@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+pnpm architecture:check
+pnpm contracts:check
+pnpm db:check
+pnpm ui:check
+pnpm secrets:check

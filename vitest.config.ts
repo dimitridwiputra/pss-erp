@@ -9,5 +9,5 @@ export default defineConfig({
       { find: /^@pss\/http$/, replacement: fileURLToPath(new URL('./packages/http/src/index.ts', import.meta.url)) },
     ],
   },
-  test: { include: ['tests/**/*.test.ts', 'apps/api/tests/**/*.test.ts'] },
+  test: { include: ['tests/*.test.ts', 'apps/api/tests/**/*.test.ts'] },
 });

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url).pathname;
 const forbiddenPaths = /(^|\/)\.env(?:\.|$)/;
@@ -25,11 +25,17 @@ export async function scanFiles(paths, readText) {
 
 if (process.argv[1]?.endsWith('/check-secrets.mjs')) {
   const output = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root });
-  const paths = output.toString('utf8').split('\0').filter(Boolean);
+  const candidates = output.toString('utf8').split('\0').filter(Boolean);
+  const paths = (await Promise.all(candidates.map(async (path) => {
+    const file = await stat(new URL(`../${path}`, import.meta.url)).catch((error) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    return file?.isFile() ? path : null;
+  }))).filter(Boolean);
   const problems = await scanFiles(paths, async (path) => await readFile(new URL(`../${path}`, import.meta.url), 'utf8'));
   if (problems.length) {
     process.stderr.write(`${problems.join('\n')}\n`);
     process.exitCode = 1;
   } else process.stdout.write('Basic repository secret pattern check: OK\n');
 }
-

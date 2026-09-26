@@ -28,4 +28,35 @@ describe('PLT-002 import boundaries', () => {
       source: "import { EventNameSchema } from '@pss/contracts';",
     }])).toEqual([]);
   });
+
+  it('PLT-002.AC01 rejects workspace aliases into domain internals', () => {
+    const packages = new Map([['@pss/orders', `${root}/domains/orders`]]);
+    expect(findArchitectureViolations([{
+      path: `${root}/domains/sfa/application/submit.ts`,
+      source: "import { Order } from '@pss/orders/domain/order';",
+    }], packages)).toEqual([expect.stringContaining('cross-domain internals')]);
+  });
+
+  it('rejects Platform-to-domain aliases and package-to-domain aliases', () => {
+    const packages = new Map([['@pss/audit', `${root}/domains/audit`]]);
+    const violations = findArchitectureViolations([
+      { path: `${root}/domains/platform/src/application/idempotency.ts`, source: "import { runAuditedWork } from '@pss/audit';" },
+      { path: `${root}/packages/contracts/src/index.ts`, source: "export { runAuditedWork } from '@pss/audit';" },
+    ], packages);
+    expect(violations).toEqual(expect.arrayContaining([
+      expect.stringContaining('platform cannot import a business domain'),
+      expect.stringContaining('packages cannot import domains'),
+    ]));
+  });
+
+  it('rejects direct reads and writes to another domain schema', () => {
+    const violations = findArchitectureViolations([{
+      path: `${root}/domains/orders/src/infrastructure/order-repository.ts`,
+      source: "await client.query('SELECT * FROM finance.journal'); await client.query('INSERT INTO ar.receivable (id) VALUES ($1)', [id]);",
+    }]);
+    expect(violations).toEqual(expect.arrayContaining([
+      expect.stringContaining('queries finance.journal'),
+      expect.stringContaining('queries ar.receivable'),
+    ]));
+  });
 });

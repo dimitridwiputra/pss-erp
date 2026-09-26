@@ -14,6 +14,15 @@ export function checkUiSource({ path, source }) {
   if (!/\.[jt]sx$/.test(path)) return issues;
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   function visit(node) {
+    if (ts.isJsxText(node) && /\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b/.test(node.text)) {
+      const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
+      issues.push(`${path}:${line}: display a registered Indonesian status label instead of a raw enum (PLT-002.AC06).`);
+    }
+    if (ts.isJsxExpression(node) && node.parent && ts.isJsxElement(node.parent) && node.expression &&
+        ts.isPropertyAccessExpression(node.expression) && ['state', 'status'].includes(node.expression.name.text)) {
+      const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
+      issues.push(`${path}:${line}: map state/status to the registered UI label before rendering (PLT-002.AC06).`);
+    }
     if (ts.isJsxElement(node) && node.openingElement.tagName.getText(file) === 'button') {
       const label = node.children.filter(ts.isJsxText).map((child) => child.text).join(' ').trim().toLowerCase();
       if (bannedLabels.has(label)) {

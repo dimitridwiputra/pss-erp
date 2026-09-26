@@ -8,6 +8,14 @@ describe('UX-001 UI lint', () => {
     expect(checkUiSource({ path: 'packages/ui/tokens.css', source: ':root { --color: #123456; }' })).toEqual([]);
   });
 
+  it('PLT-002.AC06 rejects raw enum text and direct state rendering', () => {
+    const issues = checkUiSource({ path: 'apps/web/app/page.tsx', source: '<div><span>PENDING_APPROVAL</span><span>{order.status}</span></div>' });
+    expect(issues).toEqual([
+      expect.stringContaining('raw enum'),
+      expect.stringContaining('registered UI label'),
+    ]);
+  });
+
   it('rejects generic English button labels', () => {
     expect(checkUiSource({ path: 'apps/web/app/page.tsx', source: 'export const view = <button>Submit</button>;' }))
       .toEqual([expect.stringContaining('not actionable Indonesian copy')]);

@@ -18,7 +18,7 @@ Operational state, technical HTTP logs, authentication, permission decisions, or
 
 `withAuditedTransaction(pool, work)` opens one database transaction. The callback uses `client` for the business mutation and `appendAuditEntry(input)` for the audit record. It cannot commit without at least one audit entry. A failed insert rolls the whole transaction back. Callers must perform authorization before entering the callback and pass the actual actor, entity version, and material before/after values.
 
-`runAuditedWork(client, work)` applies the same audit requirement inside an already-open command transaction. Platform uses it for idempotent commands so the key, business effect, audit, and outbox can share one commit.
+`runAuditedWork(client, work)` applies the same audit requirement inside an already-open command transaction. The application composes it with Platform idempotency so the key, business effect, audit, and outbox can share one commit without Platform importing Audit.
 
 ## Queries
 

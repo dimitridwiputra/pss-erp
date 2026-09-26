@@ -20,6 +20,8 @@ pnpm install
 pnpm dev:up
 ```
 
+`pnpm install` also enables the repository's small local pre-commit check set through Git's native hooks. CI runs the full checks even if a local hook is bypassed.
+
 `pnpm dev:up` starts local services, applies the audit and platform outbox database migrations, and starts all five apps. It also locates Docker Desktop installed at `~/Applications/Docker.app` on this Mac. Open <http://localhost:3000>. Stop the app processes with Ctrl+C; local service containers remain running. If the Docker CLI is not on your PATH, stop containers with `~/Applications/Docker.app/Contents/Resources/bin/docker compose down` from this directory. No production credentials are included.
 
 In local development, open <http://localhost:3000/fitur> to browse all **280 PRD features** with their phase, sprint, and current implementation status. The home page links there as well. The directory is read-only and only appears in development; it does not create transaction screens for features that have not been built.
@@ -54,6 +56,13 @@ pnpm test:e2e
 pnpm build
 ```
 
-`contracts:check` checks PRD catalog synchronization, generated OpenAPI/event documentation, and checked-in event/API compatibility baselines. CI also compares these contracts with `origin/main`; locally, use `PSS_CONTRACT_BASE_REF=origin/main pnpm contracts:check` after fetching that ref. `architecture:check` enforces initial import boundaries. `db:check` rejects selected destructive and wrongly owned SQL migrations; there are no real migrations yet. `ui:check` enforces initial token and copy rules. `test:integration` exercises the request error boundary through a live Nest server; it does not cover database or business workflows. `test:e2e` remains a scaffold. The remaining PLT-003/PLT-002 scope and UX-001 fitness functions are pending.
+`contracts:check` checks PRD catalog synchronization, generated OpenAPI/event documentation, and checked-in event/API compatibility baselines. CI also compares these contracts with `origin/main`; locally, use `PSS_CONTRACT_BASE_REF=origin/main pnpm contracts:check` after fetching that ref. `architecture:check` resolves workspace aliases and rejects selected domain imports and direct cross-domain SQL table access. `db:check` checks the three current audit/platform migrations. `ui:check` rejects raw hex, selected English button labels, and simple raw enum rendering. For PostgreSQL integration checks, set `PSS_TEST_DATABASE_URL` to a disposable local database connection before `pnpm test:integration`. The integration suite exercises audit, outbox, idempotency, and the request error boundary; it does not yet cover a business workflow. `test:e2e` remains a scaffold. See [Sprint 0–2 evidence](docs/releases/S0-S2-evidence.md) for remaining Definition of Done items.
+
+To verify a deployable container after building it, run these commands from the repository root (replace `api` with `web`, `finance-api`, `integration-worker`, or `geo-service` as needed):
+
+```bash
+docker build --file apps/api/Dockerfile --tag pss-api:local .
+bash scripts/smoke-image.sh api local
+```
 
 Create a domain with `pnpm gen:domain <kebab-case-name>`. Existing domains are already scaffolded.

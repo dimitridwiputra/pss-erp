@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import ts from 'typescript';
+import { schemaOwners } from './check-database.mjs';
 
 const root = new URL('../', import.meta.url).pathname;
 const sourceExtensions = /\.[cm]?[jt]sx?$/;
@@ -33,20 +34,76 @@ function importsFrom(source) {
   return imports;
 }
 
+function sqlTableReferences(source) {
+  const tree = ts.createSourceFile('file.ts', source, ts.ScriptTarget.Latest, true);
+  const references = [];
+  function visit(node) {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.name.text === 'query' && node.arguments.length > 0) {
+      const argument = node.arguments[0];
+      if (ts.isStringLiteral(argument) || ts.isNoSubstitutionTemplateLiteral(argument) || ts.isTemplateExpression(argument)) {
+        const sql = argument.getText(tree);
+        for (const match of sql.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE|TABLE)\s+([a-z_][\w]*)\.([a-z_][\w]*)/gi)) {
+          references.push({ schema: match[1].toLowerCase(), table: match[2] });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(tree);
+  return references;
+}
+
 function parts(path) {
   return path.split(/[\\/]/).filter(Boolean);
 }
 
-export function findArchitectureViolations(files) {
+export async function workspacePackagePaths(workspaceRoot) {
+  const paths = new Map();
+  for (const group of ['apps', 'packages', 'domains']) {
+    const groupPath = join(workspaceRoot, group);
+    for (const entry of await readdir(groupPath, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const directory = join(groupPath, entry.name);
+      const contents = await readFile(join(directory, 'package.json'), 'utf8').catch((error) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      if (!contents) continue;
+      const manifest = JSON.parse(contents);
+      if (manifest.name) paths.set(manifest.name, directory);
+    }
+  }
+  return paths;
+}
+
+function resolveImport(path, specifier, workspacePackages) {
+  if (specifier.startsWith('.')) return parts(resolve(dirname(path), specifier));
+  for (const [name, directory] of workspacePackages) {
+    if (specifier === name || specifier.startsWith(`${name}/`)) {
+      return parts(resolve(directory, specifier.slice(name.length).replace(/^\//, '')));
+    }
+  }
+  return [];
+}
+
+export function findArchitectureViolations(files, workspacePackages = new Map()) {
   const violations = [];
   for (const { path, source } of files) {
     const from = parts(path);
+    const sourceDomainAt = from.lastIndexOf('domains');
+    const sourceDomain = sourceDomainAt >= 0 ? from[sourceDomainAt + 1] : undefined;
+    if (sourceDomain && !from.includes('tests')) {
+      for (const { schema, table } of sqlTableReferences(source)) {
+        if (schemaOwners[schema] && !schemaOwners[schema].includes(sourceDomain)) {
+          violations.push(`${path} queries ${schema}.${table}: domain ${sourceDomain} cannot access another domain's tables (AGT §3.1).`);
+        }
+      }
+    }
     for (const specifier of importsFrom(source)) {
-      const target = specifier.startsWith('.') ? parts(resolve(dirname(path), specifier)) : [];
+      const target = resolveImport(path, specifier, workspacePackages);
       const domainAt = target.lastIndexOf('domains');
       const targetDomain = domainAt >= 0 ? target[domainAt + 1] : undefined;
-      const sourceDomainAt = from.lastIndexOf('domains');
-      const sourceDomain = sourceDomainAt >= 0 ? from[sourceDomainAt + 1] : undefined;
       const sourcePackageAt = from.lastIndexOf('packages');
       const sourceAppAt = from.lastIndexOf('apps');
       const sourceApp = sourceAppAt >= 0 ? from[sourceAppAt + 1] : undefined;
@@ -73,7 +130,7 @@ export function findArchitectureViolations(files) {
 if (process.argv[1]?.endsWith(`check-architecture.mjs`)) {
   const paths = (await Promise.all(['apps', 'packages', 'domains'].map((directory) => sourceFiles(join(root, directory))))).flat();
   const files = await Promise.all(paths.map(async (path) => ({ path, source: await readFile(path, 'utf8') })));
-  const violations = findArchitectureViolations(files);
+  const violations = findArchitectureViolations(files, await workspacePackagePaths(root));
   if (violations.length) {
     process.stderr.write(`${violations.join('\n')}\n`);
     process.exitCode = 1;

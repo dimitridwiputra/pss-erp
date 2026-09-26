@@ -1,6 +1,5 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { runAuditedWork, type AuditedTransaction } from '@pss/audit';
 
 const CommandKeySchema = z.strictObject({
   organizationId: z.uuid(),
@@ -17,17 +16,24 @@ export interface CommandResponse {
   body: unknown;
 }
 
+/** The application supplies its owning domain's guarded transaction runner. */
+export type CommandTransactionRunner<TContext> = (
+  client: PoolClient,
+  work: (context: TContext) => Promise<CommandResponse>,
+) => Promise<CommandResponse>;
+
 export class IdempotencyError extends Error {
   constructor(readonly code: 'IDEMPOTENCY_KEY_REQUIRED' | 'IDEMPOTENCY_KEY_REUSED' | 'REQUEST_IN_PROGRESS', message: string) {
     super(message);
   }
 }
 
-/** The command callback uses one client for its business write, audit entry, and outbox event. */
-export async function withIdempotentCommand(
+/** The supplied runner and command share the same transaction and commit boundary. */
+export async function withIdempotentCommand<TContext>(
   pool: Pool,
   rawKey: CommandKey,
-  execute: (transaction: AuditedTransaction) => Promise<CommandResponse>,
+  runTransaction: CommandTransactionRunner<TContext>,
+  execute: (transaction: TContext) => Promise<CommandResponse>,
 ): Promise<CommandResponse & { replayed: boolean }> {
   if (!rawKey.key) throw new IdempotencyError('IDEMPOTENCY_KEY_REQUIRED', 'Kunci permintaan diperlukan.');
   const key = CommandKeySchema.parse(rawKey);
@@ -66,7 +72,7 @@ export async function withIdempotentCommand(
       return { code: record.response_code, body: record.response_body, replayed: true };
     }
 
-    const response = await runAuditedWork(client, execute);
+    const response = await runTransaction(client, execute);
     if (!Number.isInteger(response.code) || response.code < 100 || response.code > 599) {
       throw new Error('Command response code must be an HTTP status.');
     }
