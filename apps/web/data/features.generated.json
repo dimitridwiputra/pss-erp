@@ -11,7 +11,7 @@
     "outcome": "Engineer (manusia atau agent) meng-clone repo dan langsung memiliki workspace pnpm + Turborepo dengan deployable, modul domain kosong berstruktur, packages dasar, skrip CI target, dan dokumen tata kelola di tempatnya.",
     "state": "available",
     "availablePath": "/",
-    "note": "Halaman fondasi dan endpoint kesehatan dapat dilihat. Belum ada transaksi ERP."
+    "note": "Halaman fondasi dan endpoint kesehatan dapat dilihat. Ini belum sertifikasi Definition of Done: bukti fresh clone, build lima image Docker, dan CI hosted belum lengkap; belum ada transaksi ERP."
   },
   {
     "id": "OBS-001",
@@ -41,7 +41,7 @@
     "user": "Engineer",
     "outcome": "CI menolak otomatis pelanggaran: impor lintas domain terlarang, akses skema DB domain lain, event tak terdaftar, migrasi tidak terdokumentasi/destruktif, enum mentah di UI, komponen duplikat, literal principal/cabang, mutasi tanpa audit, posting finance tanpa idempotensi, versi skema event tak cocok (ARC §20), ditambah aturan PRD.",
     "state": "partial",
-    "note": "Pemeriksaan batas modul, kontrak, migrasi, dan UI awal tersedia; cakupan perilaku bisnis belum lengkap."
+    "note": "Pemeriksaan batas modul, kontrak, migrasi, dan UI awal tersedia. Resolusi alias workspace belum terjaga dan fitness mutasi/audit/inbox belum lengkap."
   },
   {
     "id": "PLT-003",
