@@ -1,4 +1,8 @@
 {
+  "AUD-001": {
+    "state": "partial",
+    "note": "Skema audit append-only, redaksi, dan transaksi bersama mutasi telah diuji di PostgreSQL. Pencarian/ekspor dengan RBAC, partisi, tamper-evidence, dan fitness check command masih direncanakan."
+  },
   "OBS-001": {
     "state": "partial",
     "note": "ID request dan korelasi serta log HTTP JSON tersedia di empat backend. Trace lintas event/job, masking payload bertanda, exporter, dan retensi belum tersedia."
@@ -15,6 +19,14 @@
   "PLT-003": {
     "state": "partial",
     "note": "Katalog event dan registry tersedia; payload dan endpoint bisnis belum lengkap."
+  },
+  "PLT-004": {
+    "state": "partial",
+    "note": "Outbox PostgreSQL, validasi event, dan dispatcher dengan urutan per aggregate serta retry dasar telah diuji. Adapter BullMQ, fan-out konsumen, arsip/replay, dan metrik masih direncanakan."
+  },
+  "PLT-006": {
+    "state": "partial",
+    "note": "Kunci command per organisasi/pengguna/perintah, transaksi bersama audit, replay respons, konflik hash, retensi 7 hari, dan 50 retry paralel telah diuji. Interceptor API, jadwal pembersihan, dan metrik belum tersedia."
   },
   "PLT-007": {
     "state": "partial",

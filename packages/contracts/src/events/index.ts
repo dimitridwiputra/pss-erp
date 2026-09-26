@@ -55,5 +55,6 @@ export function parseEventForPublication(input: unknown) {
   if (!catalogEntry || envelope.producer !== catalogEntry.producer || envelope.aggregateType !== catalogEntry.aggregate) {
     throw new Error(`Producer or aggregate does not match Appendix C for ${envelope.eventType}.`);
   }
-  return schema.parse(input);
+  schema.parse(input);
+  return envelope;
 }

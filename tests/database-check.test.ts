@@ -22,4 +22,14 @@ describe('PLT-002 migration gate', () => {
   it('accepts a forward-only migration in its owner schema', () => {
     expect(checkMigration({ path, sql: 'CREATE TABLE sales.sales_order (id uuid PRIMARY KEY);' })).toEqual([]);
   });
+
+  it('does not mistake a TRUNCATE permission revoke for data deletion', () => {
+    expect(checkMigration({ path, sql: 'REVOKE UPDATE, DELETE, TRUNCATE ON sales.sales_order FROM PUBLIC;' })).toEqual([]);
+    expect(checkMigration({ path, sql: 'CREATE TRIGGER no_truncate BEFORE TRUNCATE ON sales.sales_order EXECUTE FUNCTION audit.reject_entry_mutation();' })).toEqual([]);
+  });
+
+  it('rejects destructive SQL inside a migration block', () => {
+    expect(checkMigration({ path, sql: 'DO $$ BEGIN TRUNCATE TABLE sales.sales_order; END $$;' }))
+      .toEqual([expect.stringContaining('requires a sibling .migration-plan.md')]);
+  });
 });

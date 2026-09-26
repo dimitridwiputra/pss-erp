@@ -100,7 +100,8 @@
     ],
     "user": "Internal Audit",
     "outcome": "Setiap mutasi state, approval, override, penyesuaian, keputusan pembayaran, serah terima kas, jurnal, close/reopen, merge, override mapping, perubahan role/permission, dan perubahan kredensial integrasi tercatat dengan actor, aksi, entitas, before/after (atau diff material), waktu, requestId/correlationId, dan reason code; auditor mencari dan mengekspornya.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Skema audit append-only, redaksi, dan transaksi bersama mutasi telah diuji di PostgreSQL. Pencarian/ekspor dengan RBAC, partisi, tamper-evidence, dan fitness check command masih direncanakan."
   },
   {
     "id": "IDN-001",
@@ -128,7 +129,8 @@
     ],
     "user": "Sistem",
     "outcome": "Event ditulis ke tabel outbox dalam transaksi yang sama dengan perubahan state; dispatcher mengirimnya ke konsumen dengan jaminan at-least-once dan urutan per aggregate.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Outbox PostgreSQL, validasi event, dan dispatcher dengan urutan per aggregate serta retry dasar telah diuji. Adapter BullMQ, fan-out konsumen, arsip/replay, dan metrik masih direncanakan."
   },
   {
     "id": "PLT-006",
@@ -142,7 +144,8 @@
     ],
     "user": "Sistem",
     "outcome": "Pengguna dapat menekan ulang atau perangkat dapat mengirim ulang tanpa risiko ganda; respons ulang identik dengan respons pertama.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Kunci command per organisasi/pengguna/perintah, transaksi bersama audit, replay respons, konflik hash, retensi 7 hari, dan 50 retry paralel telah diuji. Interceptor API, jadwal pembersihan, dan metrik belum tersedia."
   },
   {
     "id": "PLT-007",

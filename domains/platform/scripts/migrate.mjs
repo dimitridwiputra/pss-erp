@@ -1,0 +1,23 @@
+import { readFile } from 'node:fs/promises';
+import pg from 'pg';
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error('DATABASE_URL is required for platform migration.');
+
+const migrationFiles = ['0001_outbox_event.sql', '0002_idempotency_key.sql'];
+const client = new pg.Client({ connectionString });
+await client.connect();
+try {
+  await client.query('BEGIN');
+  for (const migrationFile of migrationFiles) {
+    const sql = await readFile(new URL(`../infrastructure/database/migrations/${migrationFile}`, import.meta.url), 'utf8');
+    await client.query(sql);
+  }
+  await client.query('COMMIT');
+  process.stdout.write('Platform migrations 0001 and 0002 applied.\n');
+} catch (error) {
+  await client.query('ROLLBACK');
+  throw error;
+} finally {
+  await client.end();
+}

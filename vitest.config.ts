@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@pss\/contracts$/, replacement: fileURLToPath(new URL('./packages/contracts/src/index.ts', import.meta.url)) },
+      { find: /^@pss\/audit$/, replacement: fileURLToPath(new URL('./domains/audit/src/index.ts', import.meta.url)) },
       { find: /^@pss\/http$/, replacement: fileURLToPath(new URL('./packages/http/src/index.ts', import.meta.url)) },
     ],
   },

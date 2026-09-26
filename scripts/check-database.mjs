@@ -32,7 +32,7 @@ export function checkMigration({ path, sql, plan = '' }) {
   const domain = /(?:^|\/)domains\/([^/]+)\/infrastructure\/database\/migrations\//.exec(path)?.[1];
   if (!domain) return [`${path}: migration must live under its owning domain.`];
 
-  const destructive = /\b(?:DROP\s+(?:COLUMN|TABLE|SCHEMA)|TRUNCATE\s+(?:TABLE\s+)?)/i.test(normalized);
+  const destructive = /\bDROP\s+(?:COLUMN|TABLE|SCHEMA)\b|\bTRUNCATE\s+(?:TABLE\s+)?(?!ON\b)[a-z_][\w]*/i.test(normalized);
   if (destructive && !['Backfill', 'Compatibility', 'Rollback'].every((heading) => new RegExp(`^## ${heading}\\b`, 'im').test(plan))) {
     issues.push(`${path}: destructive migration requires a sibling .migration-plan.md with Backfill, Compatibility, and Rollback sections (PLT-002.AC02).`);
   }

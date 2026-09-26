@@ -1,3 +1,3 @@
 # platform
 
-Read [DOMAIN.md](DOMAIN.md) before adding behavior. This domain is scaffolded only.
+Read [DOMAIN.md](DOMAIN.md) before adding behavior. Outbox and command idempotency persistence are implemented; their HTTP, BullMQ, and consumer runtimes are pending.
