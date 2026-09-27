@@ -11,7 +11,7 @@
     "outcome": "Engineer (manusia atau agent) meng-clone repo dan langsung memiliki workspace pnpm + Turborepo dengan deployable, modul domain kosong berstruktur, packages dasar, skrip CI target, dan dokumen tata kelola di tempatnya.",
     "state": "available",
     "availablePath": "/",
-    "note": "Halaman fondasi dan endpoint kesehatan dapat dilihat. Lima image Docker berhasil dibangun dan menjawab health check lokal. Bukti fresh clone, CI hosted, dan branch protection untuk Definition of Done belum lengkap; belum ada transaksi ERP."
+    "note": "Halaman fondasi dan endpoint kesehatan dapat dilihat. Clone lokal baru lolos install dan build; lima image Docker menjawab health check. Uji dev:up dari clone, CI hosted, dan branch protection untuk Definition of Done belum lengkap; belum ada transaksi ERP."
   },
   {
     "id": "OBS-001",
@@ -86,7 +86,7 @@
     "user": "Semua (engineer sebagai konsumen)",
     "outcome": "Semua produk memakai komponen yang sama: tombol, task card, status pill, input, selection card, scan screen, exception sheet, confirmation, toast, tabel, dan template halaman A–D.",
     "state": "partial",
-    "note": "Token, tombol, kolom teks, kartu tugas, kartu pilihan, status, scan, pengecualian, konfirmasi, toast, tabel presentasional, formatter, templat A–D, Storybook empat state, dan pemeriksaan axe tersedia. Regresi visual masih terpisah."
+    "note": "Token, komponen dasar, formatter, templat A–D, Storybook empat state, axe, dan delapan snapshot visual Linux Chromium tersedia. Kebijakan label lengkap dan penerimaan layar produk belum selesai."
   },
   {
     "id": "AUD-001",

@@ -16,11 +16,19 @@ function isBusinessIdentity(node) {
 export function checkSourceQuality({ path, source }) {
   const issues = [];
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+  const lines = source.split('\n');
   function add(node, message) {
     const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
     issues.push(`${path}:${line}: ${message}`);
   }
   function visit(node) {
+    if (node.kind === ts.SyntaxKind.AnyKeyword) {
+      const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line;
+      const localExplanation = lines.slice(Math.max(0, line - 1), line + 1).join(' ');
+      if (!/(?:\/\/|\/\*)\s*any:\s*\S+/i.test(localExplanation)) {
+        add(node, 'any requires a local "any: reason" comment (AGT §18).');
+      }
+    }
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) &&
         node.expression.expression.getText(file) === 'console' && node.expression.name.text === 'log') {
       add(node, 'console.log is forbidden in product source; use the structured logger (OBS-001).');
@@ -35,7 +43,7 @@ export function checkSourceQuality({ path, source }) {
     ts.forEachChild(node, visit);
   }
   visit(file);
-  for (const [index, line] of source.split('\n').entries()) {
+  for (const [index, line] of lines.entries()) {
     if (/\bTODO\b/.test(line) && /\/\/|\/\*/.test(line) && !/(?:OD-\d+|[A-Z]{2,}-\d+|#\d+)/.test(line)) {
       issues.push(`${path}:${index + 1}: TODO needs an issue or open-decision reference (AGT §18).`);
     }

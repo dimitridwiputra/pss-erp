@@ -8,8 +8,9 @@
     "storybook": "storybook dev -p 6006 --no-open",
     "build-storybook": "storybook build --output-dir storybook-static",
     "test:a11y": "playwright test -c playwright.a11y.config.ts",
+    "test:visual": "playwright test -c playwright.visual.config.ts",
     "start": "next start -p 3000",
-    "lint": "eslint app",
+    "lint": "eslint app tests playwright.*.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

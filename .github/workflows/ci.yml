@@ -50,6 +50,8 @@ jobs:
         run: pnpm --filter @pss/web exec playwright install --with-deps chromium
       - name: Check template accessibility
         run: pnpm test:a11y
+      - name: Check template visual snapshots
+        run: pnpm test:visual:docker
       - name: Feature directory source check
         run: pnpm features:check
       - name: Secret pattern check

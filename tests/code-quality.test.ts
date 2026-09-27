@@ -21,4 +21,10 @@ describe('PLT-002 source lint', () => {
   it('accepts an open-decision reference and non-business comparison', () => {
     expect(checkSourceQuality({ path, source: "// TODO OD-120: confirm IdP\nif (status === 'ACTIVE') {}" })).toEqual([]);
   });
+
+  it('requires a local explanation for an any type', () => {
+    expect(checkSourceQuality({ path, source: 'const value: any = input;' }))
+      .toEqual([expect.stringContaining('any requires')]);
+    expect(checkSourceQuality({ path, source: '// any: third-party untyped callback\nconst value: any = input;' })).toEqual([]);
+  });
 });

@@ -26,7 +26,7 @@ pnpm dev:up
 
 In local development, open <http://localhost:3000/fitur> to browse all **280 PRD features** with their phase, sprint, and current implementation status. The home page links there as well. The directory is read-only and only appears in development; it does not create transaction screens for features that have not been built.
 
-For the shared component and page-template preview, run `pnpm storybook` in a second Terminal window and open <http://localhost:6006>. The stories show four states of each current `@pss/ui` component and templates A–D with illustrative content; they are not ERP workflows. Run `pnpm test:a11y` to check all 34 template/control states with Playwright and axe (first install Chromium with `pnpm --filter @pss/web exec playwright install chromium`).
+For the shared component and page-template preview, run `pnpm storybook` in a second Terminal window and open <http://localhost:6006>. The stories show four states of each current `@pss/ui` component and templates A–D with illustrative content; they are not ERP workflows. Run `pnpm test:a11y` to check all 34 template/control states with Playwright and axe (first install Chromium with `pnpm --filter @pss/web exec playwright install chromium`). Run `pnpm test:visual:docker` to compare the eight reviewed template snapshots in pinned Linux Chromium; Docker Desktop must be running. The script starts and stops its own browser container. Run the a11y and visual commands **one at a time** because each manages Storybook on port 6006.
 
 If Docker is unavailable and you only need the skeleton health endpoints, run `pnpm dev` after install. The services do not yet depend on their databases.
 
@@ -51,12 +51,14 @@ pnpm db:check
 pnpm ui:check
 pnpm features:check
 pnpm test
-pnpm test:integration
+PSS_TEST_DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational' pnpm test:integration
 pnpm test:e2e
+pnpm test:a11y
+pnpm test:visual:docker
 pnpm build
 ```
 
-`contracts:check` checks PRD catalog synchronization, generated OpenAPI/event documentation, and checked-in event/API compatibility baselines. CI also compares these contracts with `origin/main`; locally, use `PSS_CONTRACT_BASE_REF=origin/main pnpm contracts:check` after fetching that ref. `architecture:check` resolves workspace aliases and rejects selected domain imports and direct cross-domain SQL table access. `db:check` checks the three current audit/platform migrations. `ui:check` rejects raw hex, selected English button labels, and simple raw enum rendering. For PostgreSQL integration checks, set `PSS_TEST_DATABASE_URL` to a disposable local database connection before `pnpm test:integration`. The integration suite exercises audit, outbox, idempotency, and the request error boundary; it does not yet cover a business workflow. `test:e2e` remains a scaffold. See [Sprint 0–2 evidence](docs/releases/S0-S2-evidence.md) for remaining Definition of Done items.
+`contracts:check` checks PRD catalog synchronization, generated OpenAPI/event documentation, and checked-in event/API compatibility baselines. CI also compares these contracts with `origin/main`; locally, use `PSS_CONTRACT_BASE_REF=origin/main pnpm contracts:check` after fetching that ref. `architecture:check` resolves workspace aliases and rejects selected domain imports and direct cross-domain SQL table access. `db:check` checks the three current audit/platform migrations. `ui:check` rejects raw hex, selected English button labels, and simple raw enum rendering. The integration command above uses the disposable local Compose database started by `pnpm dev:up`. The suite exercises audit, outbox, idempotency, and the request error boundary; it does not yet cover a business workflow. `test:e2e` remains a scaffold. See [Sprint 0–2 evidence](docs/releases/S0-S2-evidence.md) for remaining Definition of Done items.
 
 To verify a deployable container after building it, run these commands from the repository root (replace `api` with `web`, `finance-api`, `integration-worker`, or `geo-service` as needed):
 
