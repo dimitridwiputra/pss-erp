@@ -6,7 +6,7 @@ import { readContractDocumentFromGit } from './git-contract-baseline.mjs';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const { HealthResponseSchema, ProblemDetailsSchema, eventCatalog, eventSchemaRegistry } = require('../dist');
+const { HealthResponseSchema, CurrentUserResponseSchema, ProblemDetailsSchema, eventCatalog, eventSchemaRegistry } = require('../dist');
 const root = new URL('../../../', import.meta.url);
 
 function toJson(value) {
@@ -26,16 +26,31 @@ function createDocuments() {
   const openapi = {
     openapi: '3.1.0',
     info: { title: 'PSS Operating Platform API', version: '0.1.0' },
-    paths: Object.fromEntries(['/health/live', '/health/ready'].map((path) => [path, {
-      get: {
-        operationId: path === '/health/live' ? 'getLiveness' : 'getReadiness',
-        responses: {
-          '200': { description: 'Process health', content: { 'application/json': { schema: { $ref: '#/components/schemas/HealthResponse' } } } },
-          default: { description: 'Problem details', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },
+    paths: {
+      ...Object.fromEntries(['/health/live', '/health/ready'].map((path) => [path, {
+        get: {
+          operationId: path === '/health/live' ? 'getLiveness' : 'getReadiness',
+          responses: {
+            '200': { description: 'Process health', content: { 'application/json': { schema: { $ref: '#/components/schemas/HealthResponse' } } } },
+            default: { description: 'Problem details', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },
+          },
+        },
+      }])),
+      '/me': {
+        get: {
+          operationId: 'getCurrentUser',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            '200': { description: 'Active PSS account', content: { 'application/json': { schema: { $ref: '#/components/schemas/CurrentUserResponse' } } } },
+            default: { description: 'Problem details', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },
+          },
         },
       },
-    }])),
-    components: { schemas: { HealthResponse: response, ProblemDetails: z.toJSONSchema(ProblemDetailsSchema) } },
+    },
+    components: {
+      schemas: { HealthResponse: response, CurrentUserResponse: z.toJSONSchema(CurrentUserResponseSchema), ProblemDetails: z.toJSONSchema(ProblemDetailsSchema) },
+      securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
+    },
   };
   return {
     'docs/api/openapi.json': openapi,

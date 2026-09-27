@@ -3,6 +3,7 @@ import { Controller, Get, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { HealthResponseSchema, type HealthResponse } from '@pss/contracts';
 import { createHttpRequestLogging, ProblemExceptionFilter } from '@pss/http';
+import { IdentityController, IdentityService } from './identity.controller';
 
 @Controller('health')
 class HealthController {
@@ -13,7 +14,7 @@ class HealthController {
   ready(): HealthResponse { return HealthResponseSchema.parse({ status: 'ok', service: 'api' }); }
 }
 
-@Module({ controllers: [HealthController] })
+@Module({ controllers: [HealthController, IdentityController], providers: [IdentityService] })
 class AppModule {}
 
 async function bootstrap() {

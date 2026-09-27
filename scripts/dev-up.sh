@@ -15,4 +15,6 @@ fi
 "${docker_bin}" compose up -d --wait
 DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational' pnpm --filter @pss/audit db:migrate
 DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational' pnpm --filter @pss/platform db:migrate
+DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational' pnpm --filter @pss/identity db:migrate
+export DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational'
 pnpm dev
