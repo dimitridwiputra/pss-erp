@@ -115,7 +115,8 @@
     ],
     "user": "Semua pengguna, semua produk",
     "outcome": "Pengguna masuk sekali dengan satu akun PSS dan langsung melihat produk yang menjadi haknya.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Verifikasi token OIDC/JWKS, akun PSS aktif, dan endpoint /me sudah diuji. Login web, refresh/logout, pencabutan sesi, Keycloak realm, dan otorisasi role belum tersedia."
   },
   {
     "id": "PLT-004",
@@ -317,7 +318,8 @@
     ],
     "user": "Sistem / Operator",
     "outcome": "Setiap konsumen mencatat eventId yang sudah diproses dalam transaksi yang sama dengan efeknya; duplikat diabaikan; kegagalan di-retry dengan backoff lalu masuk DLQ yang dapat diputar ulang.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Pembungkus transaksi inbox mencegah efek ganda dan mendukung retry aman pada uji PostgreSQL. Konsumen aktif, antrean retry, DLQ, replay, dan monitoring belum tersedia."
   },
   {
     "id": "PLT-008",
@@ -490,7 +492,8 @@
     ],
     "user": "Engineer",
     "outcome": "Engineer dapat memulihkan database ke titik waktu tertentu dan memulihkan bukti/arsip dari storage, mengikuti runbook yang diuji berkala.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Latihan restore PostgreSQL lokal dengan data sintetis berhasil. PITR, penyimpanan cadangan lintas akun, invariant keuangan, dan persetujuan pemulihan produksi belum tersedia."
   },
   {
     "id": "RBAC-003",

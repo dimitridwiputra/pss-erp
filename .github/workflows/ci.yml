@@ -81,3 +81,17 @@ jobs:
         run: docker build --file "apps/${{ matrix.app }}/Dockerfile" --tag "pss-${{ matrix.app }}:${{ github.sha }}" .
       - name: Smoke test deployable image
         run: bash scripts/smoke-image.sh "${{ matrix.app }}" "${{ github.sha }}"
+  restore-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+      - name: Install pinned pnpm
+        run: npm install -g pnpm@11.19.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Restore current schemas and synthetic records
+        run: pnpm dr:rehearse:local

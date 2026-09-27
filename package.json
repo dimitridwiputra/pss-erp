@@ -13,6 +13,7 @@
     "hooks:install": "node scripts/install-hooks.mjs",
     "dev": "turbo run dev",
     "dev:up": "bash scripts/dev-up.sh",
+    "dr:rehearse:local": "bash scripts/rehearse-local-restore.sh",
     "storybook": "pnpm --filter @pss/web storybook",
     "test:a11y": "pnpm --filter @pss/web test:a11y",
     "test:visual": "pnpm --filter @pss/web test:visual",
