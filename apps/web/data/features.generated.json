@@ -41,7 +41,7 @@
     "user": "Engineer",
     "outcome": "CI menolak otomatis pelanggaran: impor lintas domain terlarang, akses skema DB domain lain, event tak terdaftar, migrasi tidak terdokumentasi/destruktif, enum mentah di UI, komponen duplikat, literal principal/cabang, mutasi tanpa audit, posting finance tanpa idempotensi, versi skema event tak cocok (ARC §20), ditambah aturan PRD.",
     "state": "partial",
-    "note": "Pemeriksaan alias workspace, larangan impor domain, akses SQL lintas domain, kontrak, migrasi, dan enum UI dasar tersedia. Fitness mutasi/audit/inbox serta branch protection belum lengkap."
+    "note": "Pemeriksaan alias workspace, larangan impor domain, akses SQL lintas domain, perbandingan nama role langsung, kontrak, migrasi, dan enum UI dasar tersedia. Fitness mutasi/audit/inbox serta branch protection belum lengkap."
   },
   {
     "id": "PLT-003",
@@ -116,7 +116,7 @@
     "user": "Semua pengguna, semua produk",
     "outcome": "Pengguna masuk sekali dengan satu akun PSS dan langsung melihat produk yang menjadi haknya.",
     "state": "partial",
-    "note": "Verifikasi token OIDC/JWKS, akun PSS aktif, dan endpoint /me sudah diuji. Login web, refresh/logout, pencabutan sesi, Keycloak realm, dan otorisasi role belum tersedia."
+    "note": "Verifikasi token OIDC/JWKS, akun PSS aktif, dan endpoint /me sudah diuji. Keycloak lokal memiliki realm dan klien yang mewajibkan S256 PKCE; belum ada login web, pengguna terpetakan, refresh/logout, atau pencabutan sesi."
   },
   {
     "id": "PLT-004",
@@ -175,7 +175,8 @@
     ],
     "user": "System Admin; engineer (registry di kode)",
     "outcome": "Satu daftar kanonik role, permission, dan scope yang dipakai semua layanan dan UI.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Registry role PRD dan pemetaan permission konkret sudah dipakai untuk grant teknis dan beberapa role. Kelompok yang belum terdefinisi tetap ditolak; matriks penuh, seed dan penugasan terkelola, serta SoD belum selesai."
   },
   {
     "id": "RBAC-002",
@@ -189,7 +190,8 @@
     ],
     "user": "Sistem (semua command/query)",
     "outcome": "Pengguna hanya melihat dan mengubah data dalam scope-nya, secara konsisten di semua produk.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Keputusan permission, scope, dan state bersifat default-deny; endpoint /me/permissions membaca assignment aktif. Belum ada command bisnis yang memakai policy atau filter daftar berbasis scope."
   },
   {
     "id": "SEC-001",

@@ -5,7 +5,15 @@
   },
   "IDN-001": {
     "state": "partial",
-    "note": "Verifikasi token OIDC/JWKS, akun PSS aktif, dan endpoint /me sudah diuji. Login web, refresh/logout, pencabutan sesi, Keycloak realm, dan otorisasi role belum tersedia."
+    "note": "Verifikasi token OIDC/JWKS, akun PSS aktif, dan endpoint /me sudah diuji. Keycloak lokal memiliki realm dan klien yang mewajibkan S256 PKCE; belum ada login web, pengguna terpetakan, refresh/logout, atau pencabutan sesi."
+  },
+  "RBAC-001": {
+    "state": "partial",
+    "note": "Registry role PRD dan pemetaan permission konkret sudah dipakai untuk grant teknis dan beberapa role. Kelompok yang belum terdefinisi tetap ditolak; matriks penuh, seed dan penugasan terkelola, serta SoD belum selesai."
+  },
+  "RBAC-002": {
+    "state": "partial",
+    "note": "Keputusan permission, scope, dan state bersifat default-deny; endpoint /me/permissions membaca assignment aktif. Belum ada command bisnis yang memakai policy atau filter daftar berbasis scope."
   },
   "OBS-001": {
     "state": "partial",
@@ -18,7 +26,7 @@
   },
   "PLT-002": {
     "state": "partial",
-    "note": "Pemeriksaan alias workspace, larangan impor domain, akses SQL lintas domain, kontrak, migrasi, dan enum UI dasar tersedia. Fitness mutasi/audit/inbox serta branch protection belum lengkap."
+    "note": "Pemeriksaan alias workspace, larangan impor domain, akses SQL lintas domain, perbandingan nama role langsung, kontrak, migrasi, dan enum UI dasar tersedia. Fitness mutasi/audit/inbox serta branch protection belum lengkap."
   },
   "PLT-003": {
     "state": "partial",

@@ -1,7 +1,7 @@
 import { Controller, Get, Inject, Injectable, OnModuleDestroy, Req } from '@nestjs/common';
 import { createAccessTokenVerifier, InvalidAccessTokenError } from '@pss/auth-client';
-import { CurrentUserResponseSchema, DomainError, type CurrentUserResponse } from '@pss/contracts';
-import { resolveActiveUser } from '@pss/identity';
+import { CurrentUserResponseSchema, CurrentUserPermissionsResponseSchema, DomainError, type CurrentUserResponse, type CurrentUserPermissionsResponse } from '@pss/contracts';
+import { loadActiveRoleAssignments, resolveActiveUser, resolveRolePermissions } from '@pss/identity';
 import { Pool } from 'pg';
 
 @Injectable()
@@ -28,6 +28,19 @@ export class IdentityService implements OnModuleDestroy {
     }
   }
 
+  async getCurrentUserPermissions(authorizationHeader: string | undefined): Promise<CurrentUserPermissionsResponse> {
+    const user = await this.getCurrentUser(authorizationHeader);
+    if (!this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
+    const assignments = await loadActiveRoleAssignments(this.pool, user.id);
+    const grants = assignments.flatMap((assignment) =>
+      resolveRolePermissions(assignment.roleCode).permissions.map((permission) => ({
+        permission,
+        scopeType: assignment.scopeType,
+        scopeId: assignment.scopeId,
+      })));
+    return CurrentUserPermissionsResponseSchema.parse({ userId: user.id, grants });
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.pool?.end();
   }
@@ -40,5 +53,10 @@ export class IdentityController {
   @Get()
   getCurrentUser(@Req() request: { headers: { authorization?: string } }): Promise<CurrentUserResponse> {
     return this.identity.getCurrentUser(request.headers.authorization);
+  }
+
+  @Get('permissions')
+  getCurrentUserPermissions(@Req() request: { headers: { authorization?: string } }): Promise<CurrentUserPermissionsResponse> {
+    return this.identity.getCurrentUserPermissions(request.headers.authorization);
   }
 }

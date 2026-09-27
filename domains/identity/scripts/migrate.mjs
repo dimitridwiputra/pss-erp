@@ -8,10 +8,12 @@ const client = new pg.Client({ connectionString });
 await client.connect();
 try {
   await client.query('BEGIN');
-  const sql = await readFile(new URL('../infrastructure/database/migrations/0001_user_account.sql', import.meta.url), 'utf8');
-  await client.query(sql);
+  for (const file of ['0001_user_account.sql', '0002_role_assignment.sql']) {
+    const sql = await readFile(new URL(`../infrastructure/database/migrations/${file}`, import.meta.url), 'utf8');
+    await client.query(sql);
+  }
   await client.query('COMMIT');
-  process.stdout.write('Identity migration 0001 applied.\n');
+  process.stdout.write('Identity migrations 0001-0002 applied.\n');
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

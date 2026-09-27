@@ -50,13 +50,20 @@ beforeAll(async () => {
   const setup = new pg.Client({ connectionString: testDatabaseUrl });
   await setup.connect();
   try {
-    const migration = await readFile(new URL('../../../domains/identity/infrastructure/database/migrations/0001_user_account.sql', import.meta.url), 'utf8');
-    await setup.query(migration);
+    for (const file of ['0001_user_account.sql', '0002_role_assignment.sql']) {
+      const migration = await readFile(new URL(`../../../domains/identity/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8');
+      await setup.query(migration);
+    }
     await setup.query(
       `INSERT INTO identity.user_account (id, organization_id, idp_subject, display_name, status)
        VALUES ($1, $2, 'active-subject', 'Pengguna Aktif', 'ACTIVE'),
               ($3, $2, 'inactive-subject', 'Pengguna Nonaktif', 'INACTIVE')`,
       [activeUserId, organizationId, inactiveUserId],
+    );
+    await setup.query(
+      `INSERT INTO identity.role_assignment (id, user_id, role_code, scope_type, scope_id)
+       VALUES ($1, $2, 'SALES_ADMIN', 'BRANCH', $3)`,
+      [randomUUID(), activeUserId, randomUUID()],
     );
   } finally {
     await setup.end();
@@ -142,6 +149,53 @@ describe('IDN-001 protected current-user endpoint', () => {
       expect(await after.json()).toMatchObject({ code: 'ACCOUNT_INACTIVE' });
     } finally {
       await client.query("UPDATE identity.user_account SET status = 'ACTIVE', version = version + 1, updated_at = now() WHERE id = $1", [activeUserId]);
+      await client.end();
+    }
+  });
+});
+
+describe('RBAC-002 current permissions endpoint', () => {
+  it('returns stored active assignments as scoped grants, not role claims in the token', async () => {
+    const response = await fetch(`${baseUrl}/me/permissions`, { headers: { authorization: `Bearer ${await signedToken('active-subject')}` } });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.userId).toBe(activeUserId);
+    expect(body.grants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ permission: 'orders.order.create', scopeType: 'BRANCH' }),
+    ]));
+    expect(body.grants).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ permission: 'finance.journal.approve' }),
+    ]));
+  });
+
+  it('denies missing token and an inactive PSS account', async () => {
+    expect((await fetch(`${baseUrl}/me/permissions`)).status).toBe(401);
+    const inactive = await fetch(`${baseUrl}/me/permissions`, { headers: { authorization: `Bearer ${await signedToken('inactive-subject')}` } });
+    expect(inactive.status).toBe(403);
+  });
+
+  it('RBAC-002.AC04 removes revoked permissions on the next request', async () => {
+    const token = await signedToken('active-subject');
+    const client = new pg.Client({ connectionString: testDatabaseUrl });
+    await client.connect();
+    const assignmentId = randomUUID();
+    try {
+      await client.query(
+        `INSERT INTO identity.role_assignment (id, user_id, role_code, scope_type, scope_id)
+         VALUES ($1, $2, 'INTERNAL_AUDIT', 'ORGANIZATION', $3)`,
+        [assignmentId, activeUserId, organizationId],
+      );
+      const before = await fetch(`${baseUrl}/me/permissions`, { headers: { authorization: `Bearer ${token}` } });
+      expect((await before.json()).grants).toEqual(expect.arrayContaining([
+        expect.objectContaining({ permission: 'audit.entry.read', scopeType: 'ORGANIZATION' }),
+      ]));
+      await client.query('UPDATE identity.role_assignment SET revoked_at = now(), updated_at = now() WHERE id = $1', [assignmentId]);
+      const after = await fetch(`${baseUrl}/me/permissions`, { headers: { authorization: `Bearer ${token}` } });
+      expect((await after.json()).grants).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ permission: 'audit.entry.read' }),
+      ]));
+    } finally {
+      await client.query('DELETE FROM identity.role_assignment WHERE id = $1', [assignmentId]);
       await client.end();
     }
   });

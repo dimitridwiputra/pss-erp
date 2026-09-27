@@ -11,5 +11,5 @@ export default defineConfig({
       { find: /^@pss\/identity$/, replacement: fileURLToPath(new URL('./domains/identity/src/index.ts', import.meta.url)) },
     ],
   },
-  test: { include: ['tests/*.test.ts', 'packages/auth-client/tests/**/*.test.ts'] },
+  test: { include: ['tests/*.test.ts', 'packages/auth-client/tests/**/*.test.ts', 'domains/identity/tests/**/*.test.ts'] },
 });

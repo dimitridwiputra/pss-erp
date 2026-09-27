@@ -6,7 +6,7 @@ import { readContractDocumentFromGit } from './git-contract-baseline.mjs';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const { HealthResponseSchema, CurrentUserResponseSchema, ProblemDetailsSchema, eventCatalog, eventSchemaRegistry } = require('../dist');
+const { HealthResponseSchema, CurrentUserResponseSchema, CurrentUserPermissionsResponseSchema, ProblemDetailsSchema, eventCatalog, eventSchemaRegistry } = require('../dist');
 const root = new URL('../../../', import.meta.url);
 
 function toJson(value) {
@@ -46,9 +46,19 @@ function createDocuments() {
           },
         },
       },
+      '/me/permissions': {
+        get: {
+          operationId: 'getCurrentUserPermissions',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            '200': { description: 'Effective scoped permissions for the active account', content: { 'application/json': { schema: { $ref: '#/components/schemas/CurrentUserPermissionsResponse' } } } },
+            default: { description: 'Problem details', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },
+          },
+        },
+      },
     },
     components: {
-      schemas: { HealthResponse: response, CurrentUserResponse: z.toJSONSchema(CurrentUserResponseSchema), ProblemDetails: z.toJSONSchema(ProblemDetailsSchema) },
+      schemas: { HealthResponse: response, CurrentUserResponse: z.toJSONSchema(CurrentUserResponseSchema), CurrentUserPermissionsResponse: z.toJSONSchema(CurrentUserPermissionsResponseSchema), ProblemDetails: z.toJSONSchema(ProblemDetailsSchema) },
       securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
     },
   };

@@ -59,4 +59,12 @@ describe('PLT-002 import boundaries', () => {
       expect.stringContaining('queries ar.receivable'),
     ]));
   });
+
+  it('RBAC-001.AC03 rejects role-name authorization branches', () => {
+    const violations = findArchitectureViolations([{
+      path: `${root}/apps/api/src/orders.controller.ts`,
+      source: "if (actor.role === 'CASHIER') return approvePayment();",
+    }]);
+    expect(violations).toEqual([expect.stringContaining('authorize by permission and scope')]);
+  });
 });

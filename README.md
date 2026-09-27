@@ -22,7 +22,7 @@ pnpm dev:up
 
 `pnpm install` also enables the repository's small local pre-commit check set through Git's native hooks. CI runs the full checks even if a local hook is bypassed.
 
-`pnpm dev:up` starts local services, applies the audit and platform outbox database migrations, and starts all five apps. It also locates Docker Desktop installed at `~/Applications/Docker.app` on this Mac. Open <http://localhost:3000>. Stop the app processes with Ctrl+C; local service containers remain running. If the Docker CLI is not on your PATH, stop containers with `~/Applications/Docker.app/Contents/Resources/bin/docker compose down` from this directory. No production credentials are included.
+`pnpm dev:up` starts local services, applies audit, platform, and identity database migrations, and starts all five apps. It also locates Docker Desktop installed at `~/Applications/Docker.app` on this Mac. Open <http://localhost:3000>. Stop the app processes with Ctrl+C; local service containers remain running. If the Docker CLI is not on your PATH, stop containers with `~/Applications/Docker.app/Contents/Resources/bin/docker compose down` from this directory. No production credentials are included.
 
 In local development, open <http://localhost:3000/fitur> to browse all **280 PRD features** with their phase, sprint, and current implementation status. The home page links there as well. The directory is read-only and only appears in development; it does not create transaction screens for features that have not been built.
 
@@ -40,7 +40,7 @@ If Docker is unavailable and you only need the skeleton health endpoints, run `p
 
 Each process also exposes `/health/ready`. Readiness currently means the process has started; dependency probes belong to later F0 work.
 
-`GET http://localhost:4000/me` is the first protected API route. It requires a Bearer token signed by the configured IdP and an active record in `identity.user_account`. Set `PSS_OIDC_ISSUER`, `PSS_OIDC_AUDIENCE`, and `PSS_OIDC_JWKS_URI` for the API process before using it. The local Keycloak container has no PSS realm or user seed yet, so this route is verified by the isolated HTTP/JWKS/PostgreSQL integration test rather than by a browser login. A missing token returns `UNAUTHENTICATED`; missing OIDC configuration returns `DEPENDENCY_UNAVAILABLE`.
+`GET http://localhost:4000/me` and `GET http://localhost:4000/me/permissions` require a Bearer token signed by the configured IdP and an active record in `identity.user_account`. The permissions endpoint reads effective assignments from `identity.role_assignment`; it never trusts role claims in the token. Set `PSS_OIDC_ISSUER`, `PSS_OIDC_AUDIENCE`, and `PSS_OIDC_JWKS_URI` for the API process before using these routes. The local Keycloak container now imports a `pss-local` realm with a public `pss-web` client that requires S256 PKCE. Check it with `pnpm idp:check:local` after Docker is ready. There is no user seed or web login yet, so protected routes are verified by isolated HTTP/JWKS/PostgreSQL integration tests. A missing token returns `UNAUTHENTICATED`; missing OIDC configuration returns `DEPENDENCY_UNAVAILABLE`.
 
 ## Checks
 
@@ -54,6 +54,7 @@ pnpm ui:check
 pnpm features:check
 pnpm test
 PSS_TEST_DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational' pnpm test:integration
+pnpm idp:check:local
 pnpm test:e2e
 pnpm test:a11y
 pnpm test:visual:docker
@@ -61,7 +62,7 @@ pnpm build
 pnpm dr:rehearse:local
 ```
 
-`contracts:check` checks PRD catalog synchronization, generated OpenAPI/event documentation, and checked-in event/API compatibility baselines. CI also compares these contracts with `origin/main`; locally, use `PSS_CONTRACT_BASE_REF=origin/main pnpm contracts:check` after fetching that ref. `architecture:check` resolves workspace aliases and rejects selected domain imports and direct cross-domain SQL table access. `db:check` checks the four current audit/platform/identity migrations. `ui:check` rejects raw hex, selected English button labels, and simple raw enum rendering. The integration command above uses the disposable local Compose database started by `pnpm dev:up`. The suite exercises audit, outbox, inbox, idempotency, identity, and the request error boundary; it does not yet cover a business workflow. `test:e2e` remains a scaffold. `dr:rehearse:local` tests an isolated restore with synthetic data and cleans up its temporary databases; it does not certify production backup recovery. See [Sprint 0–2 evidence](docs/releases/S0-S2-evidence.md) and [Sprint 3–5 evidence](docs/releases/S3-S5-evidence.md) for remaining Definition of Done items.
+`contracts:check` checks PRD catalog synchronization, generated OpenAPI/event documentation, and checked-in event/API compatibility baselines. CI also compares these contracts with `origin/main`; locally, use `PSS_CONTRACT_BASE_REF=origin/main pnpm contracts:check` after fetching that ref. `architecture:check` resolves workspace aliases and rejects selected domain imports, direct cross-domain SQL table access, and literal role-name authorization comparisons. `db:check` checks the five current audit/platform/identity migrations. `ui:check` rejects raw hex, selected English button labels, and simple raw enum rendering. The integration command above uses the disposable local Compose database started by `pnpm dev:up`. The suite exercises audit, outbox, inbox, idempotency, identity, and the request error boundary; it does not yet cover a business workflow. `test:e2e` remains a scaffold. `dr:rehearse:local` tests an isolated restore with synthetic data and cleans up its temporary databases; it does not certify production backup recovery. See [Sprint 0–2 evidence](docs/releases/S0-S2-evidence.md) and [Sprint 3–5 evidence](docs/releases/S3-S5-evidence.md) for remaining Definition of Done items.
 
 To verify a deployable container after building it, run these commands from the repository root (replace `api` with `web`, `finance-api`, `integration-worker`, or `geo-service` as needed):
 

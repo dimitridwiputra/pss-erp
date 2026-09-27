@@ -42,7 +42,7 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.4
-    command: start-dev
+    command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: pss_local
       KC_BOOTSTRAP_ADMIN_PASSWORD: pss_local_only_change_me
@@ -50,6 +50,7 @@ services:
       - '127.0.0.1:8080:8080'
     volumes:
       - keycloak_data:/opt/keycloak/data
+      - ./infrastructure/keycloak/pss-local-realm.json:/opt/keycloak/data/import/pss-local-realm.json:ro
 
 volumes:
   postgres_data:

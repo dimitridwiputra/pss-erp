@@ -54,6 +54,28 @@ function sqlTableReferences(source) {
   return references;
 }
 
+function directRoleDecisionReferences(source) {
+  const tree = ts.createSourceFile('file.ts', source, ts.ScriptTarget.Latest, true);
+  const matches = [];
+  const isRoleExpression = (node) =>
+    (ts.isIdentifier(node) && /^(?:role|roleCode)$/.test(node.text)) ||
+    (ts.isPropertyAccessExpression(node) && /^(?:role|roleCode)$/.test(node.name.text));
+  const isRoleCode = (node) => ts.isStringLiteral(node) && /^[A-Z][A-Z0-9_]+$/.test(node.text);
+  function visit(node) {
+    if (ts.isBinaryExpression(node) && [
+      ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken,
+      ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken,
+    ].includes(node.operatorToken.kind) &&
+      ((isRoleExpression(node.left) && isRoleCode(node.right)) ||
+       (isRoleExpression(node.right) && isRoleCode(node.left)))) {
+      matches.push(node.getText(tree));
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(tree);
+  return matches;
+}
+
 function parts(path) {
   return path.split(/[\\/]/).filter(Boolean);
 }
@@ -93,6 +115,11 @@ export function findArchitectureViolations(files, workspacePackages = new Map())
     const from = parts(path);
     const sourceDomainAt = from.lastIndexOf('domains');
     const sourceDomain = sourceDomainAt >= 0 ? from[sourceDomainAt + 1] : undefined;
+    if (!from.includes('tests')) {
+      for (const expression of directRoleDecisionReferences(source)) {
+        violations.push(`${path} checks ${expression}: authorize by permission and scope, not role name (RBAC-001.R02).`);
+      }
+    }
     if (sourceDomain && !from.includes('tests')) {
       for (const { schema, table } of sqlTableReferences(source)) {
         if (schemaOwners[schema] && !schemaOwners[schema].includes(sourceDomain)) {
