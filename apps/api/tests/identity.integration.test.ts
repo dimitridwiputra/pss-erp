@@ -58,6 +58,14 @@ beforeAll(async () => {
   const setup = new pg.Client({ connectionString: testDatabaseUrl });
   await setup.connect();
   try {
+    // PLT-006: session revocation now shares `withIdempotentCommand`'s transaction, so this
+    // test database also needs the `platform` schema and its idempotency table. 0001 only
+    // creates the schema and the outbox table; the outbox table is not otherwise used here.
+    const platformMigrations = new URL('../../../domains/platform/infrastructure/database/migrations/', import.meta.url);
+    for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql']) {
+      await setup.query(await readFile(new URL(file, platformMigrations), 'utf8'));
+    }
+
     for (const file of ['0001_user_account.sql', '0002_role_assignment.sql', '0003_session_revocation.sql']) {
       const migration = await readFile(new URL(`../../../domains/identity/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8');
       await setup.query(migration);
@@ -149,18 +157,33 @@ describe('IDN-001 admin session revocation and IDN-002 step-up', () => {
     const oldTargetToken = await signedToken('target-subject', audience, { authenticationAt: oldAuthTime });
     expect((await fetch(`${baseUrl}/me`, { headers: { authorization: `Bearer ${oldTargetToken}` } })).status).toBe(200);
 
-    const request = (token: string) => fetch(url, {
-      method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    let keySequence = 0;
+    const request = (token: string, idempotencyKey?: string) => fetch(url, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`, 'content-type': 'application/json',
+        ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
+      },
       body: JSON.stringify({ reason: 'Perangkat hilang' }),
     });
-    const salesCaller = await request(await signedToken('active-subject', audience, { authenticationAt: Math.floor(Date.now() / 1000), otp: true }));
+    const nextKey = () => `revoke-${++keySequence}`;
+
+    // PLT-006: a mutating route rejects a missing key before it reaches business logic.
+    const missingKey = await request(await signedToken('admin-subject', audience, { authenticationAt: Math.floor(Date.now() / 1000), otp: true }));
+    expect(missingKey.status).toBe(400);
+    expect(await missingKey.json()).toMatchObject({
+      fieldErrors: [expect.objectContaining({ path: 'Idempotency-Key', code: 'required' })],
+    });
+
+    const salesCaller = await request(await signedToken('active-subject', audience, { authenticationAt: Math.floor(Date.now() / 1000), otp: true }), nextKey());
     expect(salesCaller.status).toBe(403);
-    const noMfa = await request(await signedToken('admin-subject', audience, { authenticationAt: Math.floor(Date.now() / 1000) }));
+    const noMfa = await request(await signedToken('admin-subject', audience, { authenticationAt: Math.floor(Date.now() / 1000) }), nextKey());
     expect(noMfa.status).toBe(401);
     expect(await noMfa.json()).toMatchObject({ code: 'MFA_REQUIRED' });
 
     const adminToken = await signedToken('admin-subject', audience, { authenticationAt: Math.floor(Date.now() / 1000), otp: true });
-    const revoked = await request(adminToken);
+    const grantedKey = nextKey();
+    const revoked = await request(adminToken, grantedKey);
     expect(revoked.status).toBe(201);
     expect(await revoked.json()).toEqual({ status: 'REVOKED' });
     const oldSession = await fetch(`${baseUrl}/me`, { headers: { authorization: `Bearer ${oldTargetToken}` } });
@@ -177,6 +200,25 @@ describe('IDN-001 admin session revocation and IDN-002 step-up', () => {
         [revocationTargetId],
       );
       expect(audit.rows).toEqual([expect.objectContaining({ reason_code: 'Perangkat hilang', actor_user_id: adminUserId })]);
+
+      // PLT-006.AC: replaying the same key replays the stored response instead of
+      // revoking again, so version advances once and only one audit entry exists.
+      const versionBefore = await client.query<{ version: number }>(
+        'SELECT version FROM identity.user_account WHERE id = $1', [revocationTargetId],
+      );
+      const replayed = await request(adminToken, grantedKey);
+      expect(replayed.status).toBe(201);
+      expect(await replayed.json()).toEqual({ status: 'REVOKED' });
+
+      const versionAfter = await client.query<{ version: number }>(
+        'SELECT version FROM identity.user_account WHERE id = $1', [revocationTargetId],
+      );
+      expect(versionAfter.rows[0]?.version).toBe(versionBefore.rows[0]?.version);
+      const auditAfterReplay = await client.query(
+        "SELECT id FROM audit.audit_entry WHERE action = 'USER_SESSIONS_REVOKED' AND entity_id = $1",
+        [revocationTargetId],
+      );
+      expect(auditAfterReplay.rowCount).toBe(1);
     } finally {
       await client.end();
     }

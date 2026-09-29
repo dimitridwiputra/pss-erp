@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { Pool } from 'pg';
-import { withAuditedTransaction } from '@pss/audit';
+import type { Pool, PoolClient } from 'pg';
+import { runAuditedWork, withAuditedTransaction, type AuditedTransaction } from '@pss/audit';
 import { DomainError } from '@pss/contracts';
 import { loadActiveRoleAssignments, requireAccess } from './access-policy';
 
@@ -21,9 +21,16 @@ export async function revokeUserSessions(pool: Pool, input: {
   targetUserId: string;
   reason: string;
   requestId: string;
+  /**
+   * When supplied, the revocation joins that already-open transaction instead of
+   * taking its own, so `withIdempotentCommand` can hold the idempotency row and
+   * the audited mutation inside one commit. Without it the function opens its
+   * own audited transaction, which is the correct default for a direct caller.
+   */
+  client?: PoolClient;
 }): Promise<void> {
-  const assignments = await loadActiveRoleAssignments(pool, input.actorId);
-  await withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+  const assignments = await loadActiveRoleAssignments(input.client ?? pool, input.actorId);
+  const work = async ({ client, appendAuditEntry }: AuditedTransaction) => {
     const target = await client.query<{ organization_id: string; version: number; sessions_revoked_at: Date | null }>(
       'SELECT organization_id, version, sessions_revoked_at FROM identity.user_account WHERE id = $1 FOR UPDATE',
       [input.targetUserId],
@@ -57,5 +64,7 @@ export async function revokeUserSessions(pool: Pool, input: {
       correlationId: input.requestId || randomUUID(),
       source: 'API',
     });
-  });
+  };
+  if (input.client) return runAuditedWork(input.client, work);
+  return withAuditedTransaction(pool, work);
 }

@@ -1,0 +1,13 @@
+{
+  "$comment": "Reviewed exemptions for the PLT-002 / PLT-006 command-fitness gate enforced by scripts/check-command-fitness.mjs. Every entry must name a verified reason, not a convenience. An entry without a reason fails the check, so a route cannot silently lose its idempotency requirement.",
+  "exemptions": [
+    {
+      "method": "POST",
+      "path": "/platform/approvals/:id/decision",
+      "rule": "idempotency",
+      "reason": "decideApproval takes the request row with SELECT ... FOR UPDATE and throws STALE_DATA when status is no longer PENDING, so a replayed decision cannot be applied a second time. SoD, expiry, delegation, and recent-MFA are all enforced server-side.",
+      "evidence": "domains/platform/src/application/approval.ts",
+      "limitation": "A retry returns a domain error rather than replaying the original response. Acceptable for a decision that is final by definition."
+    }
+  ]
+}

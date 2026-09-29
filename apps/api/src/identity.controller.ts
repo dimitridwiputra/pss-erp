@@ -3,9 +3,9 @@ import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post
 import { createAccessTokenVerifier, InvalidAccessTokenError } from '@pss/auth-client';
 import { CurrentUserResponseSchema, CurrentUserPermissionsResponseSchema, DomainError, registryCatalog, type CurrentUserResponse, type CurrentUserPermissionsResponse } from '@pss/contracts';
 import { assertSessionActive, checkAccess, loadActiveRoleAssignments, requireRecentMfa, resolveActiveUser, resolveRolePermissions, revokeUserSessions } from '@pss/identity';
-import type { ApprovalAuthorization } from '@pss/platform';
-import { ZodValidationPipe } from '@pss/http';
-import { Pool } from 'pg';
+import { IdempotencyError, withIdempotentCommand, type ApprovalAuthorization } from '@pss/platform';
+import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
+import { Pool, type PoolClient } from 'pg';
 import { z } from 'zod';
 
 const RevokeSessionsSchema = z.strictObject({ reason: z.string().trim().min(1).max(200) });
@@ -36,21 +36,50 @@ export class IdentityService implements OnModuleDestroy {
     }
   }
 
-  async revokeSessions(authorizationHeader: string | undefined, targetUserId: string, reason: string, requestId: string): Promise<{ status: 'REVOKED' }> {
+  /**
+   * PLT-006: revoking sessions is a state mutation, so a retry must replay the stored
+   * response rather than bump `identity.user_account.version` and append a second
+   * `USER_SESSIONS_REVOKED` audit entry. The revocation is handed the transaction that
+   * `withIdempotentCommand` already opened, so the idempotency row and the audited
+   * mutation commit or roll back together.
+   */
+  async revokeSessions(authorizationHeader: string | undefined, targetUserId: string, reason: string, requestId: string, idempotencyKey: string): Promise<{ status: 'REVOKED' }> {
     if (!authorizationHeader) throw new DomainError('UNAUTHENTICATED');
-    if (!this.verify || !this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
+    const { verify, pool } = this;
+    if (!verify || !pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
     let token;
     try {
-      token = await this.verify(authorizationHeader);
+      token = await verify(authorizationHeader);
     } catch (error) {
       if (error instanceof InvalidAccessTokenError) throw new DomainError('UNAUTHENTICATED');
       throw error;
     }
-    const actor = await resolveActiveUser(this.pool, token.subject);
-    await assertSessionActive(this.pool, actor.id, token.authenticationAt);
+    const actor = await resolveActiveUser(pool, token.subject);
+    await assertSessionActive(pool, actor.id, token.authenticationAt);
     requireRecentMfa(token);
-    await revokeUserSessions(this.pool, { actorId: actor.id, organizationId: actor.organizationId, targetUserId, reason, requestId });
-    return { status: 'REVOKED' };
+    try {
+      const result = await withIdempotentCommand<PoolClient>(
+        pool,
+        {
+          organizationId: actor.organizationId,
+          identityId: actor.id,
+          commandName: 'identity.revokeSessions',
+          key: idempotencyKey,
+          requestHash: hashRequestBody({ targetUserId, reason }),
+        },
+        async (client, work) => work(client),
+        async (client) => {
+          await revokeUserSessions(pool, {
+            actorId: actor.id, organizationId: actor.organizationId, targetUserId, reason, requestId, client,
+          });
+          return { code: 200, body: { status: 'REVOKED' } };
+        },
+      );
+      return result.body as { status: 'REVOKED' };
+    } catch (error) {
+      if (error instanceof IdempotencyError) throw new DomainError(error.code);
+      throw error;
+    }
   }
 
   async canApprove(authorizationHeader: string | undefined, request: ApprovalAuthorization, enforceMfa: boolean): Promise<boolean> {
@@ -126,11 +155,13 @@ export class IdentityAdminController {
 
   @Post('users/:id/revoke-sessions')
   revokeSessions(
-    @Req() request: { headers: { authorization?: string; 'x-request-id'?: string } },
+    @Req() request: { headers: { authorization?: string; 'x-request-id'?: string; 'idempotency-key'?: string } },
     @Param('id') targetUserId: string,
     @Body(new ZodValidationPipe(RevokeSessionsSchema)) body: { reason: string },
   ): Promise<{ status: 'REVOKED' }> {
     if (!z.uuid().safeParse(targetUserId).success) throw new DomainError('VALIDATION_FAILED');
-    return this.identity.revokeSessions(request.headers.authorization, targetUserId, body.reason, request.headers['x-request-id'] ?? randomUUID());
+    const idempotencyKey = readIdempotencyKey(request as never);
+    return this.identity.revokeSessions(request.headers.authorization, targetUserId, body.reason,
+      request.headers['x-request-id'] ?? randomUUID(), idempotencyKey);
   }
 }

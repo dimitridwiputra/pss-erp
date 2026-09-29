@@ -68,8 +68,8 @@ export function requireAccess(request: AccessRequest, isRead = false): void {
   if (!checkAccess(request)) throw new DomainError(isRead ? 'NOT_FOUND' : 'PERMISSION_DENIED');
 }
 
-export async function loadActiveRoleAssignments(pool: Pool, userId: string): Promise<RoleAssignment[]> {
-  const result = await pool.query<{
+export async function loadActiveRoleAssignments(executor: Pick<Pool, 'query'>, userId: string): Promise<RoleAssignment[]> {
+  const result = await executor.query<{
     role_code: string;
     scope_type: ScopeType;
     scope_id: string | null;

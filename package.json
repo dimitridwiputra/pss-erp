@@ -23,7 +23,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint && eslint scripts tests apps/api/tests 'domains/**/tests/**/*.ts' eslint.config.mjs && node scripts/check-workspace.mjs && node scripts/check-code-quality.mjs",
     "typecheck": "turbo run typecheck",
-    "architecture:check": "node scripts/check-structure.mjs && node scripts/check-architecture.mjs && node scripts/check-api-controller-registration.mjs",
+    "architecture:check": "node scripts/check-structure.mjs && node scripts/check-architecture.mjs && node scripts/check-api-controller-registration.mjs && node scripts/check-command-fitness.mjs",
     "contracts:check": "node scripts/generate-event-catalog.mjs --check && node scripts/generate-registry-catalog.mjs --check && pnpm --filter @pss/contracts build:code && node packages/contracts/scripts/generate-docs.mjs --check",
     "db:check": "node scripts/check-database.mjs",
     "ui:check": "node scripts/check-ui.mjs",
