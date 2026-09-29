@@ -16,7 +16,6 @@ class NavigationTestModule {}
 const databaseName = `pss_nav_test_${randomUUID().replaceAll('-', '')}`;
 const organizationId = randomUUID();
 const branchA = randomUUID();
-const branchB = randomUUID();
 const adminId = randomUUID();
 const auditorId = randomUUID();
 const warehouseOperatorId = randomUUID();
@@ -24,7 +23,6 @@ const financeMakerId = randomUUID();
 const inactiveId = randomUUID();
 const issuer = 'http://localhost/realms/pss-nav-test';
 const audience = 'pss-api';
-let client: pg.Client;
 let app: INestApplication;
 let baseUrl: string;
 let jwksServer: Server;
@@ -82,7 +80,6 @@ beforeAll(async () => {
     // WAREHOUSE_OPERATOR is "WAREHOUSE". The DB also requires scope_id for every
     // scope_type except OWN, so an org-wide grant points at the organization.
     const warehouseA = randomUUID();
-    const warehouseB = randomUUID();
     await setup.query(
       `INSERT INTO identity.role_assignment (id, user_id, role_code, scope_type, scope_id)
        VALUES ($1, $2, 'SYSTEM_ADMIN', 'ORGANIZATION', $3),
