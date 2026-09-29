@@ -35,3 +35,8 @@ footer { margin-top: auto; padding-top: 48px; color: var(--gray-600); font-size:
 .approval-actions button { min-height: 48px; padding: 10px 22px; border: 1px solid var(--pss-navy-900); border-radius: var(--radius-default); background: var(--pss-navy-900); color: white; font: inherit; font-weight: 700; cursor: pointer; }
 .approval-actions button:last-child { background: white; color: var(--pss-navy-900); }
 .approval-message { padding: 14px 18px; border-radius: var(--radius-default); background: var(--pss-white); border: 1px solid var(--gray-200); }
+.approval-partial { display: grid; gap: var(--space-sm); padding: var(--space-lg) var(--space-xl); border: 1px solid var(--warning-700); border-radius: var(--radius-panel); background: var(--warning-100); }
+.approval-partial h2 { margin: 0; font-size: 20px; color: var(--gray-950); }
+.approval-partial p { margin: 0; color: var(--gray-700); line-height: 1.6; }
+.approval-item h2 + .pss-status-pill { margin-bottom: 12px; }
+.approval-detail-link { display: inline-flex; align-items: center; min-height: 48px; margin-top: 8px; color: var(--pss-navy-900); font-weight: 700; text-decoration: underline; }

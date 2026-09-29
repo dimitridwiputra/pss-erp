@@ -8,6 +8,7 @@ export * from './pos-sale';
 export * from './pos-tender';
 export * from './pos-offline';
 export * from './pos-kasir-bff';
+export * from './experience-approval-inbox';
 export * from './wms-location';
 export * from './wms-warehouse';
 export * from './wms-task';
