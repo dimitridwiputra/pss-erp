@@ -7,14 +7,18 @@ import baseConfig from './playwright.e2e.config';
 // stays in `pnpm test:e2e:local`. The POS preview route is deliberately
 // development-only (`notFound()` unless NODE_ENV is development), so this gate
 // drives `next dev` rather than a production server.
+//
+// The gate uses its own port and never reuses an existing server. Reusing one
+// lets a back-to-back run attach to the previous run's still-terminating
+// `next dev`, which fails intermittently and makes the gate untrustworthy.
 export default defineConfig({
   ...baseConfig,
   testIgnore: '**/local-login.spec.ts',
-  use: { ...baseConfig.use, ...devices['Desktop Chrome'], baseURL: 'http://localhost:3000' },
+  use: { ...baseConfig.use, ...devices['Desktop Chrome'], baseURL: 'http://localhost:3100' },
   webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:3000/kasir',
-    reuseExistingServer: !process.env.CI,
+    command: 'pnpm exec next dev --webpack -p 3100',
+    url: 'http://localhost:3100/kasir',
+    reuseExistingServer: false,
     timeout: 180_000,
   },
 });
