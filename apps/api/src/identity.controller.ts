@@ -1,14 +1,57 @@
 import { randomUUID } from 'node:crypto';
-import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post, Query, Req } from '@nestjs/common';
 import { createAccessTokenVerifier, InvalidAccessTokenError } from '@pss/auth-client';
 import { CurrentUserResponseSchema, CurrentUserPermissionsResponseSchema, DomainError, registryCatalog, type CurrentUserResponse, type CurrentUserPermissionsResponse } from '@pss/contracts';
-import { assertSessionActive, checkAccess, loadActiveRoleAssignments, requireRecentMfa, resolveActiveUser, resolveRolePermissions, revokeUserSessions } from '@pss/identity';
+import {
+  assertSessionActive, checkAccess, loadActiveRoleAssignments, requireAccess, requireRecentMfa,
+  resolveActiveUser, resolveNavigation, resolveRolePermissions, revokeUserSessions,
+} from '@pss/identity';
 import { IdempotencyError, withIdempotentCommand, type ApprovalAuthorization } from '@pss/platform';
 import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
 import { Pool, type PoolClient } from 'pg';
 import { z } from 'zod';
 
 const RevokeSessionsSchema = z.strictObject({ reason: z.string().trim().min(1).max(200) });
+
+/**
+ * RBAC-003 / IDN-003 response shapes.
+ *
+ * Declared here rather than in `@pss/contracts` because that package is being edited
+ * concurrently; they are plain wire contracts with no cross-domain meaning, so
+ * moving them is mechanical. Labels are Indonesian and no field carries a raw enum
+ * a client would have to translate.
+ */
+const NavigationItemSchema = z.strictObject({ key: z.string().min(1), label: z.string().min(1) });
+const NavigationAppSchema = z.strictObject({
+  app: z.string().min(1),
+  accessPermission: z.string().min(1),
+  label: z.string().min(1),
+  items: z.array(NavigationItemSchema),
+});
+const NavigationResponseSchema = z.strictObject({
+  apps: z.array(NavigationAppSchema),
+  bottomNav: z.array(NavigationItemSchema.extend({ href: z.string().min(1) })),
+  bottomNavTrimmed: z.boolean(),
+});
+const AccessReviewHolderSchema = z.strictObject({
+  userId: z.uuid(),
+  displayName: z.string().min(1),
+  accountStatus: z.enum(['AKTIF', 'NONAKTIF', 'TERKUNCI']),
+  roleCode: z.string().min(1),
+  scopeType: z.string().min(1),
+  scopeId: z.uuid().nullable(),
+  validFrom: z.string().min(1),
+  validTo: z.string().min(1).nullable(),
+  permissions: z.array(z.string()),
+  unresolvedPermissionGroups: z.array(z.string()),
+});
+const AccessReviewResponseSchema = z.strictObject({
+  organizationId: z.uuid(),
+  branchId: z.uuid().nullable(),
+  holders: z.array(AccessReviewHolderSchema),
+});
+type NavigationResponse = z.infer<typeof NavigationResponseSchema>;
+type AccessReviewResponse = z.infer<typeof AccessReviewResponseSchema>;
 
 @Injectable()
 export class IdentityService implements OnModuleDestroy {
@@ -129,6 +172,95 @@ export class IdentityService implements OnModuleDestroy {
     return CurrentUserPermissionsResponseSchema.parse({ userId: user.id, grants });
   }
 
+  /**
+   * RBAC-003.R01: navigation is computed here, on the server, from the caller's
+   * effective grants. The response contains only apps and menu items the caller may
+   * actually open, so a client cannot reveal a hidden entry by constructing one.
+   * RBAC-003.BR01 therefore holds by construction: a denied permission produces an
+   * absent item rather than a disabled one.
+   */
+  async getCurrentUserNavigation(authorizationHeader: string | undefined): Promise<NavigationResponse> {
+    const user = await this.getCurrentUser(authorizationHeader);
+    if (!this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
+    const assignments = await loadActiveRoleAssignments(this.pool, user.id);
+    const permissions = [...new Set(assignments.flatMap((assignment) => resolveRolePermissions(assignment.roleCode).permissions))];
+    const navigation = resolveNavigation(permissions);
+    return NavigationResponseSchema.parse({
+      apps: navigation.apps,
+      bottomNav: navigation.bottomNav,
+      bottomNavTrimmed: navigation.bottomNavTrimmed,
+    });
+  }
+
+  /**
+   * IDN-003.R02: the access review report. Scope is filtered server-side, so a
+   * reviewer only ever sees the branches they are entitled to inspect.
+   */
+  async accessReview(authorizationHeader: string | undefined, branchId: string | undefined): Promise<AccessReviewResponse> {
+    const user = await this.getCurrentUser(authorizationHeader);
+    if (!this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
+    requireAccess({
+      actorId: user.id,
+      organizationId: user.organizationId,
+      assignments: await loadActiveRoleAssignments(this.pool, user.id),
+      permission: 'audit.entry.read',
+      resource: branchId ? { organizationId: user.organizationId, branchId } : { organizationId: user.organizationId },
+    });
+
+    // The report is a read over identity.role_assignment only. Each row is resolved
+    // through the Appendix D registry so the response carries granted permissions and
+    // any unresolved permission group, rather than a raw role code the caller would
+    // have to interpret.
+    //
+    // `identity.role_assignment` is scoped generically (scope_type + scope_id), not
+    // per-branch, so a branch filter selects assignments scoped to that branch and
+    // organization-wide ones, which also apply to it.
+    const scopeClause = branchId
+      ? `AND (r.scope_id = $2::uuid
+             OR (r.scope_type = 'ORGANIZATION' AND r.scope_id = $3::uuid))`
+      : '';
+    const parameters = branchId
+      ? [user.organizationId, branchId, user.organizationId]
+      : [user.organizationId];
+
+    const result = await this.pool.query<{
+      user_id: string; display_name: string; role_code: string;
+      scope_type: string; scope_id: string | null;
+      effective_at: Date; expires_at: Date | null; status: string;
+    }>(
+      `SELECT r.user_id, u.display_name, r.role_code, r.scope_type, r.scope_id,
+              r.effective_at, r.expires_at, u.status
+         FROM identity.role_assignment r
+         JOIN identity.user_account u ON u.id = r.user_id
+        WHERE u.organization_id = $1::uuid
+          AND r.revoked_at IS NULL
+          AND r.effective_at <= now()
+          AND (r.expires_at IS NULL OR r.expires_at > now())
+          ${scopeClause}
+        ORDER BY u.display_name, r.role_code`,
+      parameters,
+    );
+
+    const holders = result.rows.map((row) => {
+      const resolved = resolveRolePermissions(row.role_code);
+      return {
+        userId: row.user_id,
+        displayName: row.display_name,
+        accountStatus: row.status === 'ACTIVE' ? 'AKTIF' : row.status === 'INACTIVE' ? 'NONAKTIF' : 'TERKUNCI',
+        roleCode: row.role_code,
+        scopeType: row.scope_type,
+        scopeId: row.scope_id,
+        validFrom: row.effective_at.toISOString().slice(0, 10),
+        validTo: row.expires_at ? row.expires_at.toISOString().slice(0, 10) : null,
+        permissions: resolved.permissions,
+        // An unresolved group is surfaced rather than hidden: it is a data gap the
+        // reviewer needs to see, not a permission that silently resolves to nothing.
+        unresolvedPermissionGroups: resolved.unresolvedGroups,
+      };
+    });
+    return AccessReviewResponseSchema.parse({ organizationId: user.organizationId, branchId: branchId ?? null, holders });
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.pool?.end();
   }
@@ -143,6 +275,15 @@ export class IdentityController {
     return this.identity.getCurrentUser(request.headers.authorization);
   }
 
+  /**
+   * RBAC-003: server-computed navigation. A read, so no idempotency key is required;
+   * the command-fitness gate only constrains mutating routes.
+   */
+  @Get('navigation')
+  getCurrentUserNavigation(@Req() request: { headers: { authorization?: string } }): Promise<NavigationResponse> {
+    return this.identity.getCurrentUserNavigation(request.headers.authorization);
+  }
+
   @Get('permissions')
   getCurrentUserPermissions(@Req() request: { headers: { authorization?: string } }): Promise<CurrentUserPermissionsResponse> {
     return this.identity.getCurrentUserPermissions(request.headers.authorization);
@@ -152,6 +293,19 @@ export class IdentityController {
 @Controller('identity')
 export class IdentityAdminController {
   constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}
+
+  /**
+   * IDN-003.R02 access review, scoped server-side. Reading a review report is not a
+   * business mutation, so it is gated on the technical `audit.entry.read` permission
+   * rather than an identity-management permission.
+   */
+  @Get('access-review')
+  accessReview(
+    @Req() request: { headers: { authorization?: string } },
+    @Query('branchId', new ZodValidationPipe(z.uuid().optional())) branchId?: string,
+  ): Promise<AccessReviewResponse> {
+    return this.identity.accessReview(request.headers.authorization, branchId);
+  }
 
   @Post('users/:id/revoke-sessions')
   revokeSessions(
