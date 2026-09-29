@@ -164,18 +164,36 @@ gcloud projects add-iam-policy-binding <project> \
 Then per environment:
 
 ```bash
+# Configured on 30 September 2026; verify before relying on it.
+gcloud config set project pss-erp-510114
+gcloud config set compute/region asia-southeast2
+gcloud config set compute/zone asia-southeast2-a
+
 cd infrastructure/terraform
 terraform init \
-  -backend-config="bucket=pss-terraform-state-<project>" \
+  -backend-config="bucket=pss-terraform-state-pss-erp-510114" \
   -backend-config="prefix=pss/dev"
-terraform plan -var-file=envs/dev.tfvars -var="project_id=<billed-project-id>"
+terraform plan -var-file=envs/dev.tfvars
 ```
 
 Use a different remote state prefix for each environment. Never apply a plan
 from the wrong prefix, and never promote a `latest` image tag: use a reviewed
 Git SHA and verify the same image digest in staging and production. The
-Google Cloud account on this machine is authenticated, but authentication
-alone does not enable billing or authorize a release.
+Google Cloud account on this machine is authenticated and the project
+`pss-erp-510114` is active, but **nothing has been applied**: no resource
+exists and no cost has been incurred. Authentication does not enable
+billing or authorize a release.
+
+Two things need a human decision before the first `terraform apply`, and
+neither is engineering work:
+
+- **A billing budget alert must already exist.** Pay-as-you-go has no default
+  ceiling. This stack creates the per-environment budget, which means the very
+  first apply runs before any budget guard is in place. Create a project-level
+  budget by hand first, or apply the governance module on its own.
+- **The state bucket needs a retention policy.** An accidental `terraform
+  destroy` in the wrong state would otherwise be able to take the operational
+  database with it.
 
 ## Capacity review triggers
 
