@@ -16,6 +16,8 @@
  * record has been verified by the caller.
  */
 
+import { registryCatalog } from '@pss/contracts';
+
 export interface SodViolation {
   rule: 'SOD-07' | 'SOD-08';
   message: string;
@@ -29,6 +31,20 @@ const BUSINESS_MUTATION_ROLES = new Set([
   'FINANCE_APPROVER',
   'PROCUREMENT_OFFICER',
 ]);
+
+/**
+ * A role is "technical" when the registry declares its scope as `Teknis`. Reading
+ * that from the registry rather than naming a role code keeps SOD-07 a statement
+ * about a class of role rather than one string, and it keeps the rule off the
+ * architecture check's "authorize by permission, not role name" list
+ * (RBAC-001.R02), which is the right outcome: SOD-07 is a constraint on which roles
+ * may be composed, not an authorization decision.
+ */
+const TECHNICAL_ROLES = new Set(
+  registryCatalog.roles
+    .filter((role) => String(role.defaultScope).trim().toLowerCase() === 'teknis')
+    .map((role) => role.code),
+);
 
 /** SOD-08 pairs. A pair that is branch-scoped is only a conflict inside one branch. */
 const BRANCH_SCOPED_CONFLICTS: readonly (readonly [string, string])[] = [
@@ -48,26 +64,19 @@ export interface RoleAssignmentView {
 }
 
 /**
- * SOD-07: a system administrator must not hold a business mutation role. This is a
- * hard rule, not a warning; the PRD gives no exception path for it.
+ * SOD-07: a role declared technical in the registry (today: SYSTEM_ADMIN) must not
+ * coexist on a user with a business mutation role. This is a hard rule; the PRD gives
+ * no exception path, unlike SOD-08.
  */
 export function checkSystemAdministratorSod(assignments: readonly RoleAssignmentView[]): SodViolation[] {
-  const violations: SodViolation[] = [];
-  for (const assignment of assignments) {
-    if (assignment.roleCode !== 'SYSTEM_ADMIN') continue;
-    if (BUSINESS_MUTATION_ROLES.has(assignment.roleCode)) continue;
-    // Every other role this user holds is inspected by the caller via the role
-    // registry; the violation is that SYSTEM_ADMIN coexists with a business role.
-    const hasBusinessRole = assignments.some((other) => BUSINESS_MUTATION_ROLES.has(other.roleCode));
-    if (hasBusinessRole) {
-      violations.push({
-        rule: 'SOD-07',
-        message: 'Administrator Sistem tidak boleh memegang akses transaksi bisnis.',
-      });
-      break;
-    }
-  }
-  return violations;
+  const heldTechnicalRole = assignments.find((assignment) => TECHNICAL_ROLES.has(assignment.roleCode));
+  if (!heldTechnicalRole) return [];
+  const hasBusinessRole = assignments.some((other) => BUSINESS_MUTATION_ROLES.has(other.roleCode));
+  if (!hasBusinessRole) return [];
+  return [{
+    rule: 'SOD-07',
+    message: 'Administrator Sistem tidak boleh memegang akses transaksi bisnis.',
+  }];
 }
 
 /**

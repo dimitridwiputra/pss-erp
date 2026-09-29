@@ -1,16 +1,17 @@
-import { findQueueSeed, findStatusCopy } from '@pss/contracts';
+import {
+  findQueueSeed,
+  findStatusCopy,
+  type ApprovalDetailView,
+  type ApprovalInboxView,
+  type ExperienceApprovalCard,
+  type ExperiencePermittedAction,
+  type ExperienceSourceReport,
+  type ExperienceStatusView,
+  type ExperienceViewer,
+  type PendingApprovalProjection,
+} from '@pss/contracts';
 import { formatRupiah, resolveStatus } from '@pss/ui';
 import Decimal from 'decimal.js';
-import type {
-  ApprovalDetailView,
-  ApprovalInboxView,
-  ExperienceApprovalCard,
-  ExperiencePermittedAction,
-  ExperienceSourceReport,
-  ExperienceStatusView,
-  ExperienceViewer,
-  PendingApprovalProjection,
-} from './contract';
 import type { IdentityGrants, IdentitySelf, SourceOutcome } from './sources';
 
 /**

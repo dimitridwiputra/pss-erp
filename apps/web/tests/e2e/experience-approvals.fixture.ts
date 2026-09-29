@@ -55,11 +55,11 @@ export function seedLocalApproval(): void {
   runLocalSql(`
     DO $seed$
     DECLARE
-      account_id uuid; branch_id uuid; organization_id uuid; policy uuid; request_id uuid;
+      v_account uuid; v_branch uuid; v_organization uuid; v_policy uuid; v_request uuid;
     BEGIN
-      SELECT id, primary_branch_id, organization_id INTO account_id, branch_id, organization_id
-        FROM identity.user_account WHERE display_name = '${DEMO_DISPLAY_NAME}' AND status = 'ACTIVE';
-      IF account_id IS NULL OR branch_id IS NULL THEN
+      SELECT u.id, u.primary_branch_id, u.organization_id INTO v_account, v_branch, v_organization
+        FROM identity.user_account u WHERE u.display_name = '${DEMO_DISPLAY_NAME}' AND u.status = 'ACTIVE';
+      IF v_account IS NULL OR v_branch IS NULL THEN
         RAISE EXCEPTION 'Run pnpm dev:up: the local demo PSS account is missing.';
       END IF;
 
@@ -68,30 +68,30 @@ export function seedLocalApproval(): void {
         ON CONFLICT (code) DO NOTHING;
 
       INSERT INTO identity.role_assignment (id, user_id, role_code, scope_type, scope_id)
-        SELECT gen_random_uuid(), account_id, '${APPROVAL_ROLE}', 'BRANCH', branch_id
+        SELECT gen_random_uuid(), v_account, '${APPROVAL_ROLE}', 'BRANCH', v_branch
          WHERE NOT EXISTS (
-           SELECT 1 FROM identity.role_assignment
-            WHERE user_id = account_id AND role_code = '${APPROVAL_ROLE}'
-              AND scope_type = 'BRANCH' AND scope_id = branch_id AND revoked_at IS NULL);
+           SELECT 1 FROM identity.role_assignment a
+            WHERE a.user_id = v_account AND a.role_code = '${APPROVAL_ROLE}'
+              AND a.scope_type = 'BRANCH' AND a.scope_id = v_branch AND a.revoked_at IS NULL);
 
-      SELECT id INTO policy FROM platform.approval_policy
-        WHERE type_code = '${APPROVAL_TYPE}' AND status = 'ACTIVE' AND effective_from <= current_date
-        ORDER BY effective_from DESC LIMIT 1;
-      IF policy IS NULL THEN
-        policy := gen_random_uuid();
+      SELECT p.id INTO v_policy FROM platform.approval_policy p
+        WHERE p.type_code = '${APPROVAL_TYPE}' AND p.status = 'ACTIVE' AND p.effective_from <= current_date
+        ORDER BY p.effective_from DESC LIMIT 1;
+      IF v_policy IS NULL THEN
+        v_policy := gen_random_uuid();
         INSERT INTO platform.approval_policy (id, type_code, effective_from, status)
-          VALUES (policy, '${APPROVAL_TYPE}', current_date, 'ACTIVE');
+          VALUES (v_policy, '${APPROVAL_TYPE}', current_date, 'ACTIVE');
       END IF;
 
       INSERT INTO platform.approval_level (policy_id, level, role_code, permission_code, max_amount)
-        VALUES (policy, 1, '${APPROVAL_ROLE}', '${APPROVAL_PERMISSION}', NULL)
+        VALUES (v_policy, 1, '${APPROVAL_ROLE}', '${APPROVAL_PERMISSION}', NULL)
         ON CONFLICT DO NOTHING;
 
-      request_id := gen_random_uuid();
+      v_request := gen_random_uuid();
       INSERT INTO platform.approval_request
         (id, organization_id, branch_id, type_code, policy_id, owner_domain, subject_ref,
          requester_id, amount, summary, status, level, required_role, permission_code, expires_at)
-        VALUES (request_id, organization_id, branch_id, '${APPROVAL_TYPE}', policy, 'credit', gen_random_uuid(),
+        VALUES (v_request, v_organization, v_branch, '${APPROVAL_TYPE}', v_policy, 'credit', gen_random_uuid(),
                 gen_random_uuid(), '15000000.00', 'Override kredit · Toko Makmur · Rp 15 jt', 'PENDING', 1,
                 '${APPROVAL_ROLE}', '${APPROVAL_PERMISSION}', now() + interval '2 days');
     END

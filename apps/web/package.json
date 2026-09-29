@@ -9,6 +9,7 @@
     "build-storybook": "storybook build --output-dir storybook-static",
     "test:a11y": "playwright test -c playwright.a11y.config.ts",
     "test:e2e:ci": "playwright test -c playwright.ci.config.ts",
+    "test:e2e:experience": "playwright test -c playwright.experience.config.ts",
     "test:e2e:local": "playwright test -c playwright.e2e.config.ts",
     "test:visual": "playwright test -c playwright.visual.config.ts",
     "start": "next start -p 3000",

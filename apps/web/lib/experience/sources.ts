@@ -2,12 +2,14 @@ import {
   CurrentUserPermissionsResponseSchema,
   CurrentUserResponseSchema,
   DomainError,
+  PendingApprovalProjectionSchema,
   ProblemDetailsSchema,
   type CurrentUserPermissionsResponse,
   type CurrentUserResponse,
+  type ExperienceSourceName,
+  type PendingApprovalProjection,
 } from '@pss/contracts';
 import type { z } from 'zod';
-import { PendingApprovalProjectionSchema, type ExperienceSourceName, type PendingApprovalProjection } from './contract';
 
 /**
  * PLT-008 read side of the experience BFF.
@@ -29,13 +31,7 @@ export type SourceOutcome<T> =
   | { readonly source: ExperienceSourceName; readonly state: 'OK'; readonly data: T }
   | { readonly source: ExperienceSourceName; readonly state: 'UNAVAILABLE'; readonly problemCode: string };
 
-/** RFC 9457 statuses that mean this caller cannot use the product at all. */
-function hardFailure(response: Response): DomainError {
-  if (response.status === 401) return new DomainError('UNAUTHENTICATED');
-  if (response.status === 403) return new DomainError('PERMISSION_DENIED');
-  return new DomainError('DEPENDENCY_UNAVAILABLE');
-}
-
+/** An error body that cannot be read degrades to a default code; it is mapped, not dropped. */
 async function problemCodeOf(response: Response): Promise<string> {
   const payload: unknown = await response.json().catch(() => null);
   const parsed = ProblemDetailsSchema.safeParse(payload);
@@ -58,7 +54,9 @@ async function readSource<T>(
     return { source, state: 'UNAVAILABLE', problemCode: 'DEPENDENCY_UNAVAILABLE' };
   }
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw hardFailure(response);
+    // 401 and 403 are answers to this caller, not a broken source (RBAC-002).
+    if (response.status === 401) throw new DomainError('UNAUTHENTICATED');
+    if (response.status === 403) throw new DomainError('PERMISSION_DENIED');
     return { source, state: 'UNAVAILABLE', problemCode: await problemCodeOf(response) };
   }
   const payload: unknown = await response.json().catch(() => null);

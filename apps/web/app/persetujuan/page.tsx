@@ -6,7 +6,7 @@ import { EmptyState, ErrorState, StatusPill } from '@pss/ui';
 import { getPssServerAccessToken } from '../../auth';
 import { resolveApprovalInbox } from '../../lib/experience/experience-handler';
 import { httpUpstreamTransport } from '../../lib/experience/transport';
-import type { ExperienceApprovalCard, ExperienceSourceReport } from '../../lib/experience/contract';
+import type { ExperienceApprovalCard, ExperienceSourceReport } from '@pss/contracts';
 import { ApprovalConnectivity } from './approval-connectivity';
 import { decideApprovalAction } from './actions';
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ErrorState, StatusPill } from '@pss/ui';
 import { getPssServerAccessToken } from '../../../auth';
-import type { ExperienceApprovalCard } from '../../../lib/experience/contract';
+import type { ExperienceApprovalCard } from '@pss/contracts';
 import { resolveApprovalDetail } from '../../../lib/experience/experience-handler';
 import { httpUpstreamTransport } from '../../../lib/experience/transport';
 import { ApprovalConnectivity } from '../approval-connectivity';

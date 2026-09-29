@@ -1,7 +1,6 @@
-import { createProblemDetails, DomainError, type ProblemDetails } from '@pss/contracts';
+import { createProblemDetails, DomainError, type ApprovalDetailView, type ApprovalInboxView, type ExperienceApprovalView, type ProblemDetails } from '@pss/contracts';
 import { z } from 'zod';
 import { buildApprovalCard, buildApprovalDetailView, buildApprovalInboxView } from './approval-view';
-import type { ApprovalDetailView, ApprovalInboxView, ExperienceApprovalView } from './contract';
 import { readIdentityGrants, readIdentitySelf, readPlatformApprovalInbox, type IdentitySelf, type UpstreamTransport } from './sources';
 
 /**
