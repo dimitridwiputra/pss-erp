@@ -1,18 +1,20 @@
 import 'reflect-metadata';
-import { Controller, Get, Module } from '@nestjs/common';
+import { Controller, Get, Inject, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { createHttpRequestLogging, ProblemExceptionFilter } from '@pss/http';
+import { EventPipelineService } from './event-pipeline';
 
 @Controller('health')
 class HealthController {
+  constructor(@Inject(EventPipelineService) private readonly pipeline: EventPipelineService) {}
   @Get('live')
   live() { return { status: 'ok', service: 'integration-worker' }; }
 
   @Get('ready')
-  ready() { return { status: 'ok', service: 'integration-worker' }; }
+  async ready() { await this.pipeline.assertReady(); return { status: 'ok', service: 'integration-worker' }; }
 }
 
-@Module({ controllers: [HealthController] })
+@Module({ controllers: [HealthController], providers: [EventPipelineService] })
 class AppModule {}
 
 async function bootstrap() {

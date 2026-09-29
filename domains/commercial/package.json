@@ -1,0 +1,21 @@
+{
+  "name": "@pss/commercial",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src scripts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "db:migrate": "node scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "@pss/contracts": "workspace:*",
+    "pg": "8.23.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

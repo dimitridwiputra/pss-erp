@@ -8,7 +8,7 @@ const requiredDomains = [
   'identity', 'organization', 'master-data', 'principal-policy', 'commercial',
   'orders', 'credit', 'fulfillment', 'inventory', 'invoicing', 'ar', 'payments',
   'finance', 'sfa', 'wms', 'fleet', 'geo', 'integration', 'reporting',
-  'procurement', 'ap', 'tax', 'returns', 'platform', 'audit',
+  'procurement', 'ap', 'tax', 'returns', 'platform', 'audit', 'pos',
 ];
 const requiredDomainFolders = ['domain', 'application', 'infrastructure', 'interfaces', 'tests'];
 const problems = [];

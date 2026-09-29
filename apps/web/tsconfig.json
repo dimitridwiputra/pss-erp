@@ -4,6 +4,7 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "noEmit": true,
+    "declaration": false,
     "incremental": true,
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -14,4 +15,3 @@
   "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]
 }
-

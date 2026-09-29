@@ -1,0 +1,5 @@
+.pss-gudang-mode-grid {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}

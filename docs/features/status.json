@@ -1,11 +1,27 @@
 {
+  "CUS-001": {
+    "state": "partial",
+    "note": "Pembuatan customer cepat berstatus PENDING_REVIEW dan audit tersedia. Uji PostgreSQL membuktikan dua nama sama di cabang berbeda memiliki ID/kode berbeda. Model Outlet, desa, aktivasi steward, pemeriksaan duplikat, event, dan AC penuh belum tersedia."
+  },
+  "APR-001": {
+    "state": "partial",
+    "note": "Kebijakan approval effective-dated, threshold, delegasi, SoD, audit, dan keputusan konkuren diuji lokal. Seed kebijakan dengan owner bisnis dan bukti hosted belum tersedia."
+  },
+  "APR-002": {
+    "state": "partial",
+    "note": "Kotak persetujuan dan keputusan API memakai pemeriksaan permission/scope; uji integrasi lokal lulus. Demo browser dengan akun dan kebijakan yang disetujui masih terbuka."
+  },
   "AUD-001": {
     "state": "partial",
     "note": "Skema audit append-only, redaksi, dan transaksi bersama mutasi telah diuji di PostgreSQL. Pencarian/ekspor dengan RBAC, partisi, tamper-evidence, dan fitness check command masih direncanakan."
   },
   "IDN-001": {
     "state": "partial",
-    "note": "Verifikasi token OIDC/JWKS, akun PSS aktif, dan endpoint /me sudah diuji. Keycloak lokal memiliki realm dan klien yang mewajibkan S256 PKCE; belum ada login web, pengguna terpetakan, refresh/logout, atau pencabutan sesi."
+    "note": "Verifikasi OIDC/JWKS, status akun PSS, login web S256 PKCE, sesi HttpOnly, refresh token, logout lokal, dan pencabutan sesi admin dengan MFA diuji secara lokal. Logout IdP, batas usia data offline, dan lingkungan hosted belum tersedia."
+  },
+  "IDN-002": {
+    "state": "partial",
+    "note": "Kebijakan step-up `requireRecentMfa` menolak token tanpa klaim `amr` atau yang melebihi `identity.step_up_minutes`, dan sudah dipakai pada pencabutan sesi serta keputusan persetujuan; uji unit dan integrasi lulus lokal. Penanda `mfa_required` pada Role Registry, flag `sensitive_flag` per permission, `ResetMfa` oleh System Admin beserta audit dan notifikasi, serta demo IdP hosted belum tersedia."
   },
   "RBAC-001": {
     "state": "partial",
@@ -13,7 +29,7 @@
   },
   "RBAC-002": {
     "state": "partial",
-    "note": "Keputusan permission, scope, dan state bersifat default-deny; endpoint /me/permissions membaca assignment aktif. Belum ada command bisnis yang memakai policy atau filter daftar berbasis scope."
+    "note": "Keputusan permission, scope, dan state bersifat default-deny. /me/permissions membaca assignment aktif; keputusan persetujuan dan pencabutan sesi memakai pemeriksaan server-side. POS/WMS belum didaftarkan di API karena belum ada pemeriksaan per route dan scope resource."
   },
   "OBS-001": {
     "state": "partial",
@@ -34,19 +50,31 @@
   },
   "PLT-004": {
     "state": "partial",
-    "note": "Outbox PostgreSQL, validasi event, dan dispatcher dengan urutan per aggregate serta retry dasar telah diuji. Adapter BullMQ, fan-out konsumen, arsip/replay, dan metrik masih direncanakan."
+    "note": "Outbox PostgreSQL, validasi event, dispatcher berurutan, adapter BullMQ, dan alur worker ke konsumen reporting diuji termasuk replay. Konsol arsip/replay, retensi, metrik lag, dan alarm masih terbuka."
   },
   "PLT-005": {
     "state": "partial",
-    "note": "Pembungkus transaksi inbox mencegah efek ganda dan mendukung retry aman pada uji PostgreSQL. Konsumen aktif, antrean retry, DLQ, replay, dan monitoring belum tersedia."
+    "note": "Pembungkus transaksi inbox dan konsumen reporting aktif mencegah efek ganda pada uji PostgreSQL/Redis, termasuk pengiriman ulang. DLQ dan konsol replay beraudit, retensi, metrik, serta monitoring belum tersedia."
   },
   "PLT-006": {
     "state": "partial",
     "note": "Kunci command per organisasi/pengguna/perintah, transaksi bersama audit, replay respons, konflik hash, retensi 7 hari, dan 50 retry paralel telah diuji. Interceptor API, jadwal pembersihan, dan metrik belum tersedia."
   },
+  "PLT-009": {
+    "state": "partial",
+    "note": "Pembacaan konfigurasi effective-dated dan bertingkat scope dengan nilai UNSET serta tabel platform sudah diuji. API tulis beraudit, persetujuan owner, dan laporan asumsi belum tersedia."
+  },
+  "PLT-010": {
+    "state": "partial",
+    "note": "Provider OpenFeature server dan tabel flag tersedia dengan evaluasi fail-closed. Konsol admin, mutasi beraudit, snapshot klien, dan bukti rollout bertahap belum tersedia."
+  },
   "PLT-012": {
     "state": "partial",
     "note": "Latihan restore PostgreSQL lokal dengan data sintetis berhasil. PITR, penyimpanan cadangan lintas akun, invariant keuangan, dan persetujuan pemulihan produksi belum tersedia."
+  },
+  "PRI-004": {
+    "state": "partial",
+    "note": "Aturan resolver murni menguji enam tingkat presedensi, tanggal bisnis/cutover, prioritas gudang, isolasi organisasi, dan fail-closed. Persistence policy disetujui, antrian Q-POLICY_MISSING, API batch, cache/invalidation, benchmark, serta integrasi domain belum ada."
   },
   "PLT-007": {
     "state": "partial",
@@ -59,5 +87,9 @@
   "UX-001": {
     "state": "partial",
     "note": "Token, komponen dasar, formatter, templat A–D, Storybook empat state, axe, dan delapan snapshot visual Linux Chromium tersedia. Kebijakan label lengkap dan penerimaan layar produk belum selesai."
+  },
+  "UX-003": {
+    "state": "partial",
+    "note": "Komponen loading skeleton, keadaan kosong, error dengan kode bantuan tersembunyi, banner offline, dan status sinkronisasi tersedia di paket UI. Empat story lulus aksesibilitas; banner PSS Kasir muncul dalam 2 detik saat koneksi hilang dan layar scan tetap tersedia. Integrasi di semua layar dan mapping kode error lengkap belum selesai."
   }
 }

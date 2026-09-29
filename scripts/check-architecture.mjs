@@ -138,7 +138,8 @@ export function findArchitectureViolations(files, workspacePackages = new Map())
       const label = `${path} imports ${specifier}`;
 
       if (sourcePackageAt >= 0 && targetDomain) violations.push(`${label}: packages cannot import domains (PLT-002).`);
-      if (sourceDomain === 'platform' && targetDomain && targetDomain !== 'platform') {
+      // Audit is a platform foundation consumed by platform workflows; it is not a business domain.
+      if (sourceDomain === 'platform' && targetDomain && targetDomain !== 'platform' && targetDomain !== 'audit') {
         violations.push(`${label}: platform cannot import a business domain (PLT-002).`);
       } else if (sourceDomain && targetDomain && sourceDomain !== targetDomain && ['domain', 'infrastructure'].includes(targetLayer)) {
         violations.push(`${label}: cross-domain internals are private; use a public application interface or contract (ADR-0004).`);

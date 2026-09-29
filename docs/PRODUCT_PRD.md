@@ -8,7 +8,7 @@
 | Versi | 1.0 — draf untuk review |
 | Tanggal | 24 September 2026 |
 | Organisasi | PT Putra Sumber Sari (PSS) |
-| Isi | 93 bagian · 280 feature spec · Appendix A–P |
+| Isi | 93 bagian · 295 feature spec · Appendix A–P |
 | Dokumen pendamping | `AGENTS.md` · `docs/ARCHITECTURE.md` · `docs/DESIGN_SYSTEM.md` · `docs/IMPLEMENTATION_PLAN.md` |
 | Dokumen sumber belum diterima | Business Overview.pdf, Data Warehouse V2 (.sql/.pdf) — item bergantung ditandai ⛔ (OD-102) |
 
@@ -201,7 +201,7 @@ Product owner per domain belum ditetapkan (OD-06). Tabel ini memuat **usulan** o
 | Stage 1 | 24-09-2026 | Source review: inventori keputusan, fitur, konflik, open decision, gap | Penyusun PRD |
 | Stage 2 | 24-09-2026 | Resolution record, daftar isi, taksonomi & registry fitur, peta kepemilikan, roadmap F0–F10 | Penyusun PRD |
 | Stage 3 | 24-09-2026 | Product model: entitas canonical, kepemilikan fakta, source of truth, role & SoD, workflow, state machine, event, posting, konfigurasi, antrian | Penyusun PRD |
-| 1.0-draft | 24-09-2026 | PRD penuh: 280 feature spec, bagian naratif, Appendix A–P | Penyusun PRD |
+| 1.0-draft | 24-09-2026 | PRD penuh: 295 feature spec, bagian naratif, Appendix A–P | Penyusun PRD |
 
 ### 1.4 Sign-off
 
@@ -229,7 +229,7 @@ Sign-off tidak berarti semua OPEN DECISION sudah tertutup. Sign-off berarti revi
 
 PRD ini menetapkan **perilaku produk** PSS Operating Platform secara cukup rinci sehingga engineer dan coding agent bisa mengimplementasikannya tanpa mengarang aturan bisnis. Isinya:
 
-1. Apa yang dibangun: tujuh produk ditambah Konsol Sistem, 280 fitur, fase F0–F10, serta MVP-A dan MVP-B.
+1. Apa yang dibangun: tujuh produk ditambah Konsol Sistem, 295 fitur, fase F0–F10, serta MVP-A dan MVP-B.
 2. Siapa pemilik setiap fakta: domain, modul, dan skema. PRD juga menetapkan dari mana setiap fakta berasal selama masa transisi.
 3. Bagaimana setiap fitur berperilaku: alur, aturan, state, event, idempotensi, audit, RBAC, offline, UX, copy, dampak finance/reporting/integrasi, serta acceptance criteria yang bisa diuji.
 4. Nilai mana yang masih berupa konfigurasi atau asumsi, dan siapa yang wajib memvalidasinya sebelum gate apa.
@@ -495,7 +495,7 @@ Keputusan kunci:
    - **F7–F9:** aplikasi lapangan (PSS Sales, PSS Antar, PSS Gudang).
    - **F10:** optimasi dan fitur lanjutan.
 
-PRD ini memuat **280 fitur** dalam 11 fase. Setiap fitur memiliki spesifikasi lengkap yang bisa diimplementasikan dan diuji. Fakta bisnis yang belum diketahui (isi kontrak principal, isi COA, tarif, dan threshold) tidak dikarang. Nilai-nilai tersebut menjadi konfigurasi berlabel ASUMSI KERJA atau KOSONG, dengan owner dan gate validasi (Appendix J, N).
+PRD ini memuat **295 fitur** dalam 11 fase. Setiap fitur memiliki spesifikasi lengkap yang bisa diimplementasikan dan diuji. Fakta bisnis yang belum diketahui (isi kontrak principal, isi COA, tarif, dan threshold) tidak dikarang. Nilai-nilai tersebut menjadi konfigurasi berlabel ASUMSI KERJA atau KOSONG, dengan owner dan gate validasi (Appendix J, N).
 
 ## 9. Product Vision
 
@@ -1305,12 +1305,13 @@ Kolom **Kode** menunjukkan format kode yang dibaca manusia (prefix dan urutan da
 | **Geo** | `geo` | `geo-service` | Lokasi & riwayat capture, Plus Code, poligon administratif berversi, geometri territory, geofence, query spasial, metrik kelengkapan GIS | Data bisnis customer/penugasan |
 | **Integration** | `integration` | `integration-worker` | Connector instance, raw landing, staging, sync batch, external entity mapping, provenance, hasil dedup & rekonsiliasi, job ekspor outbound | Menulis entitas canonical kecuali lewat command domain pemilik |
 | **Reporting** | `reporting` | `api` (read model) + pipeline DW | Read model operasional (`reporting.*`), layer DW, mart, dataset audit, semantic view BI | Menjadi sumber kebenaran transaksional; menulis balik ke domain |
+| **POS** ★ | `pos` | `api` (modul; ekstraksi ke `apps/pos-service` lewat ADR-0024 bila kriteria §5 terpenuhi) | Terminal konter, shift & laci kas, keranjang/transaksi konter (`PosSale`/`PosSaleLine`), tender yang diterima di konter, riwayat cetak struk, batch offline | Fakta ekonomi domain lain (order, harga, reservasi/stok, invoice/PPN, payment/custody kas, jurnal) — POS hanya mengorkestrasi lewat command publik domain pemilik (§46A) |
 
 **Territory:** geometri dimiliki Geo; penugasan bisnis (salesperson/tim → territory → gudang default) dimiliki SFA/Core ERP dan merujuk ID territory Geo (APRD §13.4).
 
 ### 18.2 Modul → skema operasional
 
-ARC §8.1 ditambah tiga skema baru (★). Penambahan ini bersifat aditif, konsisten dengan prinsip ARC, dan dicatat sebagai ADR-0006.
+ARC §8.1 ditambah empat skema baru (★). Penambahan ini bersifat aditif, konsisten dengan prinsip ARC, dan dicatat sebagai ADR-0006 (`platform`, `purchasing`, `ap`) dan ADR-0024 (`pos`, revisi 1.1, §46A).
 
 | Skema | Modul pemilik | Isi pokok |
 |---|---|---|
@@ -1331,6 +1332,7 @@ ARC §8.1 ditambah tiga skema baru (★). Penambahan ini bersifat aditif, konsis
 | `geo` (DB PostGIS di `geo-service`) | geo | lokasi, capture, poligon, territory, geofence |
 | `integration` | integration | connector instance, batch, staging, mapping, provenance, rekonsiliasi |
 | `reporting` | reporting | read model Control Station, snapshot harian |
+| `pos` ★ | pos | terminal konter, shift & laci kas, keranjang/transaksi konter (`PosSale`/`PosSaleLine`), tender diterima di konter, riwayat cetak struk, batch offline (§46A) |
 | DW: `raw`, `stg`, `dim`, `fact`, `mart`, `audit_dw` | reporting (DW) | Terpisah dari DB operasional (database/instance tersendiri). Nama `audit` di DW diganti `audit_dw` agar tidak bentrok dengan skema `audit` operasional. |
 
 **Invariant:** setiap tabel punya tepat satu modul pemilik; modul lain mengakses lewat application interface (dalam Core ERP), API, event, atau read model. Pelanggaran ditolak oleh `db:check` dan `architecture:check`.
@@ -13057,6 +13059,959 @@ PSS Control Station adalah produk desktop untuk manajemen (Direksi, CFO, Kepala 
 **OPEN DECISIONS:** Tidak ada.
 **DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
 
+## 46A. PSS Kasir (POS Grosir)
+
+PSS Kasir adalah produk konter untuk **penjualan langsung di gudang** kepada pembeli grosir yang datang sendiri (walk-in, *cash and carry*). Pembeli memilih barang di konter, membayar di tempat dengan **tunai, QRIS, atau transfer bank**, menerima struk, lalu mengambil barang di titik serah gudang. Bagian ini ditambahkan pada revisi 1.1 dan menjadi fase **F11**.
+
+Domain `pos` (skema `pos`) **hanya** memiliki fakta konter: terminal, shift & laci kas, keranjang/transaksi konter, tender yang diterima di konter, riwayat cetak struk, dan batch offline. Semua fakta ekonomi tetap dimiliki domain pemiliknya: pesanan (`orders`), harga (`commercial`), reservasi, stok & HPP (`inventory`), serah barang (`fulfillment`), faktur & PPN (`invoicing`, `tax`), pembayaran & custody kas (`payments`), piutang (`ar`), dan jurnal (`finance`). POS menjalankan penjualan dengan memanggil command publik domain tersebut, sama seperti PSS Sales (DEC-108). POS tidak pernah menulis skema lain (PP-01).
+
+Permintaan bisnis menyebut POS sebagai *microservice*. PRD memperlakukannya sebagai **batas service yang siap diekstraksi sejak hari pertama**: skema sendiri, kontrak API `/pos/*` dan event sendiri, tanpa jalan pintas in-process ke domain lain. Apakah `pos` dirilis sebagai modul di `apps/api` atau sebagai deployable `apps/pos-service` sendiri diputuskan lewat ADR-0024 (OD-189), karena menambah deployable wajib lewat ADR dan bukti (ADR-0002, HIER.R01).
+
+### 46A.1 Current / Transition / Target
+
+| Aspek | CURRENT | TRANSITION | TARGET |
+|---|---|---|---|
+| Penjualan konter grosir | Pembeli grosir datang ke gudang untuk belanja langsung. Alur pencatatan, pembayaran, dan pengambilan barangnya saat ini belum didokumentasikan (GAP-46) | Setelah cutover gudang pilot (MVP-B), penjualan konter dicatat Admin Penjualan lewat ORD-001 (`order_source` WALK_IN) dan pembayaran lewat PAY-001 (channel CASHIER, tanpa QRIS) | PSS Kasir: keranjang → bayar → struk → ambil barang dalam satu transaksi. Stok, kas, dan penjualan konter langsung terlihat di Control Station |
+| Metode bayar | Tunai / transfer (detail GAP-46) | Tunai, transfer, giro via kasir Keuangan | Tunai, QRIS, dan transfer di konter (channel `POS`); tempo untuk grosir terdaftar bila diizinkan (OD-195) |
+| Serah barang | Kertas | Konfirmasi Admin Gudang non-WMS | Serah barang dengan scan struk di titik ambil: jalur non-WMS sejak F11; jalur WMS setelah gudang aktif F9 |
+| Kas konter | Laci tanpa sesi shift (GAP-46) | — | Shift dengan modal laci, hitung tutup shift, serah terima ke Kasir Keuangan (CSH-001) |
+
+### 46A.2 Aturan bagian
+
+- POS-000.R01 Domain `pos` hanya memiliki `PosTerminal`, `PosShift`, `PosSale` / `PosSaleLine`, `PosTender`, `PosReceiptPrint`, dan `PosOfflineBatch`. `pos` tidak boleh menulis tabel atau skema domain lain. Efek ke domain lain hanya lewat command publik (application interface atau API) dan event (PP-01, ADR-0004, ADR-0024).
+- POS-000.R02 `pos` tidak pernah menghasilkan jurnal. Posting berasal dari event domain pemilik (`INVENTORY_ISSUED`, `INVOICE_ISSUED`, `INVENTORY_COST_RECOGNIZED`, `PAYMENT_VERIFIED`, `PAYMENT_APPLIED`) sesuai Appendix H (CAG.R05).
+- POS-000.R03 Setiap `PosSale` menjadi tepat satu `SalesOrder` dengan `order_source = WALK_IN`, `source_application = PSS Kasir`, dan `handover_mode = CUSTOMER_PICKUP`. Kunci idempotensinya adalah `posSaleId` (ORD-000.R01, DEC-117). Tidak ada jalur tulis penjualan khusus POS.
+- POS-000.R04 Tender yang **Diterima** di konter (`PosTender` ACCEPTED) belum menjadi kas perusahaan. Setiap tender menghasilkan `Payment` channel `POS` berstatus PENDING_VERIFICATION, dan baru masuk buku saat VERIFIED (DEC-104, DEC-115).
+- POS-000.R05 Barang tidak boleh diserahkan sebelum `PosSale` berstatus PAID (Σ tender ACCEPTED = total) atau CREDIT_APPROVED (POS-009). Guard ini ditegakkan server-side pada `ConfirmPickupHandover` (DEC-117).
+- POS-000.R06 Katalog POS terfilter policy. SKU yang ORDER_CAPTURE-nya bukan PSS untuk (principal/stream, cabang, tanggal) tidak dapat masuk keranjang (REQ-160, OD-193).
+- POS-000.R07 PSS Kasir hanya aktif di gudang dengan proses INVENTORY dan FULFILLMENT = MANAGED, untuk stream dengan ORDER_CAPTURE, INVOICING, dan COLLECTION = PSS MANAGED (DEC-113, PRI-004). Bila tidak terpenuhi, terminal tidak bisa membuka shift (`WAREHOUSE_NOT_MANAGED`).
+- POS-000.R08 Satu terminal hanya boleh punya satu shift OPEN, dan satu kasir hanya boleh punya satu shift OPEN. Setiap transaksi konter terikat pada satu shift OPEN.
+- POS-000.R09 Harga berasal dari `ResolvePrice` (COM-002) dengan scope price list konter (`pos.price_list_scope`). Kasir tidak mengetik harga. Diskon dan override hanya lewat COM-003/COM-004 dengan approval.
+- POS-000.R10 Layar konter memakai template konter (usulan **Template E — Counter**, OD-197) dengan satu aksi utama per langkah (`Bayar`, `Terima Uang`, `Cetak Struk`, `Serahkan Barang`) dan maksimal 3 aksi terlihat (UX-000.R02). Urutan input: scan > pilih > ketik (UX-000.R05). Budget kinerja: tambah barang lewat scan ≤ 300 ms, checkout ≤ 2 detik online.
+- POS-000.R11 SoD: penerima tender (`accepted_by`) ≠ pengonfirmasi serah barang untuk `PosSale` yang sama bila `pos.sod.cashier_not_handover` aktif (SOD-09). Kasir grosir ≠ verifikator kas shift-nya (SOD-06). Kasir tidak boleh menyetujui batal, diskon, atau retur transaksinya sendiri (SOD-03).
+
+### 46A.3 Perubahan pada bagian lain
+
+Penambahan POS mengubah beberapa aturan domain lain. Perubahan ini **aditif** dan dicatat sebagai DEC-114…DEC-117 (§17.2).
+
+| Bagian | Perubahan | Rujukan |
+|---|---|---|
+| §18, §80 | Bounded domain **POS**, modul `domains/pos`, skema `pos` ★, route group `apps/web` `/kasir`, BFF `/kasir/*` | DEC-114, ADR-0024 |
+| §37 PAY-000.R01 | Channel `POS` ditambahkan. Method `QRIS` diizinkan untuk channel `POS` sejak F11. QRIS/VA pada invoice piutang tetap PAY-009 (F10) | DEC-115 |
+| §37 PAY-003 | Auto-application oleh SYSTEM: payment channel `POS` yang VERIFIED dialokasikan otomatis ke invoice `PosSale` yang sama (`payments.pos_auto_apply`) | DEC-116 |
+| §31 FUL | Atribut `handover_mode` (`DELIVERY` / `CUSTOMER_PICKUP`) pada `FulfillmentRequest` dan `DeliveryOrder`. Command baru `ConfirmPickupHandover`: DO PREPARED → DELIVERED / PARTIALLY_DELIVERED dalam satu transaksi, menerbitkan `DELIVERY_ORDER_DISPATCHED`, `INVENTORY_ISSUED`, dan `DELIVERY_ORDER_DELIVERED`. DO pickup tidak masuk antrian Dispatcher/Fleet | DEC-117 |
+| §34 BIL-001 / BIL-002 | Invoice PREPARED saat checkout, sehingga nomornya tercetak di struk. Invoice ISSUED dari `DELIVERY_ORDER_DELIVERED` pickup. Untuk pickup, AT_DISPATCH, AT_DELIVERY, dan AT_POD jatuh di momen yang sama (serah barang) | DEC-117 |
+| §39 CSH-001 | Deklarasi serah kas dapat dibuat dari penutupan shift (`collector` = kasir grosir, sumber `POS_SHIFT`) | POS-014 |
+| §24 CUS | Customer generik **Pelanggan Umum Grosir** per cabang (kredit nonaktif) dan daftar cepat pelanggan grosir dari konter | POS-004, ASM-POS-01 |
+| §61 DOC-001 | Tipe dokumen baru `KSR` (transaksi konter) dan `SHF` (shift); blok nomor offline per terminal | POS-001, POS-013 |
+| App D | Role `POS_CASHIER`, `POS_SUPERVISOR`; permission `fulfillment.pickup.handover`; SOD-08 diperluas; SOD-09 baru | POS-000.R11 |
+
+### 46A.4 Workflow W-14 — Penjualan konter grosir (F11)
+
+| # | Aktor | Command | Pemilik | State hasil | Event |
+|---|---|---|---|---|---|
+| 1 | Kasir Grosir | `OpenPosShift` (modal laci) | pos | PosShift OPEN | `POS_SHIFT_OPENED` |
+| 2 | Kasir Grosir | `CreatePosSale` → `AddPosSaleLine` (scan/cari; harga via `ResolvePrice`; stok tersedia via availability) | pos | PosSale CART | — |
+| 3 | Kasir Grosir | `SelectPosCustomer` (pelanggan terdaftar atau Pelanggan Umum Grosir) | pos | — | — |
+| 4 | Kasir Grosir | `CheckoutPosSale` → `RequestSalesOrder` (WALK_IN, CUSTOMER_PICKUP, key = posSaleId) → validasi, kredit (NOT_REQUIRED untuk bayar di tempat), reservasi FULL, auto-confirm konter, release, `PrepareInvoice` | pos → orders, credit, inventory, fulfillment, invoicing | PosSale PENDING_PAYMENT; SO CONFIRMED; FR RELEASED; DO PREPARED (pickup); Invoice PREPARED | `POS_SALE_CHECKED_OUT`, `SALES_ORDER_CONFIRMED`, `STOCK_RESERVED`, `FULFILLMENT_RELEASED`, `INVOICE_PREPARED` |
+| 5 | Kasir Grosir | `AcceptPosTender` (tunai / QRIS / transfer) → `RecordPayment` channel POS | pos → payments | Tender ACCEPTED (transfer: PENDING_CONFIRMATION); Payment PENDING_VERIFICATION | `POS_TENDER_ACCEPTED`, `PAYMENT_RECEIVED` |
+| 6 | Sistem | Σ tender ACCEPTED = total → cetak struk | pos | PosSale PAID | `POS_SALE_PAID` |
+| 7 | Petugas / Admin Gudang | Siapkan barang (ADM-006 non-WMS; WMS pick bila gudang WMS) → scan struk → `ConfirmPickupHandover` (qty diserahkan, nama penerima, tanda tangan/foto) | fulfillment | DO DELIVERED / PARTIALLY_DELIVERED; stok keluar | `DELIVERY_ORDER_DISPATCHED`, `INVENTORY_ISSUED`, `DELIVERY_ORDER_DELIVERED` |
+| 8 | Sistem | `IssueInvoice` (qty = qty diserahkan) → `RecognizeCost` | invoicing, inventory | Invoice ISSUED; Receivable OPEN | `INVOICE_ISSUED`, `RECEIVABLE_OPENED`, `INVENTORY_COST_RECOGNIZED` |
+| 9 | Sistem | Reaksi `DELIVERY_ORDER_DELIVERED` | pos | PosSale HANDED_OVER | `POS_SALE_HANDED_OVER` |
+| 10 | Kasir Grosir | `ClosePosShift` (hitung laci) → `DeclareCashHandover` (sumber POS_SHIFT) | pos → payments | PosShift CLOSED / CLOSED_WITH_DISCREPANCY → HANDED_OVER | `POS_SHIFT_CLOSED`, `CASH_HANDED_OVER` |
+| 11 | Kasir (Keuangan) | `VerifyCashCustody` → verifikasi payment tunai | payments | CashCustody VERIFIED; Payment VERIFIED | `CASH_CUSTODY_VERIFIED`, `PAYMENT_VERIFIED` → P-10 |
+| 11' | Staf Akuntansi | QRIS/transfer: mutasi atau settlement diimpor (BNK-002) → `VerifyPayment` | payments | Payment VERIFIED | `PAYMENT_VERIFIED` → P-10 |
+| 12 | Sistem | Auto-application ke invoice PosSale (DEC-116) | payments → ar | Application ACTIVE; Receivable SETTLED | `PAYMENT_APPLIED`, `RECEIVABLE_SETTLED` → P-11 |
+| 13 | Sistem (Finance) | Posting dari event 7, 8, 11, 12 | finance | Journal POSTED | `JOURNAL_POSTED` |
+
+**Varian:**
+
+- **Tempo (POS-009):** langkah 5–6 diganti keputusan kredit APPROVED → PosSale CREDIT_APPROVED. Piutang ditagih lewat W-06.
+- **Barang kurang saat disiapkan:** serah sebagian. Qty yang tidak diserahkan kembali ke stok (`ReturnUndelivered`). Kelebihan tender yang belum diverifikasi dibatalkan (POS-012); yang sudah diverifikasi menjadi kredit pelanggan (PAY-004).
+- **Batal sebelum serah barang (POS-012):** `CancelSalesOrder`, reservasi dilepas, tender dibatalkan, invoice PREPARED dibatalkan dan nomornya ditandai BATAL (DEC-106).
+- **Offline (POS-013):** hanya tunai; transaksi disimpan lokal dengan nomor dari blok offline, lalu disinkronkan dan menjalankan langkah 4–6 di server.
+
+```mermaid
+stateDiagram-v2
+  [*] --> CART
+  CART --> PENDING_PAYMENT: CheckoutPosSale
+  CART --> CANCELLED: DiscardPosSale
+  PENDING_PAYMENT --> PAID: tender = total
+  PENDING_PAYMENT --> CREDIT_APPROVED: tempo disetujui
+  PENDING_PAYMENT --> CANCELLED: CancelPosSale
+  PAID --> CANCELLED: CancelPosSale + approval
+  PAID --> HANDED_OVER: barang diserahkan
+  CREDIT_APPROVED --> HANDED_OVER: barang diserahkan
+  HANDED_OVER --> [*]
+  CANCELLED --> [*]
+```
+
+### 46A.5 Fitur
+
+#### POS-001 — Terminal Konter & Perangkat Kasir
+
+**FEATURE ID:** POS-001
+**FEATURE NAME:** Terminal konter & perangkat kasir
+**DOMAIN OWNER:** POS / `pos`
+**PRIMARY USER:** Kepala Kasir Grosir, Admin Sistem
+**FASE / PRIORITAS:** F11 · P1
+**SUMBER:** Permintaan bisnis rev 1.1 (POS grosir); IDN-004; DOC-001; POS-000.R07; ADR-0024; OD-194
+**PROBLEM:** Konter butuh identitas terminal yang terikat pada satu gudang, satu printer struk, dan satu laci kas. Tanpa itu, transaksi tidak bisa ditelusuri ke konter dan kasir mana.
+**USER OUTCOME:** Kepala Kasir mendaftarkan terminal konter per gudang beserta perangkatnya. Kasir hanya melihat terminal di gudangnya.
+**BUSINESS VALUE:** Setiap struk dan setiap rupiah di laci dapat ditelusuri ke terminal, gudang, dan cabang.
+**IN SCOPE:** Master `PosTerminal` (kode, nama, cabang, gudang, perangkat terdaftar IDN-004, profil printer struk, laci kas via printer, scanner HID, status ACTIVE/INACTIVE); validasi POS-000.R07 saat aktivasi; blok nomor offline per terminal (POS-013); flag `pos.enabled` per gudang.
+**OUT OF SCOPE:** Pengadaan hardware (OD-194); pembayaran kartu EDC (ditunda).
+**PRECONDITIONS:** Gudang ACTIVE dengan INVENTORY/FULFILLMENT MANAGED (PRI-004); perangkat terdaftar (IDN-004); flag `pos.enabled` aktif untuk gudang.
+**TRIGGER:** Pembukaan konter baru atau penggantian perangkat.
+**MAIN FLOW:** 1. Kepala Kasir membuka `Kelola Terminal`. 2. Mengisi kode, nama, gudang, dan perangkat. 3. Sistem memvalidasi mode gudang dan perangkat. 4. Terminal ACTIVE; event `POS_TERMINAL_UPDATED`.
+**ALTERNATIVE FLOW:** A1 Perangkat diganti → perangkat lama dicabut (IDN-004), terminal tetap sama sehingga riwayat tidak terputus.
+**EXCEPTION FLOW:** E1 Gudang belum MANAGED → ditolak (`WAREHOUSE_NOT_MANAGED`). E2 Terminal masih punya shift OPEN → tidak bisa dinonaktifkan (`POS_SHIFT_STILL_OPEN`).
+**BUSINESS RULES:** POS-001.BR01 Satu terminal terikat tepat satu gudang dan satu cabang. POS-001.BR02 Kode terminal unik per cabang dan tidak dipakai ulang. POS-001.BR03 Terminal INACTIVE tidak bisa membuka shift.
+**REQUIREMENTS:** POS-001.R01 Sistem harus menolak aktivasi terminal di gudang yang tidak memenuhi POS-000.R07. POS-001.R02 Perubahan terminal harus diaudit dan menerbitkan `POS_TERMINAL_UPDATED`. POS-001.R03 Nama gudang/cabang tidak boleh muncul di kode (PP-03).
+**DATA INPUT:** code, name, branchId, warehouseId, deviceId, printerProfile, status.
+**DATA OUTPUT:** PosTerminal.
+**OWNED ENTITIES:** `PosTerminal`.
+**READ DEPENDENCIES:** `organization` (cabang, gudang), `principal-policy` (resolver mode gudang), `identity` (perangkat).
+**WRITE AUTHORITY:** Hanya `pos`.
+**STATE TRANSITIONS:** PosTerminal ACTIVE ↔ INACTIVE.
+**SYNCHRONOUS DEPENDENCIES:** Resolver PRI-004.
+**ASYNCHRONOUS EVENTS:** `POS_TERMINAL_UPDATED` ke reporting.
+**EVENTS EMITTED:** `POS_TERMINAL_UPDATED`.
+**EVENTS CONSUMED:** `WAREHOUSE_UPDATED`, `PRINCIPAL_SYSTEM_POLICY_ACTIVATED` (tandai terminal bila mode gudang berubah).
+**API / COMMAND CONCEPTS:** `RegisterPosTerminal`, `UpdatePosTerminal`, `DeactivatePosTerminal` → `POST/PATCH /pos/terminals`.
+**IDEMPOTENCY REQUIREMENT:** Header `Idempotency-Key`.
+**AUDIT REQUIREMENT:** Audit pembuatan/perubahan (actor, field lama/baru).
+**RBAC / SCOPE:** `pos.terminal.manage`; scope WAREHOUSE. Role POS_SUPERVISOR; SYSTEM_ADMIN untuk perangkat saja (SOD-07).
+**OFFLINE BEHAVIOR:** Tidak berlaku — konfigurasi online.
+**UX REQUIREMENTS:** Template B (Queue Desktop) daftar terminal; form DSY §8.4; aksi `Simpan Terminal` (primary), `Nonaktifkan` (menu Lainnya).
+**USER-FACING COPY EXAMPLES:** "Kelola Terminal"; "Terminal KSR-01 aktif di Gudang {gudang}."
+**ERROR / EXCEPTION COPY:** `WAREHOUSE_NOT_MANAGED` — copy mengikuti Appendix F ("Gudang belum dikelola PSS"). `POS_SHIFT_STILL_OPEN` — "Terminal masih dipakai" · "Tutup shift di terminal ini sebelum menonaktifkannya." · Aksi: [Lihat Shift]
+**REPORTING IMPACT:** Dimensi terminal pada laporan konter (POS-015).
+**DATA WAREHOUSE IMPACT:** dim pos_terminal. ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** Tidak ada.
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** Hanya perangkat terdaftar yang bisa memakai terminal (IDN-004).
+**OBSERVABILITY:** Terminal aktif tanpa heartbeat > 10 menit selama shift OPEN.
+**FEATURE FLAGS:** `pos.enabled` (per gudang, default off).
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-001.AC01 Given gudang MANAGED, When terminal didaftarkan, Then terminal ACTIVE dan event terbit. POS-001.AC02 Given gudang OBSERVED, Then aktivasi ditolak dengan `WAREHOUSE_NOT_MANAGED`. POS-001.AC03 Given terminal punya shift OPEN, When dinonaktifkan, Then ditolak.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-001.NC01 Terminal tidak boleh terikat ke dua gudang. POS-001.NC02 SYSTEM_ADMIN tidak boleh membuka shift.
+**TEST SCENARIOS:** POS-001.TS01 Unit BR01–BR03. POS-001.TS02 Resolver mode gudang. POS-001.TS03 E2E daftar & nonaktifkan.
+**DEPENDENCIES:** MDM-002, PRI-004, IDN-004.
+**OPEN DECISIONS:** OD-194 — hardware konter & cara cetak struk.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-002 — Buka & Tutup Shift Kasir
+
+**FEATURE ID:** POS-002
+**FEATURE NAME:** Buka & tutup shift kasir (modal laci, hitung akhir, laporan shift)
+**DOMAIN OWNER:** POS / `pos`
+**PRIMARY USER:** Kasir Grosir, Kepala Kasir Grosir
+**FASE / PRIORITAS:** F11 · P0
+**SUMBER:** Permintaan bisnis rev 1.1; CSH-001.BR03; DEC-104; SOD-06; POS-000.R08
+**PROBLEM:** Tanpa sesi shift, uang di laci tidak bisa dicocokkan dengan transaksi, dan selisih tidak bisa dibebankan ke kasir yang tepat.
+**USER OUTCOME:** Kasir membuka shift dengan modal laci, bekerja, lalu menutup shift dengan menghitung uang. Sistem langsung menunjukkan apakah hitungan cocok dengan yang seharusnya.
+**BUSINESS VALUE:** Selisih kas terlihat per kasir per shift di hari yang sama.
+**IN SCOPE:**
+- `OpenPosShift`: terminal, kasir, modal laci (default `pos.opening_float_amount`).
+- Laporan shift berjalan (X) dan laporan tutup (Z): jumlah transaksi, total per metode, tunai seharusnya = modal + tunai diterima − kembalian − tunai dibatalkan.
+- `ClosePosShift`: input hitungan per pecahan, alasan bila selisih (reason code), foto opsional.
+- `ForceClosePosShift` oleh Kepala Kasir (kasir tidak hadir), dengan alasan.
+- Batas durasi shift `pos.shift.max_hours` → `Q-POS_SHIFT_NOT_CLOSED`.
+**OUT OF SCOPE:** Serah kas ke Keuangan (POS-014); keputusan atas selisih (CSH-002).
+**PRECONDITIONS:** Terminal ACTIVE (POS-001); kasir memegang `pos.shift.open`; tidak ada shift OPEN lain untuk terminal/kasir yang sama.
+**TRIGGER:** Awal dan akhir jam kerja konter.
+**MAIN FLOW:**
+1. Kasir login di terminal, menekan `Buka Shift`, mengonfirmasi modal laci.
+2. Sistem membuat PosShift OPEN dan menerbitkan `POS_SHIFT_OPENED`.
+3. Saat selesai, kasir menekan `Tutup Shift` dan mengisi hitungan per pecahan.
+4. Sistem menghitung tunai seharusnya, lalu menetapkan CLOSED (cocok) atau CLOSED_WITH_DISCREPANCY (alasan wajib).
+5. Sistem mencetak laporan Z dan menampilkan langkah berikutnya: `Serahkan Kas` (POS-014).
+**ALTERNATIVE FLOW:** A1 Modal berbeda dari default → kasir mengisi nominal, Kepala Kasir mengonfirmasi di layar yang sama (PIN/step-up). A2 Transaksi PENDING_PAYMENT saat tutup → sistem meminta selesaikan atau batalkan dulu (POS-012).
+**EXCEPTION FLOW:** E1 Shift OPEN sudah ada → ditolak (`POS_SHIFT_ALREADY_OPEN`). E2 Masih ada transaksi PENDING_PAYMENT → ditolak (`POS_SHIFT_HAS_PENDING_SALE`).
+**BUSINESS RULES:**
+- POS-002.BR01 Tunai seharusnya = modal laci + Σ tender TUNAI ACCEPTED − Σ kembalian − Σ tender TUNAI VOIDED.
+- POS-002.BR02 Toleransi selisih = `pos.shift.close_tolerance` (default 0, sama dengan CSH-001.BR03).
+- POS-002.BR03 Modal laci **bukan** penjualan dan tidak ikut diserahkan sebagai penerimaan; modal tetap di laci (imprest).
+- POS-002.BR04 Hitungan tutup shift tidak bisa diubah setelah disimpan. Koreksi hanya lewat catatan Kepala Kasir yang diaudit.
+**REQUIREMENTS:**
+- POS-002.R01 Sistem harus menegakkan satu shift OPEN per terminal dan per kasir (POS-000.R08).
+- POS-002.R02 Sistem harus menyimpan hitungan per pecahan dan tunai seharusnya pada saat tutup.
+- POS-002.R03 Sistem tidak boleh menerbitkan jurnal saat buka/tutup shift (POS-000.R02).
+- POS-002.R04 Shift OPEN melewati `pos.shift.max_hours` harus masuk `Q-POS_SHIFT_NOT_CLOSED`.
+**DATA INPUT:** terminalId, openingFloat; closing: denominations[], reasonCode?, note?, mediaIds[]?; Idempotency-Key.
+**DATA OUTPUT:** PosShift (number, status, expectedCash, countedCash, variance); laporan X/Z.
+**OWNED ENTITIES:** `PosShift`.
+**READ DEPENDENCIES:** `pos` (tender), `configuration`.
+**WRITE AUTHORITY:** Hanya `pos`.
+**STATE TRANSITIONS:** STM-PosShift: — → OPEN → CLOSED / CLOSED_WITH_DISCREPANCY.
+**SYNCHRONOUS DEPENDENCIES:** Tidak ada.
+**ASYNCHRONOUS EVENTS:** Ke reporting; exception.
+**EVENTS EMITTED:** `POS_SHIFT_OPENED`, `POS_SHIFT_CLOSED`.
+**EVENTS CONSUMED:** Tidak ada.
+**API / COMMAND CONCEPTS:** `OpenPosShift`, `ClosePosShift`, `ForceClosePosShift`; BFF `GET /kasir/shift-saya`, `GET /kasir/shift/{id}/laporan`.
+**IDEMPOTENCY REQUIREMENT:** Idempotency-Key per command.
+**AUDIT REQUIREMENT:** Buka, tutup, force close, konfirmasi modal (actor, nominal, alasan).
+**RBAC / SCOPE:** `pos.shift.open`, `pos.shift.close` (POS_CASHIER, OWN); `pos.shift.force_close`, `pos.shift.review` (POS_SUPERVISOR, WAREHOUSE).
+**OFFLINE BEHAVIOR:** Buka/tutup shift wajib online. Saat offline, shift OPEN tetap berjalan (POS-013).
+**UX REQUIREMENTS:** Template E (OD-197); layar hitung per pecahan dengan total otomatis; aksi `Tutup Shift` (primary); konfirmasi dialog menyebut nominal selisih (UX-000.R11).
+**USER-FACING COPY EXAMPLES:** "Buka Shift"; "Modal laci Rp500.000"; "Uang di laci seharusnya Rp12.450.000. Hitungan Anda Rp12.400.000 (kurang Rp50.000)."
+**ERROR / EXCEPTION COPY:** `POS_SHIFT_HAS_PENDING_SALE` — "Masih ada transaksi belum selesai" · "2 transaksi menunggu pembayaran." · Aksi: [Lihat Transaksi]. `POS_SHIFT_ALREADY_OPEN` — "Shift sudah dibuka" · "Anda masih punya shift di terminal {terminal}." · Aksi: [Buka Shift Itu]
+**REPORTING IMPACT:** Laporan shift; tile "Selisih kas konter" (POS-015).
+**DATA WAREHOUSE IMPACT:** fact pos_shift (grain: shift). ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** Tidak ada jurnal. Selisih diputuskan lewat CSH-002 setelah serah kas (POS-014). Modal laci dicatat Finance satu kali lewat template jurnal "Modal Laci Kasir" (role akun `POS_CASH_FLOAT`).
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** Konfirmasi modal dan force close memakai step-up (IDN-002).
+**OBSERVABILITY:** Umur shift OPEN; jumlah shift dengan selisih per minggu.
+**FEATURE FLAGS:** `pos.enabled`.
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-002.AC01 Given modal Rp500.000 dan tunai diterima Rp2.000.000 dengan kembalian Rp150.000, When kasir menghitung Rp2.350.000, Then shift CLOSED. POS-002.AC02 Given hitungan kurang Rp50.000, Then CLOSED_WITH_DISCREPANCY dan alasan wajib. POS-002.AC03 Given shift OPEN > 12 jam, Then item `Q-POS_SHIFT_NOT_CLOSED`. POS-002.AC04 Given transaksi PENDING_PAYMENT, When tutup, Then ditolak.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-002.NC01 Dua shift OPEN pada satu terminal tidak boleh ada. POS-002.NC02 Tutup shift tidak boleh menghasilkan `JOURNAL_POSTED`. POS-002.NC03 Hitungan yang tersimpan tidak boleh diedit.
+**TEST SCENARIOS:** POS-002.TS01 Unit BR01–BR04. POS-002.TS02 Concurrency buka shift ganda. POS-002.TS03 E2E buka → jual → tutup cocok & selisih. POS-002.TS04 Scheduler shift terlalu lama.
+**DEPENDENCIES:** POS-001, DQ-001.
+**OPEN DECISIONS:** OD-196 — jam operasional & jumlah shift per hari.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus; laporan Z tercetak di printer konter. Appendix L berlaku.
+
+#### POS-003 — Keranjang & Katalog Grosir
+
+**FEATURE ID:** POS-003
+**FEATURE NAME:** Keranjang & katalog grosir (scan barcode, UOM grosir, harga & stok real-time)
+**DOMAIN OWNER:** POS / `pos`
+**PRIMARY USER:** Kasir Grosir
+**FASE / PRIORITAS:** F11 · P1
+**SUMBER:** Permintaan bisnis rev 1.1; PRD-002/PRD-004 (UOM & barcode); COM-002; INV-002; POS-000.R06, R09
+**PROBLEM:** Kasir harus mengisi keranjang cepat dengan harga yang benar dan stok yang benar-benar ada, termasuk pembelian per karton/pak.
+**USER OUTCOME:** Kasir scan barcode (pcs, pak, atau karton) atau mencari SKU; harga, satuan, dan stok tersedia langsung tampil.
+**BUSINESS VALUE:** Antrian konter cepat; tidak ada salah harga dan tidak ada barang terjual yang tidak ada di gudang.
+**IN SCOPE:** Scan barcode per UOM (PRD-004); pencarian SKU (SRC-001); pilihan UOM jual; qty; harga dari `ResolvePrice` scope `pos.price_list_scope` dan customer terpilih; indikator stok tersedia gudang terminal (INV-002); diskon baris lewat COM-003, override lewat COM-004 (approval Kepala Kasir); filter SKU mandated (POS-000.R06); simpan keranjang sementara (`Tahan`) dan panggil kembali dalam shift yang sama.
+**OUT OF SCOPE:** Mesin promo (COM-006, F10); harga manual.
+**PRECONDITIONS:** Shift OPEN (POS-002); price list konter ACTIVE.
+**TRIGGER:** Pembeli datang ke konter.
+**MAIN FLOW:** 1. Kasir menekan `Transaksi Baru` (PosSale CART). 2. Scan barcode → baris bertambah dengan UOM dari barcode. 3. Sistem menampilkan harga dan stok tersedia. 4. Kasir mengubah qty bila perlu. 5. Total, DPP, dan PPN tampil berjalan.
+**ALTERNATIVE FLOW:** A1 Barcode tidak dikenal → pencarian nama/kode; barcode tidak dikenal dicatat untuk steward (`Q-UNMAPPED_PRODUCT` tidak dipakai; cukup log OBS). A2 Pembeli ganti pelanggan → harga dihitung ulang (POS-004).
+**EXCEPTION FLOW:** E1 SKU mandated → ditolak (`POS_SKU_NOT_SELLABLE`) dengan panduan. E2 Qty > tersedia → baris ditandai, checkout diblok (`POS_STOCK_INSUFFICIENT`). E3 Harga tidak ter-resolve → baris tidak bisa ditambah (`PRICE_NOT_FOUND`).
+**BUSINESS RULES:**
+- POS-003.BR01 Qty disimpan dalam UOM jual dan base UOM (DEC-026).
+- POS-003.BR02 Harga dan versi harga di-snapshot per baris saat checkout; perubahan harga sebelum checkout menghitung ulang keranjang.
+- POS-003.BR03 Indikator stok hanya informasi; kepastian stok ada di reservasi saat checkout (POS-005).
+- POS-003.BR04 Keranjang `Tahan` kedaluwarsa saat shift ditutup.
+**REQUIREMENTS:**
+- POS-003.R01 Sistem harus menambah baris dari scan dalam ≤ 300 ms (p95, online).
+- POS-003.R02 Sistem tidak boleh menerima harga dari klien; harga selalu dari `ResolvePrice`.
+- POS-003.R03 Sistem harus menyembunyikan atau menolak SKU dengan ORDER_CAPTURE ≠ PSS.
+- POS-003.R04 PPN dihitung dengan aturan TAX-002 (termasuk `tax.rounding_rule`).
+**DATA INPUT:** barcode / productId, uom, qty, discount?; Idempotency-Key per baris.
+**DATA OUTPUT:** PosSale CART dengan baris, subtotal, diskon, DPP, PPN, total.
+**OWNED ENTITIES:** `PosSale` (CART), `PosSaleLine`.
+**READ DEPENDENCIES:** `master-data` (produk, UOM, barcode), `commercial` (`ResolvePrice`), `inventory` (availability), `tax`, `principal-policy`.
+**WRITE AUTHORITY:** Hanya `pos`.
+**STATE TRANSITIONS:** STM-PosSale: — → CART.
+**SYNCHRONOUS DEPENDENCIES:** `ResolvePrice`, availability query, resolver policy (timeout → pesan, bukan harga tebakan).
+**ASYNCHRONOUS EVENTS:** Konsumsi `PRICE_LIST_ACTIVATED` (invalidasi cache katalog konter).
+**EVENTS EMITTED:** Tidak ada (keranjang bukan fakta ekonomi).
+**EVENTS CONSUMED:** `PRICE_LIST_ACTIVATED`, `PRODUCT_UPDATED`.
+**API / COMMAND CONCEPTS:** `CreatePosSale`, `AddPosSaleLine`, `UpdatePosSaleLine`, `RemovePosSaleLine`, `HoldPosSale`; BFF `GET /kasir/katalog?q=`, `GET /kasir/scan/{barcode}`.
+**IDEMPOTENCY REQUIREMENT:** Idempotency-Key per mutasi baris; scan ganda dalam 500 ms diperlakukan sebagai satu scan.
+**AUDIT REQUIREMENT:** Audit override harga/diskon (lewat COM-004); perubahan keranjang tidak diaudit per ketukan, hanya snapshot saat checkout.
+**RBAC / SCOPE:** `pos.sale.create`; scope WAREHOUSE terminal.
+**OFFLINE BEHAVIOR:** Katalog, barcode, dan harga di-cache per shift untuk POS-013. Stok offline hanya indikatif.
+**UX REQUIREMENTS:** Template E: kiri daftar baris, kanan total & aksi `Bayar`; fokus input selalu di kolom scan; umpan balik bunyi/visual per scan; tombol qty besar (≥ 48 px).
+**USER-FACING COPY EXAMPLES:** "Scan barang"; "Indomie Goreng · Karton (40) · Rp118.000 · Stok 25 karton"; "Keranjang ditahan."
+**ERROR / EXCEPTION COPY:** `POS_SKU_NOT_SELLABLE` — "Barang ini tidak dijual di konter" · "{produk} dipesan lewat {sistem sumber} sesuai aturan principal." · Aksi: [Hapus Baris]. `POS_STOCK_INSUFFICIENT` — "Stok tidak cukup" · "Tersedia {qty} {satuan} di gudang ini." · Aksi: [Ubah Jumlah]
+**REPORTING IMPACT:** Tidak ada sampai checkout.
+**DATA WAREHOUSE IMPACT:** Tidak ada.
+**FINANCE / ACCOUNTING IMPACT:** Tidak ada.
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** Tidak ada.
+**OBSERVABILITY:** Latensi scan p95; barcode tidak dikenal per hari.
+**FEATURE FLAGS:** `pos.enabled`.
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-003.AC01 Given barcode karton, When discan, Then baris dengan UOM karton dan harga karton. POS-003.AC02 Given SKU mandated, Then tidak bisa ditambahkan. POS-003.AC03 Given qty melebihi tersedia, Then `Bayar` nonaktif dengan pesan. POS-003.AC04 Given price list baru aktif, Then keranjang CART dihitung ulang dengan pemberitahuan.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-003.NC01 Harga dari klien tidak boleh diterima. POS-003.NC02 Keranjang tidak boleh membuat reservasi.
+**TEST SCENARIOS:** POS-003.TS01 Unit UOM & PPN. POS-003.TS02 Contract `ResolvePrice`. POS-003.TS03 Performa scan. POS-003.TS04 E2E scan → ubah qty → tahan → panggil.
+**DEPENDENCIES:** POS-002, COM-002, INV-002, PRD-004, SRC-001.
+**OPEN DECISIONS:** OD-193 — SKU principal mandated di konter; OD-190 — price list & stream grosir.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-004 — Pelanggan Grosir di Konter
+
+**FEATURE ID:** POS-004
+**FEATURE NAME:** Pelanggan grosir di konter (terdaftar, Pelanggan Umum, daftar cepat)
+**DOMAIN OWNER:** POS / `pos` (pemilihan); Core ERP / `master-data` (customer)
+**PRIMARY USER:** Kasir Grosir
+**FASE / PRIORITAS:** F11 · P1
+**SUMBER:** CUS-001, CUS-005; TAX-004; ASM-POS-01; OD-192
+**PROBLEM:** Sebagian pembeli grosir adalah pelanggan tetap (harga khusus, faktur pajak, tempo), sebagian lagi tidak dikenal. Kasir perlu memilih dengan cepat tanpa membuat data dobel.
+**USER OUTCOME:** Kasir mencari pelanggan dengan nama/telepon/kode, atau memakai Pelanggan Umum Grosir. Pembeli baru yang butuh faktur pajak didaftarkan cepat.
+**BUSINESS VALUE:** Penjualan konter tercatat per pelanggan bila dikenal; faktur pajak benar; master data tetap bersih.
+**IN SCOPE:** Pencarian customer (SRC-001) dengan segmen/kanal grosir; default Pelanggan Umum Grosir per cabang (`pos.walk_in_customer_id`); daftar cepat (`QuickRegisterCustomer` → CUS-001 dengan status review steward CUS-004; NPWP via CUS-005 bila butuh faktur pajak); nama & telepon pembeli opsional pada struk Pelanggan Umum.
+**OUT OF SCOPE:** Program loyalti (ditunda); kredit untuk Pelanggan Umum (dilarang).
+**PRECONDITIONS:** PosSale CART; customer Pelanggan Umum Grosir cabang sudah dibuat (ASM-POS-01).
+**TRIGGER:** Sebelum checkout.
+**MAIN FLOW:** 1. Kasir menekan `Pilih Pelanggan` atau langsung `Bayar` (default Pelanggan Umum). 2. Mencari; memilih. 3. Harga dihitung ulang untuk customer terpilih.
+**ALTERNATIVE FLOW:** A1 Pembeli baru → `Daftar Cepat` (nama, telepon, alamat singkat, NPWP opsional) → customer ACTIVE dengan tanda "perlu review steward".
+**EXCEPTION FLOW:** E1 Kemungkinan duplikat → sistem menampilkan kandidat (CUS-003) sebelum membuat baru. E2 Faktur pajak diminta tanpa NPWP → `POS_CUSTOMER_REQUIRED_FOR_TAX_INVOICE`.
+**BUSINESS RULES:** POS-004.BR01 Pelanggan Umum Grosir tidak punya limit kredit dan tidak bisa tempo. POS-004.BR02 Nama/telepon pada struk Pelanggan Umum hanya disimpan di `PosSale`, bukan di master customer. POS-004.BR03 Daftar cepat memakai command `master-data` yang sama dengan jalur lain (CUS-001); POS tidak menyimpan master customer.
+**REQUIREMENTS:** POS-004.R01 Sistem harus memeriksa kandidat duplikat sebelum daftar cepat. POS-004.R02 Sistem harus menghitung ulang harga saat customer berubah. POS-004.R03 NPWP/NIK hanya tampil bagi pemegang `master_data.customer.pii.view` (CUS-005).
+**DATA INPUT:** customerId atau quick register {name, phone, address, npwp?}; walkInName?, walkInPhone?.
+**DATA OUTPUT:** PosSale.customerId; customer baru (bila daftar cepat).
+**OWNED ENTITIES:** `PosSale.customer_ref`, atribut pembeli walk-in pada `PosSale`.
+**READ DEPENDENCIES:** `master-data`, `credit` (profil untuk POS-009), `search`.
+**WRITE AUTHORITY:** `pos` untuk pilihan; `master-data` untuk customer.
+**STATE TRANSITIONS:** Tidak ada pada PosSale. Customer: — → ACTIVE (review steward pending).
+**SYNCHRONOUS DEPENDENCIES:** `CreateCustomer` (master-data), pencarian.
+**ASYNCHRONOUS EVENTS:** `CUSTOMER_CREATED` dari master-data.
+**EVENTS EMITTED:** Tidak ada (dari pos).
+**EVENTS CONSUMED:** `CUSTOMER_MERGED` (resolve survivor pada PosSale terbuka).
+**API / COMMAND CONCEPTS:** `SelectPosCustomer`; `QuickRegisterCustomer` → master-data `CreateCustomer`.
+**IDEMPOTENCY REQUIREMENT:** Idempotency-Key untuk daftar cepat.
+**AUDIT REQUIREMENT:** Pembuatan customer diaudit di master-data.
+**RBAC / SCOPE:** `pos.customer.quick_register`; scope BRANCH.
+**OFFLINE BEHAVIOR:** Offline: hanya Pelanggan Umum Grosir (POS-013).
+**UX REQUIREMENTS:** Sheet pencarian; default Pelanggan Umum tertulis jelas di header keranjang; daftar cepat ≤ 4 field wajib.
+**USER-FACING COPY EXAMPLES:** "Pelanggan: Pelanggan Umum Grosir"; "Daftar Cepat"; "Mungkin pelanggan ini sudah terdaftar."
+**ERROR / EXCEPTION COPY:** `POS_CUSTOMER_REQUIRED_FOR_TAX_INVOICE` — "Faktur pajak perlu data pelanggan" · "Isi NPWP pelanggan atau pilih pelanggan terdaftar." · Aksi: [Daftar Cepat]
+**REPORTING IMPACT:** Porsi penjualan konter terdaftar vs Pelanggan Umum.
+**DATA WAREHOUSE IMPACT:** dim customer (sudah ada). ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** Piutang Pelanggan Umum selalu lunas di hari yang sama atau dibatalkan.
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** Telepon pembeli walk-in dimasking di laporan; retensi mengikuti OD-19.
+**OBSERVABILITY:** Jumlah daftar cepat per hari; kandidat duplikat yang diabaikan.
+**FEATURE FLAGS:** Tidak ada.
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-004.AC01 Given kasir tidak memilih pelanggan, Then checkout memakai Pelanggan Umum Grosir cabang. POS-004.AC02 Given daftar cepat nama & telepon mirip, Then kandidat duplikat tampil dulu. POS-004.AC03 Given customer berharga khusus dipilih, Then harga keranjang berubah.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-004.NC01 Pelanggan Umum tidak boleh mendapat tempo. POS-004.NC02 `pos` tidak boleh menulis tabel customer.
+**TEST SCENARIOS:** POS-004.TS01 Unit BR01–BR03. POS-004.TS02 Contract `CreateCustomer`. POS-004.TS03 E2E daftar cepat + duplikat.
+**DEPENDENCIES:** POS-003, CUS-001, CUS-003, CUS-005.
+**OPEN DECISIONS:** OD-192 — faktur pajak untuk pembeli tanpa NPWP; ASM-POS-01.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-005 — Checkout Konter: Pesanan, Reservasi & Faktur
+
+**FEATURE ID:** POS-005
+**FEATURE NAME:** Checkout konter: keranjang → pesanan, reservasi, permintaan serah, faktur draf
+**DOMAIN OWNER:** POS / `pos` (orkestrasi); Core ERP `orders`, `inventory`, `fulfillment`, `invoicing` (fakta)
+**PRIMARY USER:** Kasir Grosir
+**FASE / PRIORITAS:** F11 · P0
+**SUMBER:** W-01; W-14; ORD-000.R01; DEC-108; DEC-117; BIL-001; POS-000.R03
+**PROBLEM:** Penjualan konter harus menjadi pesanan, reservasi stok, dan faktur yang sama dengan jalur lain. Kalau tidak, stok, pajak, dan piutang konter terpisah dari buku PSS.
+**USER OUTCOME:** Kasir menekan `Bayar`; dalam ≤ 2 detik stok sudah dicadangkan, nomor faktur sudah ada, dan layar pembayaran terbuka.
+**BUSINESS VALUE:** Satu transaksi dicatat sekali; stok konter tidak bisa terjual dua kali.
+**IN SCOPE:**
+- `CheckoutPosSale`: snapshot baris & harga → `RequestSalesOrder` (order_source WALK_IN, source_application PSS Kasir, handover_mode CUSTOMER_PICKUP, fulfillment_warehouse = gudang terminal, client key = posSaleId).
+- Validasi order, kredit (`NOT_REQUIRED` untuk bayar di tempat; POS-009 untuk tempo), reservasi dengan syarat FULL, auto-confirm konter (`orders.auto_confirm_pos` = true), release fulfillment, `PrepareInvoice` (nomor dicadangkan).
+- PosSale PENDING_PAYMENT dengan total final = total invoice PREPARED.
+**OUT OF SCOPE:** Pembayaran (POS-006…009); serah barang (POS-010).
+**PRECONDITIONS:** PosSale CART dengan ≥ 1 baris valid; shift OPEN; customer terpilih.
+**TRIGGER:** Kasir menekan `Bayar`.
+**MAIN FLOW:**
+1. POS membekukan keranjang dan mengirim `RequestSalesOrder`.
+2. `orders` memvalidasi (mapping, harga, policy ORDER_CAPTURE, mode gudang).
+3. `credit` → NOT_REQUIRED (bayar di tempat) atau keputusan POS-009.
+4. `inventory` mereservasi seluruh baris (FULL).
+5. `orders` mengonfirmasi; `fulfillment` membuat FR RELEASED + DO PREPARED (pickup); `invoicing` membuat invoice PREPARED.
+6. POS menerima hasil (sinkron dengan batas waktu 2 detik; selebihnya via read model) → PosSale PENDING_PAYMENT; `POS_SALE_CHECKED_OUT`.
+**ALTERNATIVE FLOW:** A1 Reservasi PARTIAL → order tidak dikonfirmasi; POS menampilkan qty tersedia; kasir ubah keranjang lalu checkout ulang (order sebelumnya dibatalkan otomatis). A2 Respons > 2 detik → layar "Sedang memproses", selesai lewat read model; kasir tidak mengulang checkout (idempotent posSaleId).
+**EXCEPTION FLOW:** E1 Validasi order REJECTED → PosSale kembali CART dengan alasan. E2 Tarif PPN KOSONG → invoice tidak bisa dicadangkan (`INVOICE_BLOCKED`), checkout ditolak. E3 Harga berubah antara keranjang dan validasi → `REPRICE_REQUIRED`, keranjang dihitung ulang.
+**BUSINESS RULES:**
+- POS-005.BR01 Satu PosSale → satu SalesOrder aktif. Checkout ulang setelah gagal memakai versi keranjang baru dengan order lama CANCELLED.
+- POS-005.BR02 Reservasi konter wajib FULL; partial tidak diizinkan di konter.
+- POS-005.BR03 Total yang ditagih = total invoice PREPARED (termasuk PPN), bukan hitungan klien.
+- POS-005.BR04 Reservasi konter kedaluwarsa `pos.reservation_expiry_minutes` (ASM 60) bila PosSale tetap PENDING_PAYMENT.
+**REQUIREMENTS:**
+- POS-005.R01 Sistem harus memakai domain service order yang sama dengan jalur lain (ORD-000.R01).
+- POS-005.R02 Sistem harus idempotent per posSaleId: checkout ganda menghasilkan satu SalesOrder.
+- POS-005.R03 Sistem harus menyelesaikan checkout ≤ 2 detik p95 pada volume OD-196.
+- POS-005.R04 POS tidak boleh membuat reservasi, DO, atau invoice sendiri; hanya lewat command domain pemilik.
+**DATA INPUT:** posSaleId, versi keranjang; Idempotency-Key = posSaleId.
+**DATA OUTPUT:** PosSale PENDING_PAYMENT {salesOrderId, deliveryOrderId, invoiceNumber, total}.
+**OWNED ENTITIES:** `PosSale` (referensi ke SO/DO/Invoice).
+**READ DEPENDENCIES:** `orders`, `inventory`, `fulfillment`, `invoicing` (read model status).
+**WRITE AUTHORITY:** `pos` untuk PosSale; domain pemilik untuk fakta masing-masing.
+**STATE TRANSITIONS:** STM-PosSale CART → PENDING_PAYMENT; STM-SalesOrder — → REQUESTED → VALIDATED → CONFIRMED; STM-DeliveryOrder — → PREPARED; STM-Invoice — → PREPARED.
+**SYNCHRONOUS DEPENDENCIES:** `RequestSalesOrder` (orders) dan rantai sinkronnya (credit, reserve); timeout 2 detik → lanjut async.
+**ASYNCHRONOUS EVENTS:** Konsumsi `SALES_ORDER_CONFIRMED`, `STOCK_SHORTAGE_DETECTED`, `INVOICE_PREPARED`, `SALES_ORDER_REJECTED`.
+**EVENTS EMITTED:** `POS_SALE_CHECKED_OUT`.
+**EVENTS CONSUMED:** `SALES_ORDER_CONFIRMED`, `SALES_ORDER_REJECTED`, `STOCK_SHORTAGE_DETECTED`, `INVOICE_PREPARED`.
+**API / COMMAND CONCEPTS:** `CheckoutPosSale` → `POST /pos/sales/{id}/checkout`.
+**IDEMPOTENCY REQUIREMENT:** posSaleId sebagai client key di `RequestSalesOrder`.
+**AUDIT REQUIREMENT:** Snapshot keranjang saat checkout (baris, harga, versi harga, actor, terminal, shift).
+**RBAC / SCOPE:** `pos.sale.checkout`; scope WAREHOUSE terminal. Service identity `svc-pos` memanggil `orders` dengan actor yang diteruskan.
+**OFFLINE BEHAVIOR:** Tidak berlaku online; offline lihat POS-013.
+**UX REQUIREMENTS:** Satu tombol `Bayar`; state "Mencadangkan barang…"; hasil gagal kembali ke keranjang dengan baris yang bermasalah disorot.
+**USER-FACING COPY EXAMPLES:** "Barang sudah dicadangkan. Faktur INV-CMH-2027-000123."; "Stok berubah: tersedia 8 karton."
+**ERROR / EXCEPTION COPY:** `REPRICE_REQUIRED` — "Harga berubah" · "Harga {produk} diperbarui. Periksa total baru." · Aksi: [Lihat Keranjang]. `INVOICE_BLOCKED` — "Faktur belum bisa dibuat" · "Data pajak belum lengkap. Hubungi Keuangan." · Aksi: [Kembali]
+**REPORTING IMPACT:** Order konter masuk metrik penjualan (RPT-001) dengan sumber WALK_IN / PSS Kasir.
+**DATA WAREHOUSE IMPACT:** fact sales_order dengan source_application. ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** Tidak ada jurnal saat checkout (invoice PREPARED belum diposting).
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** Tidak ada.
+**OBSERVABILITY:** Latensi checkout p95; checkout gagal per alasan; reservasi konter kedaluwarsa.
+**FEATURE FLAGS:** `pos.enabled`.
+**MIGRATION / COEXISTENCE:** Hanya untuk gudang/stream MANAGED (POS-000.R07).
+**ACCEPTANCE CRITERIA:** POS-005.AC01 Given keranjang 3 baris stok cukup, When `Bayar`, Then SO CONFIRMED, reservasi FULL, DO pickup PREPARED, invoice PREPARED, PosSale PENDING_PAYMENT. POS-005.AC02 Given checkout dikirim dua kali, Then satu SO. POS-005.AC03 Given satu baris stok kurang, Then PosSale tetap CART dan baris disorot. POS-005.AC04 Given PENDING_PAYMENT 60 menit, Then reservasi dilepas dan PosSale CANCELLED dengan alasan kedaluwarsa.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-005.NC01 `pos` tidak boleh menulis skema `sales`/`inventory`. POS-005.NC02 Reservasi partial tidak boleh lolos untuk konter. POS-005.NC03 Checkout tidak boleh menghasilkan `JOURNAL_POSTED`.
+**TEST SCENARIOS:** POS-005.TS01 Contract `RequestSalesOrder` dengan handover_mode. POS-005.TS02 Idempotency. POS-005.TS03 Timeout → async. POS-005.TS04 `architecture:check` batas modul pos. POS-005.TS05 E2E W-14 langkah 1–6.
+**DEPENDENCIES:** POS-003, POS-004, ORD-001, ORD-003, CRD-002, FUL-001, BIL-001.
+**OPEN DECISIONS:** OD-196 — volume konter untuk sizing.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus; `POS_SALE_CHECKED_OUT` terdaftar di contracts. Appendix L berlaku.
+
+#### POS-006 — Pembayaran Tunai di Konter
+
+**FEATURE ID:** POS-006
+**FEATURE NAME:** Pembayaran tunai di konter (uang diterima, kembalian, laci)
+**DOMAIN OWNER:** POS / `pos` (tender); Core ERP / `payments` (Payment)
+**PRIMARY USER:** Kasir Grosir
+**FASE / PRIORITAS:** F11 · P0
+**SUMBER:** PAY-001; DEC-104; DEC-115; POS-000.R04
+**PROBLEM:** Tunai adalah metode utama di konter. Uang diterima, kembalian, dan isi laci harus selalu cocok.
+**USER OUTCOME:** Kasir mengetik uang diterima; kembalian tampil besar; laci terbuka; struk tercetak.
+**BUSINESS VALUE:** Setiap rupiah tunai konter tercatat sebagai Payment yang bisa diverifikasi.
+**IN SCOPE:** `AcceptPosTender` method TUNAI (nominal diterima ≥ sisa tagihan; kembalian dihitung); tombol pecahan cepat (uang pas, Rp50.000, Rp100.000); `RecordPayment` channel POS method TUNAI nominal = sisa tagihan (bukan uang diterima); buka laci; split tender (tunai + QRIS/transfer).
+**OUT OF SCOPE:** Verifikasi kas (POS-014 → CSH-001/PAY-002).
+**PRECONDITIONS:** PosSale PENDING_PAYMENT.
+**TRIGGER:** Pembeli membayar tunai.
+**MAIN FLOW:** 1. Kasir memilih `Tunai`. 2. Mengisi uang diterima. 3. Sistem menampilkan kembalian. 4. Kasir menekan `Terima Uang`. 5. Tender ACCEPTED; Payment PENDING_VERIFICATION; laci terbuka. 6. Bila lunas → PosSale PAID, struk tercetak (POS-011).
+**ALTERNATIVE FLOW:** A1 Split: tunai sebagian, sisa lewat QRIS/transfer; PosSale tetap PENDING_PAYMENT sampai Σ tender = total.
+**EXCEPTION FLOW:** E1 Uang diterima < sisa tagihan tanpa split → ditolak (`VALIDATION_FAILED`). E2 Shift bukan OPEN → `POS_SHIFT_NOT_OPEN`.
+**BUSINESS RULES:** POS-006.BR01 Nominal Payment = nominal yang dialokasikan ke transaksi; kembalian tidak pernah menjadi Payment. POS-006.BR02 `accepted_by` = kasir shift. POS-006.BR03 Satu tender tunai → satu Payment (idempotent per tenderId).
+**REQUIREMENTS:** POS-006.R01 Sistem harus membuat tender dan meminta Payment dalam satu unit kerja dengan outbox. POS-006.R02 Sistem tidak boleh menerbitkan jurnal saat tender diterima (DEC-104). POS-006.R03 Laci hanya terbuka pada tender tunai ACCEPTED atau perintah Kepala Kasir yang diaudit.
+**DATA INPUT:** posSaleId, method TUNAI, cashReceived, amount; Idempotency-Key = tenderId.
+**DATA OUTPUT:** PosTender ACCEPTED {amount, change}; Payment PENDING_VERIFICATION.
+**OWNED ENTITIES:** `PosTender`.
+**READ DEPENDENCIES:** `payments` (status payment).
+**WRITE AUTHORITY:** `pos` (tender); `payments` (Payment).
+**STATE TRANSITIONS:** STM-PosTender — → ACCEPTED; STM-PosSale PENDING_PAYMENT → PAID; STM-Payment — → PENDING_VERIFICATION.
+**SYNCHRONOUS DEPENDENCIES:** `RecordPayment` (payments).
+**ASYNCHRONOUS EVENTS:** `PAYMENT_RECEIVED` dari payments.
+**EVENTS EMITTED:** `POS_TENDER_ACCEPTED`, `POS_SALE_PAID`.
+**EVENTS CONSUMED:** Tidak ada.
+**API / COMMAND CONCEPTS:** `AcceptPosTender` → `POST /pos/sales/{id}/tenders`.
+**IDEMPOTENCY REQUIREMENT:** tenderId sebagai kunci ke `RecordPayment`.
+**AUDIT REQUIREMENT:** Tender (actor, nominal, uang diterima, kembalian, terminal, shift); buka laci manual.
+**RBAC / SCOPE:** `pos.tender.accept`; OWN shift.
+**OFFLINE BEHAVIOR:** Didukung dalam mode darurat (POS-013).
+**UX REQUIREMENTS:** Angka kembalian besar; aksi `Terima Uang` (primary); maksimal 3 tombol pecahan cepat terlihat.
+**USER-FACING COPY EXAMPLES:** "Total Rp1.254.000 · Diterima Rp1.300.000 · Kembalian Rp46.000".
+**ERROR / EXCEPTION COPY:** `POS_SHIFT_NOT_OPEN` — "Shift belum dibuka" · "Buka shift sebelum menerima pembayaran." · Aksi: [Buka Shift]
+**REPORTING IMPACT:** Penjualan konter per metode (POS-015).
+**DATA WAREHOUSE IMPACT:** fact payment (method, channel POS). ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** Tidak ada jurnal sampai VERIFIED (P-10 setelah custody).
+**INTEGRATION IMPACT:** Perintah buka laci ke printer (OD-194).
+**SECURITY / PRIVACY:** Tidak ada.
+**OBSERVABILITY:** Tender tunai per shift; buka laci manual.
+**FEATURE FLAGS:** Tidak ada.
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-006.AC01 Given total Rp1.254.000 dan diterima Rp1.300.000, Then Payment Rp1.254.000 dan kembalian Rp46.000. POS-006.AC02 Given split Rp1.000.000 tunai + sisa QRIS, Then PAID setelah QRIS ACCEPTED. POS-006.AC03 Given tender dikirim dua kali, Then satu Payment.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-006.NC01 Kembalian tidak boleh tercatat sebagai Payment. POS-006.NC02 Tender tidak boleh menghasilkan `JOURNAL_POSTED`.
+**TEST SCENARIOS:** POS-006.TS01 Unit kembalian & split. POS-006.TS02 Contract `RecordPayment` channel POS. POS-006.TS03 E2E tunai → struk.
+**DEPENDENCIES:** POS-005, PAY-001.
+**OPEN DECISIONS:** Tidak ada.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-007 — Pembayaran QRIS di Konter
+
+**FEATURE ID:** POS-007
+**FEATURE NAME:** Pembayaran QRIS di konter (statis dengan konfirmasi; dinamis bila penyedia siap)
+**DOMAIN OWNER:** POS / `pos` (tender); Core ERP / `payments` (Payment, referensi QRIS)
+**PRIMARY USER:** Kasir Grosir; Staf Akuntansi (verifikasi)
+**FASE / PRIORITAS:** F11 · P1
+**SUMBER:** Permintaan bisnis rev 1.1; PAY-009 (pola adapter & callback); PAY-002; BNK-002, BNK-005; DEC-115; OD-142, OD-191
+**PROBLEM:** Pembeli grosir makin sering membayar dengan QRIS. Tanpa pencatatan per transaksi, dana QRIS sulit dicocokkan dengan settlement bank.
+**USER OUTCOME:** Kasir memilih QRIS; pembeli scan; kasir mengonfirmasi pembayaran berhasil (atau sistem mengonfirmasi otomatis pada mode dinamis); struk tercetak.
+**BUSINESS VALUE:** Setiap QRIS konter punya pasangan Payment yang dicocokkan dengan settlement H+1.
+**IN SCOPE:**
+- Mode `STATIC_CONFIRM` (default ASM): QRIS statis merchant per gudang; kasir menekan `QRIS Diterima` setelah melihat notifikasi merchant dan mengisi nomor referensi (RRN/ID transaksi) → tender ACCEPTED → `RecordPayment` channel POS method QRIS dengan referensi.
+- Mode `DYNAMIC` (flag `pos.qris_dynamic`, OD-191): `CreateCollectionReference` untuk nominal PosSale lewat adapter penyedia (pola PAY-009); callback bertanda tangan → tender ACCEPTED otomatis.
+- Verifikasi terhadap settlement/mutasi (PAY-002, saran PAY-007); belum cocok setelah `pos.qris.settlement_days` → `Q-POS_QRIS_UNSETTLED`.
+**OUT OF SCOPE:** QRIS pada invoice piutang (PAY-009, F10); pemilihan penyedia (OD-191/OD-142); biaya MDR (BNK-005).
+**PRECONDITIONS:** PosSale PENDING_PAYMENT; merchant QRIS gudang dikonfigurasi (`pos.qris.merchant_ref`).
+**TRIGGER:** Pembeli memilih bayar QRIS.
+**MAIN FLOW:** 1. Kasir memilih `QRIS`; layar menampilkan nominal (dinamis: kode QR). 2. Pembeli membayar. 3. Statis: kasir mengisi referensi dan menekan `QRIS Diterima`; dinamis: callback valid diterima. 4. Tender ACCEPTED; Payment PENDING_VERIFICATION. 5. H+1: settlement diimpor, Payment VERIFIED.
+**ALTERNATIVE FLOW:** A1 Dinamis tidak tersedia (penyedia down) → fallback statis (bila diaktifkan) dengan penanda. A2 Pembeli batal sebelum bayar → tender tidak dibuat.
+**EXCEPTION FLOW:** E1 Referensi kosong pada mode statis → ditolak (`POS_QRIS_REFERENCE_REQUIRED`). E2 Referensi sama sudah dipakai → ditolak (`DUPLICATE_PAYMENT_REFERENCE`). E3 Nominal QRIS > sisa tagihan → ditolak (`POS_NONCASH_OVERPAY`).
+**BUSINESS RULES:**
+- POS-007.BR01 QRIS tidak boleh melebihi sisa tagihan (tidak ada kembalian non-tunai).
+- POS-007.BR02 Konfirmasi kasir (statis) dan callback (dinamis) **bukan** verifikasi; verifikasi hanya terhadap settlement/mutasi (DEC-104, PAY-009.BR01).
+- POS-007.BR03 Referensi QRIS unik per merchant.
+- POS-007.BR04 Settlement dicatat bruto sebagai Payment; MDR dicatat terpisah lewat BNK-005.
+**REQUIREMENTS:**
+- POS-007.R01 Sistem harus menyimpan referensi transaksi QRIS pada tender dan Payment.
+- POS-007.R02 Mode dinamis harus memverifikasi tanda tangan callback dan idempotent per providerTxId.
+- POS-007.R03 Tender QRIS statis yang belum cocok dengan settlement setelah `pos.qris.settlement_days` harus menjadi item `Q-POS_QRIS_UNSETTLED`.
+**DATA INPUT:** posSaleId, amount, reference (statis) / callback {providerTxId, amount, signature} (dinamis).
+**DATA OUTPUT:** PosTender ACCEPTED; Payment PENDING_VERIFICATION (method QRIS).
+**OWNED ENTITIES:** `PosTender` (pos); `PaymentCollectionReference` (payments, mode dinamis).
+**READ DEPENDENCIES:** `payments`, `integration` (adapter), `finance` (mutasi/settlement lewat PAY-007).
+**WRITE AUTHORITY:** `pos` (tender); `payments` (Payment, referensi).
+**STATE TRANSITIONS:** STM-PosTender — → ACCEPTED; STM-Payment — → PENDING_VERIFICATION → VERIFIED.
+**SYNCHRONOUS DEPENDENCIES:** `RecordPayment`; adapter penyedia (dinamis, timeout 30 detik → fallback).
+**ASYNCHRONOUS EVENTS:** Callback penyedia; `PAYMENT_VERIFIED`.
+**EVENTS EMITTED:** `POS_TENDER_ACCEPTED`, `POS_SALE_PAID`.
+**EVENTS CONSUMED:** `PAYMENT_VERIFIED` (tutup item antrian).
+**API / COMMAND CONCEPTS:** `AcceptPosTender` (method QRIS); `POST /integrations/payments/{provider}/callback` (dinamis).
+**IDEMPOTENCY REQUIREMENT:** tenderId; providerTxId (dinamis).
+**AUDIT REQUIREMENT:** Konfirmasi statis (actor, referensi); callback (payload hash, hasil validasi).
+**RBAC / SCOPE:** `pos.tender.accept` (POS_CASHIER); verifikasi `payments.payment.verify` (FINANCE_MAKER/CASHIER).
+**OFFLINE BEHAVIOR:** Tidak didukung offline (POS-013: tunai saja).
+**UX REQUIREMENTS:** Nominal besar; kolom referensi dengan contoh format; aksi `QRIS Diterima` (primary); peringatan jelas "Pastikan notifikasi berhasil sudah muncul di aplikasi merchant".
+**USER-FACING COPY EXAMPLES:** "Bayar QRIS Rp1.254.000"; "Masukkan nomor referensi dari notifikasi QRIS."
+**ERROR / EXCEPTION COPY:** `POS_QRIS_REFERENCE_REQUIRED` — "Nomor referensi QRIS wajib" · "Salin nomor referensi dari notifikasi pembayaran." · Aksi: [Isi Referensi]. `POS_NONCASH_OVERPAY` — "Nominal melebihi tagihan" · "QRIS dan transfer tidak bisa diberi kembalian." · Aksi: [Ubah Nominal]
+**REPORTING IMPACT:** Porsi QRIS; QRIS belum settle per hari.
+**DATA WAREHOUSE IMPACT:** fact payment (method QRIS). ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** P-10 saat VERIFIED (Dr BANK rekening settlement / Cr UNAPPLIED_RECEIPTS); MDR via BNK-005 (P-20).
+**INTEGRATION IMPACT:** Impor settlement/mutasi rekening QRIS (BNK-002 atau file generik INT-009); adapter penyedia untuk mode dinamis.
+**SECURITY / PRIVACY:** Secret penyedia lewat referensi kredensial (INT-002); endpoint callback rate-limited.
+**OBSERVABILITY:** QRIS statis tanpa pasangan settlement; latensi callback.
+**FEATURE FLAGS:** `pos.qris_dynamic` (default off).
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-007.AC01 Given mode statis dan referensi diisi, Then tender ACCEPTED dan Payment QRIS PENDING. POS-007.AC02 Given settlement H+1 cocok, Then Payment VERIFIED dan auto-application terjadi (DEC-116). POS-007.AC03 Given QRIS tanpa settlement setelah 1 hari, Then item `Q-POS_QRIS_UNSETTLED`. POS-007.AC04 Given callback valid (dinamis), Then tender ACCEPTED tanpa input kasir.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-007.NC01 Konfirmasi kasir tidak boleh membuat Payment VERIFIED. POS-007.NC02 Callback dengan tanda tangan salah tidak boleh membuat tender. POS-007.NC03 QRIS tidak boleh melebihi sisa tagihan.
+**TEST SCENARIOS:** POS-007.TS01 Unit BR01–BR04. POS-007.TS02 Simulator penyedia (dinamis). POS-007.TS03 Pencocokan settlement. POS-007.TS04 E2E split tunai + QRIS.
+**DEPENDENCIES:** POS-005, PAY-001, PAY-002, PAY-007, BNK-002.
+**OPEN DECISIONS:** OD-191 — penyedia & mode QRIS konter (terkait OD-142).
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-008 — Pembayaran Transfer Bank di Konter
+
+**FEATURE ID:** POS-008
+**FEATURE NAME:** Pembayaran transfer bank di konter (barang ditahan sampai dana terverifikasi)
+**DOMAIN OWNER:** POS / `pos` (tender); Core ERP / `payments`
+**PRIMARY USER:** Kasir Grosir, Kepala Kasir Grosir
+**FASE / PRIORITAS:** F11 · P1
+**SUMBER:** PAY-001, PAY-002, PAY-007; BNK-002; DEC-104; POS-000.R05
+**PROBLEM:** Bukti transfer (screenshot) mudah dipalsukan. Barang tidak boleh keluar hanya karena bukti transfer.
+**USER OUTCOME:** Kasir mencatat transfer dengan bukti; transaksi menunggu dana masuk; begitu mutasi cocok, transaksi siap diambil.
+**BUSINESS VALUE:** Tidak ada barang keluar untuk transfer yang tidak pernah masuk.
+**IN SCOPE:** `AcceptPosTender` method TRANSFER → tender PENDING_CONFIRMATION, Payment PENDING_VERIFICATION dengan foto bukti & rekening tujuan; aturan rilis `pos.transfer.release_rule`: `AFTER_VERIFICATION` (default) atau `ON_EVIDENCE_WITH_APPROVAL` (Kepala Kasir menyetujui rilis berdasarkan bukti, hanya untuk pelanggan terdaftar); status "Menunggu dana masuk" di layar konter; `Q-POS_TRANSFER_PENDING`.
+**OUT OF SCOPE:** API bank real-time (F10, OD-163).
+**PRECONDITIONS:** PosSale PENDING_PAYMENT; rekening tujuan terdaftar (BNK-001).
+**TRIGGER:** Pembeli membayar transfer.
+**MAIN FLOW:** 1. Kasir memilih `Transfer`, memilih rekening tujuan, mengunggah foto bukti. 2. Tender PENDING_CONFIRMATION. 3. Staf Akuntansi mengimpor mutasi / mencocokkan (PAY-007). 4. `PAYMENT_VERIFIED` → tender ACCEPTED → PosSale PAID → struk & serah barang.
+**ALTERNATIVE FLOW:** A1 `ON_EVIDENCE_WITH_APPROVAL` → Kepala Kasir `Setujui Rilis` (approval APR, SOD-03) → PosSale PAID dengan penanda risiko; bila dana tidak masuk dalam `pos.transfer.max_wait_hours`, item eskalasi ke Controller.
+**EXCEPTION FLOW:** E1 Pelanggan Umum + `ON_EVIDENCE_WITH_APPROVAL` → ditolak (hanya pelanggan terdaftar). E2 Nominal > sisa tagihan → `POS_NONCASH_OVERPAY`.
+**BUSINESS RULES:** POS-008.BR01 Default: barang ditahan sampai Payment VERIFIED. POS-008.BR02 Rilis dengan bukti hanya lewat approval, tidak pernah oleh kasir penerima. POS-008.BR03 PosSale yang menunggu transfer tidak menahan penutupan shift (tender non-tunai tidak memengaruhi laci).
+**REQUIREMENTS:** POS-008.R01 Sistem harus mengubah tender menjadi ACCEPTED hanya dari `PAYMENT_VERIFIED` atau approval rilis. POS-008.R02 Sistem harus memperpanjang reservasi selama PosSale menunggu transfer sampai `pos.transfer.max_wait_hours`.
+**DATA INPUT:** posSaleId, amount, bankAccountId, mediaIds[].
+**DATA OUTPUT:** PosTender PENDING_CONFIRMATION / ACCEPTED.
+**OWNED ENTITIES:** `PosTender`.
+**READ DEPENDENCIES:** `payments`, `finance` (rekening bank).
+**WRITE AUTHORITY:** `pos` (tender); `payments` (Payment).
+**STATE TRANSITIONS:** STM-PosTender — → PENDING_CONFIRMATION → ACCEPTED / VOIDED.
+**SYNCHRONOUS DEPENDENCIES:** `RecordPayment`.
+**ASYNCHRONOUS EVENTS:** `PAYMENT_VERIFIED`, `APPROVAL_DECIDED`.
+**EVENTS EMITTED:** `POS_TENDER_ACCEPTED`, `POS_SALE_PAID`.
+**EVENTS CONSUMED:** `PAYMENT_VERIFIED`, `PAYMENT_REJECTED`, `APPROVAL_DECIDED`.
+**API / COMMAND CONCEPTS:** `AcceptPosTender` (method TRANSFER); `RequestPosTransferRelease`.
+**IDEMPOTENCY REQUIREMENT:** tenderId.
+**AUDIT REQUIREMENT:** Tender, bukti, approval rilis.
+**RBAC / SCOPE:** `pos.tender.accept` (POS_CASHIER); `pos.transfer.release.approve` (POS_SUPERVISOR).
+**OFFLINE BEHAVIOR:** Tidak didukung offline.
+**UX REQUIREMENTS:** Status "Menunggu dana masuk" dengan umur; transaksi lain tetap bisa dilayani sementara (keranjang paralel).
+**USER-FACING COPY EXAMPLES:** "Menunggu dana masuk · 12 menit"; "Dana sudah masuk. Barang siap diambil."
+**ERROR / EXCEPTION COPY:** `POS_TRANSFER_RELEASE_NOT_ALLOWED` — "Rilis dengan bukti tidak diizinkan" · "Untuk Pelanggan Umum, barang diserahkan setelah dana masuk." · Aksi: [Kembali]
+**REPORTING IMPACT:** Transfer konter menunggu; rilis berisiko.
+**DATA WAREHOUSE IMPACT:** fact payment. ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** P-10 saat VERIFIED.
+**INTEGRATION IMPACT:** Impor mutasi (BNK-002).
+**SECURITY / PRIVACY:** Foto bukti lewat pre-signed URL (MED-001).
+**OBSERVABILITY:** Umur transfer menunggu; rilis dengan bukti tanpa dana.
+**FEATURE FLAGS:** Tidak ada (aturan rilis lewat config).
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-008.AC01 Given default, When transfer dicatat, Then serah barang ditolak sampai VERIFIED. POS-008.AC02 Given mutasi cocok, Then PosSale PAID. POS-008.AC03 Given `ON_EVIDENCE_WITH_APPROVAL` dan Kepala Kasir menyetujui, Then PosSale PAID dengan penanda risiko.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-008.NC01 Kasir penerima tidak boleh menyetujui rilis transaksinya sendiri. POS-008.NC02 Pelanggan Umum tidak boleh dirilis dengan bukti.
+**TEST SCENARIOS:** POS-008.TS01 Unit aturan rilis. POS-008.TS02 Reaksi `PAYMENT_VERIFIED`. POS-008.TS03 E2E transfer → verifikasi → serah.
+**DEPENDENCIES:** POS-005, PAY-002, PAY-007, BNK-002, APR-001.
+**OPEN DECISIONS:** Tidak ada.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-009 — Penjualan Tempo untuk Grosir Terdaftar
+
+**FEATURE ID:** POS-009
+**FEATURE NAME:** Penjualan tempo di konter untuk pelanggan grosir terdaftar
+**DOMAIN OWNER:** POS / `pos`; Core ERP / `credit`, `ar`
+**PRIMARY USER:** Kasir Grosir, Kepala Cabang / Finance Approver (override kredit)
+**FASE / PRIORITAS:** F11 · P2
+**SUMBER:** CRD-001…CRD-003; BIL-003; W-06; OD-195
+**PROBLEM:** Sebagian grosir langganan biasa mengambil barang dengan tempo. Tanpa cek kredit sistem, piutang konter tidak terkendali.
+**USER OUTCOME:** Kasir memilih `Tempo`; sistem langsung memutuskan boleh atau perlu persetujuan kredit.
+**BUSINESS VALUE:** Tempo konter tunduk pada limit dan aging yang sama dengan jalur lain.
+**IN SCOPE:** Pilihan pembayaran `Tempo` bila flag `pos.credit_sale` aktif dan customer punya CreditProfile ACTIVE; `EvaluateCredit` (CRD-002) sinkron; hold → `Q-CREDIT_HOLD` (CRD-003); PosSale CREDIT_APPROVED setelah APPROVED; kombinasi uang muka (tender sebagian) + tempo.
+**OUT OF SCOPE:** Penagihan (W-06, COL-001).
+**PRECONDITIONS:** Flag aktif; customer terdaftar dengan profil kredit; PosSale PENDING_PAYMENT.
+**TRIGGER:** Pembeli meminta tempo.
+**MAIN FLOW:** 1. Kasir memilih `Tempo`. 2. Sistem mengevaluasi kredit untuk sisa tagihan. 3. APPROVED → PosSale CREDIT_APPROVED → struk bertanda "Tempo" + jatuh tempo. 4. Serah barang (POS-010). 5. Invoice ISSUED → piutang OPEN dengan TOP customer.
+**ALTERNATIVE FLOW:** A1 ON_HOLD → transaksi menunggu keputusan; kasir dapat menawarkan bayar tunai/QRIS.
+**EXCEPTION FLOW:** E1 Flag nonaktif / Pelanggan Umum → `POS_CREDIT_NOT_ALLOWED`. E2 Override ditolak → PosSale tetap PENDING_PAYMENT.
+**BUSINESS RULES:** POS-009.BR01 Evaluasi kredit memakai CRD-002 tanpa aturan khusus konter. POS-009.BR02 Uang muka mengurangi eksposur yang dievaluasi.
+**REQUIREMENTS:** POS-009.R01 Sistem harus menolak tempo untuk Pelanggan Umum Grosir. POS-009.R02 Sistem harus memakai TOP customer (BIL-003) dengan basis tanggal serah barang.
+**DATA INPUT:** posSaleId, downPaymentTenders[]?.
+**DATA OUTPUT:** CreditDecision; PosSale CREDIT_APPROVED.
+**OWNED ENTITIES:** `PosSale` (status).
+**READ DEPENDENCIES:** `credit`, `ar`.
+**WRITE AUTHORITY:** `pos` (status); `credit` (keputusan).
+**STATE TRANSITIONS:** STM-PosSale PENDING_PAYMENT → CREDIT_APPROVED; STM-CreditDecision.
+**SYNCHRONOUS DEPENDENCIES:** `EvaluateCredit`.
+**ASYNCHRONOUS EVENTS:** `CREDIT_HOLD_PLACED`, `APPROVAL_DECIDED`.
+**EVENTS EMITTED:** `POS_SALE_PAID` dengan `settlement = CREDIT` (label "Tempo disetujui").
+**EVENTS CONSUMED:** `CREDIT_HOLD_RELEASED`, `APPROVAL_DECIDED`.
+**API / COMMAND CONCEPTS:** `RequestPosCreditSale`.
+**IDEMPOTENCY REQUIREMENT:** posSaleId.
+**AUDIT REQUIREMENT:** Keputusan kredit (di credit).
+**RBAC / SCOPE:** `pos.credit_sale.request` (POS_CASHIER); override sesuai CRD-003.
+**OFFLINE BEHAVIOR:** Tidak didukung offline.
+**UX REQUIREMENTS:** Pilihan `Tempo` hanya tampil bila diizinkan (UX-000.R13).
+**USER-FACING COPY EXAMPLES:** "Tempo disetujui · jatuh tempo 14 hari setelah barang diambil."
+**ERROR / EXCEPTION COPY:** `POS_CREDIT_NOT_ALLOWED` — "Tempo tidak tersedia" · "Pelanggan ini belum punya fasilitas tempo." · Aksi: [Pilih Metode Lain]
+**REPORTING IMPACT:** Piutang dari konter (CST-004 dengan sumber PSS Kasir).
+**DATA WAREHOUSE IMPACT:** Tidak ada tambahan.
+**FINANCE / ACCOUNTING IMPACT:** P-06 saat invoice ISSUED; pelunasan lewat W-06.
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** Tidak ada.
+**OBSERVABILITY:** Tempo konter per hari; hold konter.
+**FEATURE FLAGS:** `pos.credit_sale` (default off; OD-195).
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-009.AC01 Given limit cukup, Then CREDIT_APPROVED dan barang boleh diserahkan. POS-009.AC02 Given limit kurang, Then `Q-CREDIT_HOLD`. POS-009.AC03 Given Pelanggan Umum, Then pilihan Tempo tidak tampil.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-009.NC01 Tempo tidak boleh tanpa `CreditDecision` APPROVED. POS-009.NC02 Flag nonaktif tidak boleh menampilkan Tempo.
+**TEST SCENARIOS:** POS-009.TS01 Contract `EvaluateCredit`. POS-009.TS02 E2E tempo → piutang → W-06.
+**DEPENDENCIES:** POS-005, CRD-002, CRD-003, BIL-003.
+**OPEN DECISIONS:** OD-195 — apakah tempo di konter diizinkan dan batasnya.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-010 — Pengambilan & Serah Barang di Gudang
+
+**FEATURE ID:** POS-010
+**FEATURE NAME:** Pengambilan & serah barang di titik ambil gudang (customer pickup)
+**DOMAIN OWNER:** Core ERP / `fulfillment` (serah barang); POS / `pos` (status PosSale)
+**PRIMARY USER:** Admin Gudang (non-WMS), Petugas Gudang (WMS)
+**FASE / PRIORITAS:** F11 · P0
+**SUMBER:** W-01 langkah 9–14; FUL-002…FUL-004; ADM-006; WMS pick; DEC-117; POS-000.R05, R11
+**PROBLEM:** Barang konter keluar lewat pintu gudang. Tanpa scan struk dan tanda terima, barang bisa keluar tanpa bayar atau keluar dua kali.
+**USER OUTCOME:** Petugas melihat antrian "Siap diambil", menyiapkan barang, scan QR struk pembeli, mengonfirmasi qty, dan meminta tanda terima.
+**BUSINESS VALUE:** Setiap barang yang keluar punya transaksi lunas atau tempo yang disetujui, dan stok langsung berkurang.
+**IN SCOPE:**
+- Antrian pickup per gudang (FR `handover_mode = CUSTOMER_PICKUP`, prioritas tinggi, urut waktu bayar).
+- Penyiapan: non-WMS lewat ADM-006 (daftar ambil tercetak/layar); WMS lewat tugas pick berprioritas (setelah gudang WMS aktif).
+- `ConfirmPickupHandover` (fulfillment): scan QR struk → guard POS-000.R05 → qty diserahkan per baris (≤ qty disiapkan) → nama penerima + tanda tangan/foto → DO DELIVERED / PARTIALLY_DELIVERED; `INVENTORY_ISSUED` + `DELIVERY_ORDER_DELIVERED` dalam satu transaksi.
+- Serah sebagian dengan alasan (stok rusak/kurang) → qty sisa `ReturnUndelivered`; selisih nilai → POS-012.
+- `Q-POS_PICKUP_PENDING`: PAID tetapi belum diambil melewati `pos.pickup.sla_minutes`.
+**OUT OF SCOPE:** Pengiriman ke alamat pembeli (pakai W-01/W-07 biasa).
+**PRECONDITIONS:** PosSale PAID atau CREDIT_APPROVED; FR RELEASED; DO PREPARED pickup.
+**TRIGGER:** `POS_SALE_PAID` (masuk antrian siap diambil).
+**MAIN FLOW:** 1. Antrian menampilkan transaksi baru. 2. Petugas menyiapkan barang. 3. Pembeli datang dengan struk. 4. Petugas scan QR struk. 5. Sistem memeriksa status bayar dan SoD. 6. Petugas mengonfirmasi qty dan menangkap tanda terima. 7. DO DELIVERED; invoice ISSUED; PosSale HANDED_OVER.
+**ALTERNATIVE FLOW:** A1 Struk hilang → cari dengan nomor transaksi + verifikasi nama/telepon, alasan wajib, diaudit. A2 Gudang WMS → tugas pick otomatis, scan lokasi/barang (WMS-000), lalu serah seperti langkah 4–7.
+**EXCEPTION FLOW:** E1 PosSale belum PAID → ditolak (`POS_NOT_PAID`). E2 Petugas = penerima tender dan SOD-09 aktif → ditolak (`SEGREGATION_OF_DUTIES`). E3 Struk sudah diserahkan → ditolak (`POS_ALREADY_HANDED_OVER`).
+**BUSINESS RULES:**
+- POS-010.BR01 Serah barang hanya satu kali per DO pickup; tidak ada serah bertahap multi-hari (sisa → retur ke stok + penyelesaian nilai).
+- POS-010.BR02 Qty diserahkan ≤ qty dibayar per baris.
+- POS-010.BR03 Tanggal bisnis invoice = tanggal serah barang (BIL-002.BR03).
+- POS-010.BR04 DO pickup tidak pernah masuk antrian Dispatcher/Fleet.
+**REQUIREMENTS:**
+- POS-010.R01 `ConfirmPickupHandover` harus memeriksa status PosSale lewat query `pos` (read model atau API), bukan tabel `pos` langsung.
+- POS-010.R02 Sistem harus menerbitkan `INVENTORY_ISSUED` dan `DELIVERY_ORDER_DELIVERED` dalam satu transaksi fulfillment/inventory.
+- POS-010.R03 Sistem harus menegakkan SOD-09 server-side bila `pos.sod.cashier_not_handover` aktif.
+**DATA INPUT:** receiptQr / posSaleNumber, lines[{deliveryOrderLineId, qtyHandedOver, reasonCode?}], receiverName, signature/mediaIds.
+**DATA OUTPUT:** DO DELIVERED/PARTIALLY_DELIVERED; PosSale HANDED_OVER.
+**OWNED ENTITIES:** `DeliveryOrder` (fulfillment); status `PosSale` (pos).
+**READ DEPENDENCIES:** `pos` (status bayar), `inventory`, `wms` (bila aktif).
+**WRITE AUTHORITY:** `fulfillment` untuk DO & serah; `inventory` untuk movement; `pos` untuk status PosSale (reaksi event).
+**STATE TRANSITIONS:** STM-DeliveryOrder PREPARED → DELIVERED / PARTIALLY_DELIVERED (pickup, E.99); STM-PosSale PAID/CREDIT_APPROVED → HANDED_OVER.
+**SYNCHRONOUS DEPENDENCIES:** Query status PosSale.
+**ASYNCHRONOUS EVENTS:** `DELIVERY_ORDER_DELIVERED` → invoicing (`IssueInvoice`) dan pos.
+**EVENTS EMITTED:** `DELIVERY_ORDER_DISPATCHED`, `INVENTORY_ISSUED`, `DELIVERY_ORDER_DELIVERED` (fulfillment/inventory); `POS_SALE_HANDED_OVER` (pos).
+**EVENTS CONSUMED:** `POS_SALE_PAID` (fulfillment: tandai siap diambil); `DELIVERY_ORDER_DELIVERED` (pos).
+**API / COMMAND CONCEPTS:** `ConfirmPickupHandover` → `POST /fulfillment/delivery-orders/{id}/pickup-handover`; BFF `GET /admin/gudang/siap-diambil`, `GET /gudang/tugas-berikutnya`.
+**IDEMPOTENCY REQUIREMENT:** Idempotency-Key per serah; DO pickup hanya bisa DELIVERED sekali.
+**AUDIT REQUIREMENT:** Serah (actor, qty per baris, penerima, bukti, pencarian tanpa struk).
+**RBAC / SCOPE:** `fulfillment.pickup.handover` (WAREHOUSE_ADMIN, WAREHOUSE_OPERATOR); scope WAREHOUSE.
+**OFFLINE BEHAVIOR:** Serah barang wajib online (guard bayar). Saat outage: barang ditahan, atau fallback kertas WMS-014 untuk transaksi yang statusnya PAID sebelum outage.
+**UX REQUIREMENTS:** PSS Gudang: pola SCAN → CONFIRM → NEXT (UX-000.R04). PSS Admin: Template B antrian "Siap Diambil". Aksi utama `Serahkan Barang`.
+**USER-FACING COPY EXAMPLES:** "Siap diambil · KSR-CMH-2027-000451 · 6 baris"; "Scan struk pembeli"; "Barang sudah diserahkan ke {nama}."
+**ERROR / EXCEPTION COPY:** `POS_NOT_PAID` — "Transaksi belum lunas" · "Barang bisa diserahkan setelah pembayaran diterima." · Aksi: [Kembali]. `POS_ALREADY_HANDED_OVER` — "Barang sudah diambil" · "Struk ini diserahkan pada {waktu} oleh {petugas}." · Aksi: [Lihat Riwayat]
+**REPORTING IMPACT:** Waktu tunggu ambil; transaksi lunas belum diambil.
+**DATA WAREHOUSE IMPACT:** fact delivery (handover_mode). ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** P-04/P-05 (bila akun transit dipakai, keluar-masuk dalam transaksi yang sama), P-06 dan P-07 dari invoice ISSUED.
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** QR struk bertanda tangan server, sekali pakai untuk serah.
+**OBSERVABILITY:** Umur PAID → HANDED_OVER; serah tanpa struk.
+**FEATURE FLAGS:** `pos.enabled`.
+**MIGRATION / COEXISTENCE:** Jalur non-WMS sejak F11; jalur WMS mengikuti aktivasi `wms_enabled` gudang (F9).
+**ACCEPTANCE CRITERIA:** POS-010.AC01 Given PosSale PAID, When struk discan dan qty penuh dikonfirmasi, Then DO DELIVERED, invoice ISSUED, PosSale HANDED_OVER. POS-010.AC02 Given PosSale PENDING_PAYMENT, Then serah ditolak. POS-010.AC03 Given petugas = kasir penerima tender dan SOD-09 aktif, Then ditolak. POS-010.AC04 Given 1 baris rusak, When serah sebagian, Then qty sisa kembali ke stok dan invoice memakai qty diserahkan.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-010.NC01 Struk yang sama tidak boleh diserahkan dua kali. POS-010.NC02 DO pickup tidak boleh muncul di antrian Dispatcher. POS-010.NC03 Barang tidak boleh keluar sebelum PAID/CREDIT_APPROVED.
+**TEST SCENARIOS:** POS-010.TS01 Guard bayar & SoD. POS-010.TS02 Atomicity issue + delivered. POS-010.TS03 E2E non-WMS. POS-010.TS04 E2E WMS (setelah F9). POS-010.TS05 Serah sebagian.
+**DEPENDENCIES:** POS-005, POS-006, FUL-002, FUL-003, FUL-004, ADM-006.
+**OPEN DECISIONS:** Tidak ada.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-011 — Struk, Cetak Ulang & Dokumen Konter
+
+**FEATURE ID:** POS-011
+**FEATURE NAME:** Struk konter, cetak ulang, dan faktur untuk pembeli
+**DOMAIN OWNER:** POS / `pos`; Platform / `documents`
+**PRIMARY USER:** Kasir Grosir
+**FASE / PRIORITAS:** F11 · P1
+**SUMBER:** DOC-001, DOC-002; TAX-004; DEC-106; OD-194
+**PROBLEM:** Pembeli butuh bukti bayar yang juga menjadi tiket ambil barang. Cetak ulang tanpa kendali membuka celah struk palsu.
+**USER OUTCOME:** Struk thermal tercetak otomatis saat lunas, berisi nomor transaksi, nomor faktur, rincian, PPN, metode bayar, dan QR ambil barang. Cetak ulang bertanda "SALINAN".
+**BUSINESS VALUE:** Satu struk = satu tiket ambil; faktur resmi tersedia bila diminta.
+**IN SCOPE:** Template struk 80 mm (`pos.receipt.format`); nomor `KSR-{CAB}-{YYYY}-{NNNNNN}` (DOC-001); QR bertanda tangan untuk POS-010; cetak ulang dengan tanda `copy_flag` (DOC-002); cetak faktur A4/PDF dari invoice (BIL-001) atas permintaan; kirim struk digital (tautan) opsional bila NTF tersedia.
+**OUT OF SCOPE:** Cetak faktur pajak (TAX-004 mengekspor data; nomor faktur pajak mengikuti proses Finance).
+**PRECONDITIONS:** PosSale PAID / CREDIT_APPROVED.
+**TRIGGER:** `POS_SALE_PAID`; permintaan cetak ulang.
+**MAIN FLOW:** 1. Sistem merender struk. 2. Printer konter mencetak. 3. Riwayat cetak tersimpan (`PosReceiptPrint`).
+**ALTERNATIVE FLOW:** A1 Printer gagal → struk tetap tersimpan; kasir `Cetak Ulang` setelah printer pulih (bukan salinan untuk cetak pertama yang gagal).
+**EXCEPTION FLOW:** E1 Cetak ulang ke-2 dan seterusnya → wajib alasan.
+**BUSINESS RULES:** POS-011.BR01 Nomor struk tidak dipakai ulang; transaksi batal menandai nomor BATAL (DEC-106 pola). POS-011.BR02 Semua cetak setelah cetak pertama bertanda SALINAN. POS-011.BR03 QR struk hanya berlaku untuk serah barang PosSale itu.
+**REQUIREMENTS:** POS-011.R01 Struk harus memuat nomor faktur (PREPARED/ISSUED), DPP, PPN, total, metode, dan QR. POS-011.R02 Sistem harus mencatat setiap cetak (actor, waktu, salinan ke-n).
+**DATA INPUT:** posSaleId; reprintReason?.
+**DATA OUTPUT:** Struk (ESC/POS atau HTML cetak 80 mm); PDF faktur.
+**OWNED ENTITIES:** `PosReceiptPrint`.
+**READ DEPENDENCIES:** `invoicing`, `documents`.
+**WRITE AUTHORITY:** `pos`.
+**STATE TRANSITIONS:** Tidak ada.
+**SYNCHRONOUS DEPENDENCIES:** Render dokumen (DOC-002).
+**ASYNCHRONOUS EVENTS:** Tidak ada.
+**EVENTS EMITTED:** Tidak ada.
+**EVENTS CONSUMED:** `POS_SALE_PAID`, `INVOICE_ISSUED` (faktur final).
+**API / COMMAND CONCEPTS:** `PrintPosReceipt`, `ReprintPosReceipt`.
+**IDEMPOTENCY REQUIREMENT:** Cetak pertama idempotent per PosSale.
+**AUDIT REQUIREMENT:** Cetak ulang beserta alasan.
+**RBAC / SCOPE:** `pos.receipt.reprint`.
+**OFFLINE BEHAVIOR:** Struk offline dicetak dari perangkat dengan nomor blok offline dan tanda "Menunggu sinkronisasi" (POS-013).
+**UX REQUIREMENTS:** Cetak otomatis; aksi `Cetak Ulang` di menu Lainnya.
+**USER-FACING COPY EXAMPLES:** "SALINAN ke-2"; "Tunjukkan struk ini di titik ambil barang."
+**ERROR / EXCEPTION COPY:** `POS_PRINTER_UNAVAILABLE` — "Printer tidak merespons" · "Struk tersimpan. Periksa kertas dan kabel printer." · Aksi: [Cetak Ulang]
+**REPORTING IMPACT:** Jumlah cetak ulang per kasir.
+**DATA WAREHOUSE IMPACT:** Tidak ada.
+**FINANCE / ACCOUNTING IMPACT:** Tidak ada.
+**INTEGRATION IMPACT:** Driver/bridge printer (OD-194).
+**SECURITY / PRIVACY:** Telepon pembeli dimasking di struk.
+**OBSERVABILITY:** Gagal cetak per terminal.
+**FEATURE FLAGS:** Tidak ada.
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-011.AC01 Given lunas, Then struk tercetak dengan QR dan nomor faktur. POS-011.AC02 Given cetak ulang, Then tanda SALINAN ke-n. POS-011.AC03 Given cetak ulang ke-2, Then alasan wajib.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-011.NC01 Salinan tidak boleh tanpa tanda SALINAN. POS-011.NC02 Nomor struk tidak boleh dipakai ulang.
+**TEST SCENARIOS:** POS-011.TS01 Render template. POS-011.TS02 Penomoran & BATAL. POS-011.TS03 E2E cetak ulang.
+**DEPENDENCIES:** POS-006, DOC-001, DOC-002.
+**OPEN DECISIONS:** OD-194 — printer & cara cetak struk.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-012 — Batal Transaksi & Retur Konter
+
+**FEATURE ID:** POS-012
+**FEATURE NAME:** Batal transaksi konter, batal tender, dan retur konter
+**DOMAIN OWNER:** POS / `pos`; Core ERP / `orders`, `payments`, `returns`
+**PRIMARY USER:** Kasir Grosir, Kepala Kasir Grosir
+**FASE / PRIORITAS:** F11 · P1
+**SUMBER:** STM-SalesOrder (cancel); STM-Payment; W-05; RET-001…RET-003; DEC-106; OD-140
+**PROBLEM:** Pembeli berubah pikiran, salah barang, atau barang rusak. Batal dan retur di konter adalah titik fraud paling umum.
+**USER OUTCOME:** Batal sebelum bayar cukup satu tombol. Batal setelah bayar dan retur setelah barang diambil memerlukan persetujuan Kepala Kasir dan meninggalkan jejak lengkap.
+**BUSINESS VALUE:** Pembatalan dan retur terkontrol; nomor faktur tetap utuh.
+**IN SCOPE:**
+- `DiscardPosSale` (CART) oleh kasir.
+- `CancelPosSale` (PENDING_PAYMENT / PAID, sebelum serah barang): approval Kepala Kasir bila ada tender ACCEPTED → `CancelSalesOrder`, reservasi dilepas, invoice PREPARED dibatalkan (nomor BATAL), tender dibatalkan (`VoidPosTender`) → Payment dibatalkan sebelum verifikasi; tunai dikembalikan dari laci; QRIS/transfer yang sudah masuk → saldo kredit pelanggan (PAY-004) sampai OD-140 diputuskan.
+- Retur konter setelah serah barang: `RequestSalesReturn` (RET-001) dengan referensi invoice → penerimaan barang (RET-002) → nota kredit (RET-003) → saldo kredit pelanggan (PAY-004). Refund tunai hanya bila OD-140 memutuskan (P-25 usulan).
+**OUT OF SCOPE:** Tukar barang langsung (dilakukan sebagai retur + transaksi baru).
+**PRECONDITIONS:** Sesuai state.
+**TRIGGER:** Permintaan pembeli.
+**MAIN FLOW (batal setelah bayar):** 1. Kasir `Batalkan Transaksi` + alasan. 2. Approval Kepala Kasir. 3. Sistem menjalankan pembatalan berantai. 4. Laporan shift mencatat tunai keluar.
+**ALTERNATIVE FLOW:** A1 Barang kurang saat serah (POS-010) → tender kelebihan dibatalkan sebagian sebelum verifikasi.
+**EXCEPTION FLOW:** E1 Barang sudah diserahkan → batal ditolak (`POS_ALREADY_HANDED_OVER`), gunakan retur. E2 Payment sudah VERIFIED → tidak bisa dibatalkan; menjadi kredit pelanggan (PAY-004).
+**BUSINESS RULES:** POS-012.BR01 Invoice ISSUED tidak pernah dibatalkan; koreksi lewat nota kredit (DEC-106). POS-012.BR02 Setiap batal/retur wajib reason code `RC-POS-*`. POS-012.BR03 Pengaju ≠ penyetuju (SOD-03).
+**REQUIREMENTS:** POS-012.R01 Pembatalan berantai harus idempotent dan dapat dilanjutkan bila salah satu command gagal (saga dengan status per langkah). POS-012.R02 Sistem tidak boleh mengeluarkan refund tunai pasca-serah selama OD-140 OPEN.
+**DATA INPUT:** posSaleId, reasonCode, note?, approvalId?.
+**DATA OUTPUT:** PosSale CANCELLED; tender VOIDED; SalesReturn/CreditNote (retur).
+**OWNED ENTITIES:** `PosSale`, `PosTender` (status).
+**READ DEPENDENCIES:** `orders`, `payments`, `invoicing`, `returns`.
+**WRITE AUTHORITY:** `pos` (status); domain pemilik untuk efek.
+**STATE TRANSITIONS:** STM-PosSale → CANCELLED; STM-PosTender → VOIDED; STM-SalesOrder → CANCELLED; STM-Invoice PREPARED → CANCELLED.
+**SYNCHRONOUS DEPENDENCIES:** Approval (APR-001).
+**ASYNCHRONOUS EVENTS:** `APPROVAL_DECIDED`, `SALES_ORDER_CANCELLED`.
+**EVENTS EMITTED:** `POS_SALE_CANCELLED`, `POS_TENDER_VOIDED`.
+**EVENTS CONSUMED:** `APPROVAL_DECIDED`, `SALES_ORDER_CANCELLED`, `CREDIT_NOTE_ISSUED`.
+**API / COMMAND CONCEPTS:** `DiscardPosSale`, `CancelPosSale`, `VoidPosTender`; retur lewat `RequestSalesReturn`.
+**IDEMPOTENCY REQUIREMENT:** Idempotency-Key per command; saga per posSaleId.
+**AUDIT REQUIREMENT:** Alasan, pengaju, penyetuju, nominal dikembalikan.
+**RBAC / SCOPE:** `pos.sale.cancel` (POS_CASHIER); `pos.sale.cancel.approve`, `pos.tender.void.approve` (POS_SUPERVISOR).
+**OFFLINE BEHAVIOR:** Batal offline hanya untuk transaksi offline yang belum disinkronkan, dengan PIN Kepala Kasir.
+**UX REQUIREMENTS:** Konfirmasi menyebut nominal dan pembeli (UX-000.R11); alasan dipilih dari daftar (UX-000.R05).
+**USER-FACING COPY EXAMPLES:** "Batalkan transaksi Rp1.254.000? Uang tunai dikembalikan dari laci."
+**ERROR / EXCEPTION COPY:** `POS_REFUND_NOT_AVAILABLE` — "Pengembalian uang belum tersedia" · "Nilai retur disimpan sebagai saldo pelanggan." · Aksi: [Lihat Saldo]
+**REPORTING IMPACT:** Batal & retur konter per kasir/alasan.
+**DATA WAREHOUSE IMPACT:** fact pos_cancellation. ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** Batal sebelum serah: tidak ada jurnal. Retur: P-08, P-09. Refund: P-25 (usulan, OD-140).
+**INTEGRATION IMPACT:** Refund QRIS lewat penyedia (OD-191) — di luar v1 sampai OD-140.
+**SECURITY / PRIVACY:** Tidak ada.
+**OBSERVABILITY:** Rasio batal per kasir (sinyal fraud).
+**FEATURE FLAGS:** Tidak ada.
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-012.AC01 Given CART, Then `DiscardPosSale` tanpa approval. POS-012.AC02 Given PAID belum diserahkan, When batal disetujui, Then SO CANCELLED, reservasi dilepas, nomor faktur BATAL, tender VOIDED. POS-012.AC03 Given HANDED_OVER, Then batal ditolak dan retur ditawarkan.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-012.NC01 Kasir tidak boleh menyetujui batal transaksinya sendiri. POS-012.NC02 Invoice ISSUED tidak boleh dibatalkan.
+**TEST SCENARIOS:** POS-012.TS01 Saga pembatalan dengan kegagalan di tengah. POS-012.TS02 SoD. POS-012.TS03 E2E retur → nota kredit → saldo.
+**DEPENDENCIES:** POS-005, POS-006, ORD-005, RET-001, RET-002, RET-003, PAY-004, APR-001.
+**OPEN DECISIONS:** OD-140 — refund ke customer.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-013 — Mode Darurat Offline (Tunai)
+
+**FEATURE ID:** POS-013
+**FEATURE NAME:** Mode darurat offline untuk penjualan tunai
+**DOMAIN OWNER:** POS / `pos`
+**PRIMARY USER:** Kasir Grosir, Kepala Kasir Grosir
+**FASE / PRIORITAS:** F11 · P2
+**SUMBER:** PLT-013; PP-08; UX-000.R14; DOC-001
+**PROBLEM:** Internet gudang bisa putus. Konter tidak boleh berhenti total, tetapi penjualan offline membawa risiko stok dan kas.
+**USER OUTCOME:** Saat koneksi putus, Kepala Kasir mengaktifkan mode darurat; kasir tetap bisa menjual tunai dengan batas; semua transaksi tersinkron otomatis saat online.
+**BUSINESS VALUE:** Konter tetap melayani saat gangguan singkat, dengan risiko yang dibatasi.
+**IN SCOPE:** Aktivasi per terminal oleh Kepala Kasir (PIN lokal); cache katalog, harga, barcode per shift; nomor dari blok offline per terminal (`pos.offline.number_block_size`); tunai saja; batas durasi `pos.offline.max_hours` dan nilai `pos.offline.max_sale_amount`; antrian lokal terenkripsi (PLT-013); `SyncPosOfflineBatch` idempotent; konflik (stok kurang, harga beda) → `Q-POS_OFFLINE_CONFLICT`.
+**OUT OF SCOPE:** QRIS, transfer, tempo, daftar cepat pelanggan saat offline.
+**PRECONDITIONS:** Flag `pos.offline_mode` aktif; shift OPEN sebelum putus; blok nomor tersedia.
+**TRIGGER:** Koneksi hilang > 60 detik.
+**MAIN FLOW:** 1. Banner offline. 2. Kepala Kasir `Aktifkan Mode Darurat`. 3. Kasir menjual tunai; struk bertanda "Menunggu sinkronisasi". 4. Online → batch dikirim → server menjalankan checkout + tender per transaksi. 5. Hasil per transaksi: Tersimpan / Perlu Diperiksa.
+**ALTERNATIVE FLOW:** A1 Barang offline diserahkan langsung di konter hanya bila `pos.offline.allow_immediate_handover` (default false); default barang diserahkan setelah sinkron.
+**EXCEPTION FLOW:** E1 Batas nilai/durasi tercapai → penjualan offline berhenti (`POS_OFFLINE_LIMIT_REACHED`). E2 Metode non-tunai → `POS_OFFLINE_METHOD_NOT_ALLOWED`.
+**BUSINESS RULES:** POS-013.BR01 Server tetap authoritative; transaksi offline yang gagal sinkron tidak hilang dan menjadi item antrian (PP-09). POS-013.BR02 Tanggal bisnis = waktu transaksi di perangkat (dengan jam server terakhir sebagai batas). POS-013.BR03 Stok offline boleh minus sementara; konflik diselesaikan Kepala Kasir.
+**REQUIREMENTS:** POS-013.R01 Sistem harus idempotent per offline sale id. POS-013.R02 Sistem harus menolak aktivasi bila `pos.offline.max_sale_amount` KOSONG. POS-013.R03 Data lokal harus terenkripsi dan terhapus saat logout paksa (PLT-013).
+**DATA INPUT:** batch {offlineSaleId, number, lines, cash tender, deviceTime}.
+**DATA OUTPUT:** Hasil sinkron per transaksi.
+**OWNED ENTITIES:** `PosOfflineBatch`.
+**READ DEPENDENCIES:** Seperti POS-005/006.
+**WRITE AUTHORITY:** `pos`.
+**STATE TRANSITIONS:** PosOfflineBatch RECEIVED → APPLIED / APPLIED_WITH_CONFLICTS.
+**SYNCHRONOUS DEPENDENCIES:** Saat sinkron: seperti POS-005/006.
+**ASYNCHRONOUS EVENTS:** Tidak ada selain event checkout/tender biasa.
+**EVENTS EMITTED:** `POS_OFFLINE_BATCH_SYNCED`.
+**EVENTS CONSUMED:** Tidak ada.
+**API / COMMAND CONCEPTS:** `ActivatePosOfflineMode`, `SyncPosOfflineBatch` → `POST /kasir/sync`.
+**IDEMPOTENCY REQUIREMENT:** offlineSaleId unik.
+**AUDIT REQUIREMENT:** Aktivasi, transaksi offline, konflik & penyelesaian.
+**RBAC / SCOPE:** `pos.offline.activate` (POS_SUPERVISOR).
+**OFFLINE BEHAVIOR:** Inti fitur ini.
+**UX REQUIREMENTS:** Tiga status sinkron saja (UX-000.R14); banner offline selalu tampil.
+**USER-FACING COPY EXAMPLES:** "Mode darurat aktif · tunai saja · sisa 3 jam 20 menit".
+**ERROR / EXCEPTION COPY:** `POS_OFFLINE_LIMIT_REACHED` — "Batas mode darurat tercapai" · "Tunggu koneksi pulih sebelum melanjutkan penjualan." · Aksi: [Coba Sambungkan]
+**REPORTING IMPACT:** Transaksi offline & konflik.
+**DATA WAREHOUSE IMPACT:** Atribut origin OFFLINE. ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** Sama dengan online setelah sinkron.
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** Enkripsi lokal; perangkat terdaftar.
+**OBSERVABILITY:** Durasi offline; konflik per batch.
+**FEATURE FLAGS:** `pos.offline_mode` (default off).
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-013.AC01 Given mode darurat, When 5 transaksi tunai lalu online, Then 5 PosSale PAID di server tanpa duplikat. POS-013.AC02 Given QRIS dipilih offline, Then ditolak. POS-013.AC03 Given stok server kurang saat sinkron, Then item `Q-POS_OFFLINE_CONFLICT`.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-013.NC01 Transaksi offline tidak boleh hilang saat sinkron gagal. POS-013.NC02 Aktivasi tanpa batas nilai tidak boleh berhasil.
+**TEST SCENARIOS:** POS-013.TS01 Replay batch. POS-013.TS02 Playwright offline. POS-013.TS03 Konflik stok & harga.
+**DEPENDENCIES:** POS-006, PLT-013.
+**OPEN DECISIONS:** Tidak ada.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-014 — Serah Kas Shift & Verifikasi Keuangan
+
+**FEATURE ID:** POS-014
+**FEATURE NAME:** Serah kas shift konter ke Kasir Keuangan & verifikasi
+**DOMAIN OWNER:** POS / `pos` (shift); Core ERP / `payments` (custody, verifikasi)
+**PRIMARY USER:** Kasir Grosir, Kasir (Keuangan)
+**FASE / PRIORITAS:** F11 · P0
+**SUMBER:** CSH-001, CSH-002; PAY-002; DEC-104; SOD-06
+**PROBLEM:** Uang tunai konter harus berpindah ke kas perusahaan dengan hitungan dan penanggung jawab yang jelas.
+**USER OUTCOME:** Setelah tutup shift, kasir grosir menyerahkan uang penjualan (tanpa modal laci) ke Kasir Keuangan lewat QR; Kasir Keuangan menghitung dan memverifikasi.
+**BUSINESS VALUE:** Kas konter masuk buku hanya setelah dihitung pihak lain.
+**IN SCOPE:** `DeclareCashHandover` otomatis dari shift CLOSED (sumber POS_SHIFT, collector = kasir grosir, isi = Payment TUNAI shift); QR serah terima (CSH-001.BR05); verifikasi custody → Payment VERIFIED → auto-application (DEC-116); selisih → CSH-002 (`Q-CASH_DISCREPANCY`); penyetoran ke bank lanjut di BNK.
+**OUT OF SCOPE:** Setoran bank (BNK-001/002).
+**PRECONDITIONS:** PosShift CLOSED / CLOSED_WITH_DISCREPANCY.
+**TRIGGER:** Tutup shift.
+**MAIN FLOW:** 1. Tutup shift → deklarasi dibuat. 2. Kasir grosir membawa uang + QR ke Kasir Keuangan. 3. Kasir Keuangan scan QR, menghitung. 4. VERIFIED → Payment TUNAI shift VERIFIED → P-10 → auto-apply → P-11. 5. PosShift HANDED_OVER.
+**ALTERNATIVE FLOW:** A1 Selisih saat tutup shift sudah tercatat → deklarasi memuat nilai hitungan kasir; keputusan selisih lewat CSH-002.
+**EXCEPTION FLOW:** E1 Verifikator = kasir grosir → `SEGREGATION_OF_DUTIES` (SOD-06). E2 Deklarasi belum diverifikasi melewati SLA → `Q-CASH_HANDOVER_OVERDUE`.
+**BUSINESS RULES:** POS-014.BR01 Deklarasi = Σ Payment TUNAI ACCEPTED di shift − tunai VOIDED; modal laci tidak termasuk. POS-014.BR02 Satu Payment TUNAI hanya di satu deklarasi aktif (CSH-001.BR01).
+**REQUIREMENTS:** POS-014.R01 Sistem harus membuat deklarasi dari shift secara idempotent per shiftId. POS-014.R02 Sistem tidak boleh menjurnal sebelum custody VERIFIED.
+**DATA INPUT:** shiftId.
+**DATA OUTPUT:** CashHandoverDeclaration; CashCustodyRecord.
+**OWNED ENTITIES:** `PosShift` (status HANDED_OVER); `CashCustodyRecord` (payments).
+**READ DEPENDENCIES:** `payments`.
+**WRITE AUTHORITY:** `pos` (shift); `payments` (custody).
+**STATE TRANSITIONS:** STM-PosShift → HANDED_OVER; STM-CashCustodyRecord.
+**SYNCHRONOUS DEPENDENCIES:** `DeclareCashHandover` (payments).
+**ASYNCHRONOUS EVENTS:** `CASH_CUSTODY_VERIFIED`, `CASH_CUSTODY_DISCREPANCY_RECORDED`.
+**EVENTS EMITTED:** `CASH_HANDED_OVER` (payments).
+**EVENTS CONSUMED:** `POS_SHIFT_CLOSED` (payments), `CASH_CUSTODY_VERIFIED` (pos).
+**API / COMMAND CONCEPTS:** `DeclareCashHandover` (source POS_SHIFT).
+**IDEMPOTENCY REQUIREMENT:** shiftId.
+**AUDIT REQUIREMENT:** Deklarasi & verifikasi (di payments).
+**RBAC / SCOPE:** CSH-DECLARE (POS_CASHIER); CSH-VERIFY (CASHIER).
+**OFFLINE BEHAVIOR:** Tidak berlaku.
+**UX REQUIREMENTS:** Setelah tutup shift, satu aksi `Serahkan Kas` dengan QR.
+**USER-FACING COPY EXAMPLES:** "Serahkan Rp11.950.000 ke Kasir Keuangan. Modal laci Rp500.000 tetap di laci."
+**ERROR / EXCEPTION COPY:** Mengikuti CSH-001.
+**REPORTING IMPACT:** Kas konter belum disetor (CST-007).
+**DATA WAREHOUSE IMPACT:** Tidak ada tambahan.
+**FINANCE / ACCOUNTING IMPACT:** P-10 (CASH_ON_HAND / UNAPPLIED_RECEIPTS) saat VERIFIED; P-11 dari auto-application; P-15/P-15b untuk selisih.
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** QR sekali pakai.
+**OBSERVABILITY:** Umur deklarasi konter.
+**FEATURE FLAGS:** Tidak ada.
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-014.AC01 Given shift CLOSED dengan tunai Rp11.950.000, Then deklarasi Rp11.950.000 (tanpa modal). POS-014.AC02 Given verifikasi cocok, Then Payment VERIFIED, auto-apply, invoice lunas, shift HANDED_OVER. POS-014.AC03 Given kasir grosir mencoba memverifikasi sendiri, Then ditolak.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-014.NC01 Modal laci tidak boleh masuk deklarasi. POS-014.NC02 Deklarasi tidak boleh menghasilkan jurnal.
+**TEST SCENARIOS:** POS-014.TS01 Unit BR01. POS-014.TS02 E2E tutup shift → serah → verifikasi → posting. POS-014.TS03 SoD.
+**DEPENDENCIES:** POS-002, CSH-001, CSH-002, PAY-002, PAY-003.
+**OPEN DECISIONS:** Tidak ada.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
+#### POS-015 — Beranda Konter & Laporan Harian
+
+**FEATURE ID:** POS-015
+**FEATURE NAME:** Beranda konter (Kepala Kasir) & laporan penjualan konter harian
+**DOMAIN OWNER:** Core ERP / `reporting` (read model); Experience
+**PRIMARY USER:** Kepala Kasir Grosir, Kepala Cabang
+**FASE / PRIORITAS:** F11 · P1
+**SUMBER:** CST-001, CST-002; RPT-001; DQ-002; UX-000.R19
+**PROBLEM:** Kepala Kasir perlu tahu apa yang tidak normal di konter hari ini: shift berselisih, transaksi lunas belum diambil, transfer menunggu, QRIS belum settle.
+**USER OUTCOME:** Satu beranda berisi pengecualian konter lebih dulu, lalu penjualan per shift, metode bayar, dan kasir. Kepala Cabang melihat tile konter di Control Station.
+**BUSINESS VALUE:** Masalah konter ditindaklanjuti hari itu juga.
+**IN SCOPE:** Read model `reporting.pos_daily` dari event POS + order/invoice/payment; antrian `Q-POS_*`; penjualan per terminal/shift/kasir/metode; batal & cetak ulang per kasir; tile "Konter Grosir" di Control Station (CST-002 dengan filter sumber PSS Kasir); ekspor.
+**OUT OF SCOPE:** Analitik lanjutan (DW).
+**PRECONDITIONS:** Event POS terbit.
+**TRIGGER:** Membuka beranda.
+**MAIN FLOW:** 1. Beranda menampilkan pengecualian urut SLA. 2. Ringkasan hari ini. 3. Drill ke transaksi (CST-006).
+**ALTERNATIVE FLOW:** A1 Filter per gudang untuk Kepala Cabang.
+**EXCEPTION FLOW:** E1 Read model tertinggal → penanda kesegaran (CST-005).
+**BUSINESS RULES:** POS-015.BR01 Penjualan konter dihitung dari order canonical (RPT-001), bukan dari keranjang. POS-015.BR02 Pengecualian tampil sebelum total (UX-000.R19).
+**REQUIREMENTS:** POS-015.R01 Read model harus idempotent & rebuildable (CST-001). POS-015.R02 Setiap angka menampilkan definisi metrik dan `asOf` (CST-000.R01).
+**DATA INPUT:** Filter.
+**DATA OUTPUT:** Tampilan & ekspor.
+**OWNED ENTITIES:** `reporting.pos_daily` (read model).
+**READ DEPENDENCIES:** Event katalog.
+**WRITE AUTHORITY:** `reporting` (projector).
+**STATE TRANSITIONS:** Tidak ada.
+**SYNCHRONOUS DEPENDENCIES:** Tidak ada.
+**ASYNCHRONOUS EVENTS:** Konsumsi event POS & domain terkait.
+**EVENTS EMITTED:** Tidak ada.
+**EVENTS CONSUMED:** `POS_*`, `SALES_ORDER_CONFIRMED`, `INVOICE_ISSUED`, `PAYMENT_RECEIVED`, `PAYMENT_VERIFIED`, `DELIVERY_ORDER_DELIVERED`.
+**API / COMMAND CONCEPTS:** BFF `GET /kasir/beranda`, `GET /control-station/breakdown?source=PSS_KASIR`.
+**IDEMPOTENCY REQUIREMENT:** Projector dedup per eventId.
+**AUDIT REQUIREMENT:** Ekspor diaudit.
+**RBAC / SCOPE:** `pos.report.view` (POS_SUPERVISOR, WAREHOUSE); CST-VIEW (BRANCH_MANAGER).
+**OFFLINE BEHAVIOR:** Tidak berlaku.
+**UX REQUIREMENTS:** Template C untuk tile; Template B untuk antrian; maksimal 3 aksi per panel.
+**USER-FACING COPY EXAMPLES:** "Perlu ditindaklanjuti: 2 transaksi lunas belum diambil · 1 shift ada selisih"; "Penjualan konter hari ini Rp84.300.000 · 213 transaksi".
+**ERROR / EXCEPTION COPY:** Mengikuti CST-005.
+**REPORTING IMPACT:** Laporan baru "Penjualan Konter Harian" (Appendix G).
+**DATA WAREHOUSE IMPACT:** fact pos_sale. ⛔ OD-102.
+**FINANCE / ACCOUNTING IMPACT:** Tidak ada.
+**INTEGRATION IMPACT:** Tidak ada.
+**SECURITY / PRIVACY:** Scope gudang/cabang server-side.
+**OBSERVABILITY:** Lag projector.
+**FEATURE FLAGS:** Tidak ada.
+**MIGRATION / COEXISTENCE:** Tidak berlaku.
+**ACCEPTANCE CRITERIA:** POS-015.AC01 Given 1 shift berselisih, Then tampil di atas ringkasan. POS-015.AC02 Given tile konter, Then angka = daftar drill-down. POS-015.AC03 Given Kepala Kasir gudang A, Then hanya gudang A.
+**NEGATIVE ACCEPTANCE CRITERIA:** POS-015.NC01 Keranjang CART tidak boleh dihitung penjualan. POS-015.NC02 Data di luar scope tidak boleh terkirim.
+**TEST SCENARIOS:** POS-015.TS01 Rekonsiliasi tile vs daftar. POS-015.TS02 Rebuild projector. POS-015.TS03 Scope.
+**DEPENDENCIES:** POS-005, CST-001, CST-002, DQ-002.
+**OPEN DECISIONS:** Tidak ada.
+**DEFINITION OF DONE:** Semua AC/NC/TS lulus. Appendix L berlaku.
+
 # PART VI — FINANCE
 
 ## 47. PSS Keuangan (produk)
@@ -19857,7 +20812,7 @@ Struktur kanonik repository ditetapkan di AGT §7–§8 dan ARC §19 (monorepo `
 ### 80.1 Aturan bagian
 
 - PLT-000.R60 **Deployable** v1: `apps/web` (Next.js; semua produk desktop & PWA, dengan route group per produk), `apps/api` (Core ERP + SFA/WMS/Fleet sebagai modul keras), `apps/finance-api`, `apps/integration-worker`, `apps/geo-service` (ARC §5). `apps/driver-pwa` hanya bila build terpisah terbukti perlu (AGT §7, ADR).
-- PLT-000.R61 **Domain modules** di `domains/<domain>/` dengan struktur `domain/ application/ infrastructure/ interfaces/ tests/` + `README.md` + `DOMAIN.md` (AGT §8, §19). Tambahan domain terhadap daftar ARC §19 yang ditetapkan PRD: `procurement`, `ap`, `tax`, `returns`, `platform` (approval, exception, documents, media, notifications — sebagai sub-modul terpisah), `audit` (ADR-0006).
+- PLT-000.R61 **Domain modules** di `domains/<domain>/` dengan struktur `domain/ application/ infrastructure/ interfaces/ tests/` + `README.md` + `DOMAIN.md` (AGT §8, §19). Tambahan domain terhadap daftar ARC §19 yang ditetapkan PRD: `procurement`, `ap`, `tax`, `returns`, `platform` (approval, exception, documents, media, notifications — sebagai sub-modul terpisah), `audit` (ADR-0006); `pos` (bounded domain baru, skema `pos`, revisi 1.1 §46A, ADR-0024).
 - PLT-000.R62 **Batas modul**: modul hanya memanggil modul lain lewat `application/` public interface (command/query) atau event; tidak mengimpor `domain/` atau `infrastructure/` modul lain; tidak mengakses skema DB modul lain (ADR-0004; AGT §3.1).
 - PLT-000.R63 **Packages** tanpa logika bisnis (AGT §8): `contracts`, `ui`, `configuration`, `observability`, `auth-client`, `testing`, ditambah `offline` (PLT-013). Dilarang `utils/` sebagai tempat logika bisnis (AGT §7).
 - PLT-000.R64 **Dokumen**: `AGENTS.md` (root), `docs/ARCHITECTURE.md`, `docs/DESIGN_SYSTEM.md`, `docs/PRODUCT_PRD.md` (dokumen ini), `docs/IMPLEMENTATION_PLAN.md` (terpisah, berubah per sprint), `docs/adr/`, `docs/domains/`, `docs/api/` & `docs/events/` (tergenerasi), `docs/runbooks/`, `docs/source/` (APRD & dokumen sumber, read-only).
@@ -20658,7 +21613,7 @@ Sebelum F4: OD-103, OD-104, OD-32, OD-105, dan OD-132 sudah terjawab. Sebelum F5
 | F9 | PSS Gudang | — | Eksekusi gudang berbasis scan | F5, F8 | 16 |
 | F10 | Optimization & Advanced | — | Optimasi & integrasi lanjutan | F6, F7, F9 | 15 |
 
-**Total fitur: 280.** Fase diberi label F0–F10 agar tidak tertukar dengan prioritas P0–P3.
+**Total fitur: 295.** Fase diberi label F0–F10 agar tidak tertukar dengan prioritas P0–P3.
 
 ### 90.2 Prioritas
 
@@ -20894,7 +21849,7 @@ Aturan gate:
 
 ## Appendix A — Feature Registry
 
-Registry kanonik semua fitur (280). Kolom *Bagian* menunjuk bagian PRD yang memuat feature spec lengkap. Status semua fitur pada versi ini: **SPECIFIED** (feature spec lengkap, menunggu review). ID tidak pernah dipakai ulang (DOC-CTL.R02).
+Registry kanonik semua fitur (295). Kolom *Bagian* menunjuk bagian PRD yang memuat feature spec lengkap. Status semua fitur pada versi ini: **SPECIFIED** (feature spec lengkap, menunggu review). ID tidak pernah dipakai ulang (DOC-CTL.R02).
 
 ### A.13 §13 UX Constitution — Product Acceptance
 
@@ -21198,6 +22153,26 @@ Registry kanonik semua fitur (280). Kolom *Bagian* menunjuk bagian PRD yang memu
 | CST-006 | Halaman objek & alur dokumen (drill-down) | Experience | Semua desktop | F3 | P1 | CST-001 | APRD §10.4 |
 | CST-007 | KPI kas & keuangan di Control Station | Experience | CFO, Management | F6 | P1 | FIN-006, CST-002 | DSY §7.1 |
 | DQ-002 | Antrian "Perlu Ditindaklanjuti" terpadu per role | Experience | Semua desktop | F3 | P1 | DQ-001, CST-001 | DSY UX-11 |
+
+### A.46A §46A PSS Kasir (POS Grosir)
+
+| ID | Fitur | Domain | Pengguna | Fase | Prio | Dependensi | Sumber |
+|---|---|---|---|---|---|---|---|
+| POS-001 | Terminal konter & perangkat kasir | POS / `pos` | Kepala Kasir Grosir, Admin Sistem | F11 | P1 | MDM-002, PRI-004, IDN-004 | Permintaan bisnis rev 1.1; POS-000.R07 |
+| POS-002 | Buka & tutup shift kasir (modal laci, hitung akhir, laporan shift) | POS / `pos` | Kasir Grosir, Kepala Kasir Grosir | F11 | P0 | POS-001, DQ-001 | Permintaan bisnis rev 1.1; CSH-001.BR03; POS-000.R08 |
+| POS-003 | Keranjang & katalog grosir (scan barcode, UOM grosir, harga & stok real-time) | POS / `pos` | Kasir Grosir | F11 | P1 | POS-002, COM-002, INV-002, PRD-004, SRC-001 | Permintaan bisnis rev 1.1; POS-000.R06, R09 |
+| POS-004 | Pelanggan grosir di konter (terdaftar, Pelanggan Umum, daftar cepat) | POS / `pos`; Core ERP / `master-data` | Kasir Grosir | F11 | P1 | POS-003, CUS-001, CUS-003, CUS-005 | CUS-001, CUS-005; ASM-POS-01; OD-192 |
+| POS-005 | Checkout konter: keranjang → pesanan, reservasi, permintaan serah, faktur draf | POS / `pos`; Core ERP `orders`, `inventory`, `fulfillment`, `invoicing` | Kasir Grosir | F11 | P0 | POS-003, POS-004, ORD-001, ORD-003, CRD-002, FUL-001, BIL-001 | W-01; W-14; ORD-000.R01; DEC-108; DEC-117 |
+| POS-006 | Pembayaran tunai di konter (uang diterima, kembalian, laci) | POS / `pos`; Core ERP / `payments` | Kasir Grosir | F11 | P0 | POS-005, PAY-001 | PAY-001; DEC-104; DEC-115; POS-000.R04 |
+| POS-007 | Pembayaran QRIS di konter (statis dengan konfirmasi; dinamis bila penyedia siap) | POS / `pos`; Core ERP / `payments` | Kasir Grosir; Staf Akuntansi | F11 | P1 | POS-005, PAY-001, PAY-002, PAY-007, BNK-002 | Permintaan bisnis rev 1.1; PAY-009; DEC-115; OD-142, OD-191 |
+| POS-008 | Pembayaran transfer bank di konter (barang ditahan sampai dana terverifikasi) | POS / `pos`; Core ERP / `payments` | Kasir Grosir, Kepala Kasir Grosir | F11 | P1 | POS-005, PAY-002, PAY-007, BNK-002, APR-001 | PAY-001, PAY-002, PAY-007; BNK-002; POS-000.R05 |
+| POS-009 | Penjualan tempo di konter untuk pelanggan grosir terdaftar | POS / `pos`; Core ERP / `credit`, `ar` | Kasir Grosir, Kepala Cabang / Finance Approver | F11 | P2 | POS-005, CRD-002, CRD-003, BIL-003 | CRD-001…CRD-003; BIL-003; W-06; OD-195 |
+| POS-010 | Pengambilan & serah barang di titik ambil gudang (customer pickup) | Core ERP / `fulfillment`; POS / `pos` | Admin Gudang (non-WMS), Petugas Gudang (WMS) | F11 | P0 | POS-005, POS-006, FUL-002, FUL-003, FUL-004, ADM-006 | W-01 langkah 9–14; FUL-002…FUL-004; DEC-117; POS-000.R05, R11 |
+| POS-011 | Struk konter, cetak ulang, dan faktur untuk pembeli | POS / `pos`; Platform / `documents` | Kasir Grosir | F11 | P1 | POS-006, DOC-001, DOC-002 | DOC-001, DOC-002; TAX-004; DEC-106; OD-194 |
+| POS-012 | Batal transaksi konter, batal tender, dan retur konter | POS / `pos`; Core ERP / `orders`, `payments`, `returns` | Kasir Grosir, Kepala Kasir Grosir | F11 | P1 | POS-005, POS-006, ORD-005, RET-001, RET-002, RET-003, PAY-004, APR-001 | STM-SalesOrder; STM-Payment; W-05; RET-001…RET-003; OD-140 |
+| POS-013 | Mode darurat offline untuk penjualan tunai | POS / `pos` | Kasir Grosir, Kepala Kasir Grosir | F11 | P2 | POS-006, PLT-013 | PLT-013; PP-08; UX-000.R14 |
+| POS-014 | Serah kas shift konter ke Kasir Keuangan & verifikasi | POS / `pos`; Core ERP / `payments` | Kasir Grosir, Kasir (Keuangan) | F11 | P0 | POS-002, CSH-001, CSH-002, PAY-002, PAY-003 | CSH-001, CSH-002; PAY-002; DEC-104; SOD-06 |
+| POS-015 | Beranda konter (Kepala Kasir) & laporan penjualan konter harian | Core ERP / `reporting`; Experience | Kepala Kasir Grosir, Kepala Cabang | F11 | P1 | POS-005, CST-001, CST-002, DQ-002 | CST-001, CST-002; RPT-001; DQ-002; UX-000.R19 |
 
 ### A.47 §47 PSS Keuangan (produk)
 
@@ -21952,6 +22927,18 @@ Event berikut ditambahkan saat penulisan feature spec. Semuanya mengikuti aturan
 | Event | `CONFIG_VALUE_CHANGED`, `FEATURE_FLAG_CHANGED` — producer platform — consumers semua deployable (invalidasi cache), audit | §84 |
 | Event | `CUTOVER_EXECUTED`, `CUTOVER_ROLLED_BACK` — producer principal-policy — consumers reporting, notifications | §85 |
 
+### C.9 PSS Kasir (POS, revisi 1.1 §46A)
+
+| Event | Producer | Aggregate | Consumer utama | Payload kunci | Kunci bisnis | Alias |
+|---|---|---|---|---|---|---|
+| `POS_TERMINAL_UPDATED` | pos | PosTerminal | reporting | terminalId, code, branchId, warehouseId, status, version | terminalId+version | — |
+| `POS_SHIFT_OPENED` / `POS_SHIFT_CLOSED` | pos | PosShift | payments, reporting | shiftId, terminalId, cashierId, openingFloat, expectedCash?, countedCash?, variance?, status | shiftId+state | — |
+| `POS_SALE_CHECKED_OUT` / `POS_TENDER_ACCEPTED` / `POS_SALE_PAID` / `POS_SALE_CANCELLED` / `POS_SALE_HANDED_OVER` | pos | PosSale | orders, fulfillment, payments, reporting | posSaleId, terminalId, shiftId, salesOrderId?, invoiceId?, total, status | posSaleId+state | — |
+| `POS_TENDER_VOIDED` | pos | PosTender | payments, reporting | posSaleId, tenderId, method, amount | tenderId+state | — |
+| `POS_OFFLINE_BATCH_SYNCED` | pos | PosOfflineBatch | reporting | batchId, terminalId, appliedCount, conflictCount | batchId | — |
+
+**Total tambahan §46A:** 10 event type di C.9 (di luar 125 event dasar C.1–C.7 dan 39 tambahan C.8; total keseluruhan 174).
+
 ## Appendix D — Role-Permission Matrix
 
 ### D.1 Role Registry
@@ -21972,6 +22959,8 @@ Scope mengikuti ARC §16: `ORGANIZATION`, `BRANCH`, `WAREHOUSE`, `TERRITORY`, `P
 | DELIVERY_SUPERVISOR | Supervisor Pengiriman | PSS Supervisor | BRANCH | FLT-SUPERVISE | — |
 | FLEET_ADMIN | Admin Armada | PSS Admin | BRANCH | FLT-VEHICLE | — |
 | CASHIER | Kasir | PSS Keuangan | BRANCH | PAY-RECORD, PAY-VERIFY, CSH-VERIFY, BNK-PETTY-EXEC | ✔ |
+| POS_CASHIER | Kasir Grosir | PSS Kasir | WAREHOUSE + OWN (shift) | POS-EXEC | — |
+| POS_SUPERVISOR | Kepala Kasir Grosir | PSS Kasir → PSS Control Station (tile konter) | WAREHOUSE | POS-SUPERVISE | — |
 | AR_OFFICER | Petugas Piutang | PSS Keuangan | BRANCH/ORG | PAY-APPLY, AR-MANAGE, COL-ASSIGN, RET-CREDIT-NOTE, AR-WO-REQUEST | ✔ |
 | PROCUREMENT_OFFICER | Staf Pembelian | PSS Admin | BRANCH/ORG | PUR-MANAGE | — |
 | FINANCE_MAKER | Staf Akuntansi | PSS Keuangan | ORG | GL-MAKE, BNK-RECON, AP-MANAGE, TAX-MANAGE | ✔ |
@@ -22031,6 +23020,8 @@ Scope mengikuti ARC §16: `ORGANIZATION`, `BRANCH`, `WAREHOUSE`, `TERRITORY`, `P
 | FLT-* | `fleet.shipment.plan`, `fleet.shipment.dispatch`, `fleet.vehicle.manage`, `fleet.delivery.execute` |
 | GEO-ADMIN | `geo.dataset.load`, `geo.territory.manage` |
 | CST-VIEW | `reporting.control_station.view` (dengan scope) |
+| POS-EXEC | `pos.shift.open`, `pos.shift.close`, `pos.sale.create`, `pos.sale.checkout`, `pos.tender.accept`, `pos.customer.quick_register`, `pos.receipt.reprint`, `pos.credit_sale.request` (bila `pos.credit_sale` aktif) |
+| POS-SUPERVISE | `pos.terminal.manage`, `pos.shift.force_close`, `pos.shift.review`, `pos.sale.cancel.approve`, `pos.tender.void.approve`, `pos.transfer.release.approve`, `pos.offline.activate`, `pos.report.view` |
 | DQ-WORK | `platform.exception.work` — mengerjakan antrian yang owner role-nya dimiliki user (Appendix P). Dimiliki semua role yang tercantum sebagai owner antrian |
 | AUDIT-READ-ALL | `*.read`, `audit.entry.read`, `audit.export` |
 | SYS-ADMIN | `identity.user.manage`, `identity.role.assign`, `configuration.*.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis |
@@ -22051,6 +23042,7 @@ Scope mengikuti ARC §16: `ORGANIZATION`, `BRANCH`, `WAREHOUSE`, `TERRITORY`, `P
 | Permission | `ar.receivable.view` | §36 |
 | Permission | `ap.payable.view` | §40 |
 | Permission | `master_data.prospect.approve`, `fleet.shipment.view` | §45 |
+| Permission | `fulfillment.pickup.handover` (WAREHOUSE_ADMIN, WAREHOUSE_OPERATOR — serah barang customer pickup) | §46A |
 | Permission | `finance.bank.account.view_full` | §51 |
 | Permission | `*.view_full` per jenis data sensitif (mis. `master_data.customer.identity.view_full`, `finance.bank.account.view_full`) | §77 |
 | Approval type | `branch_change` (SYSTEM_ADMIN + COO) | §23 |
@@ -22088,7 +23080,8 @@ Setiap aturan SoD ditegakkan **server-side** saat command dieksekusi (bukan hany
 | SOD-05 | Penghitung stock opname ≠ reviewer/approver adjustment dari opname tersebut | `ApproveStockAdjustment` |
 | SOD-06 | Kasir yang memverifikasi serah terima kas ≠ collector (turunan SOD-01) | `VerifyCashCustody` |
 | SOD-07 | SYSTEM_ADMIN tidak boleh memegang role bisnis apa pun di waktu yang sama | `AssignRole` |
-| SOD-08 | Kombinasi role terlarang pada satu user: CASHIER + AR_OFFICER di cabang yang sama; FINANCE_MAKER + FINANCE_APPROVER; PROCUREMENT_OFFICER + FINANCE_APPROVER. Pengecualian cabang kecil lewat policy `identity.sod_exception` dengan approval CFO; SOD-01/02 tetap berlaku per transaksi | `AssignRole` |
+| SOD-08 | Kombinasi role terlarang pada satu user: CASHIER + AR_OFFICER di cabang yang sama; FINANCE_MAKER + FINANCE_APPROVER; PROCUREMENT_OFFICER + FINANCE_APPROVER; **diperluas §46A:** POS_CASHIER + CASHIER (Keuangan) di cabang yang sama. Pengecualian cabang kecil lewat policy `identity.sod_exception` dengan approval CFO; SOD-01/02 tetap berlaku per transaksi | `AssignRole` |
+| SOD-09 | Penerima tender di konter (`accepted_by` pada `PosTender`) ≠ pengonfirmasi serah barang (`ConfirmPickupHandover`) untuk `PosSale` yang sama, bila `pos.sod.cashier_not_handover` aktif | `ConfirmPickupHandover` |
 
 ## Appendix E — State Machine Registry
 
@@ -22334,6 +23327,11 @@ States: `DRAFT` · `SUBMITTED` · `POSTED`■ · `REJECTED` (kembali bisa diedit
 | State | PostingRecord `NO_POSTING_REQUIRED` (terminal) | §56 |
 | State | SalesOrder `PENDING_MATCH` dan `SUPERSEDED_BY_EXTERNAL`■ (hanya bila policy flag aktif; REQ-191) | §59 |
 | Transition | SupplierPayment APPROVED → REJECTED (`CancelSupplierPayment`, ✔ alasan); EXECUTED → (reversed) lewat `ReverseSupplierPayment` + approval | §40 |
+| State | STM-PosTerminal (pos): `ACTIVE` ↔ `INACTIVE` | §46A |
+| State | STM-PosShift (pos): `— → OPEN → CLOSED / CLOSED_WITH_DISCREPANCY → HANDED_OVER` (POS-014) | §46A |
+| State | STM-PosSale (pos): `— → CART → PENDING_PAYMENT → PAID / CREDIT_APPROVED → HANDED_OVER`■; `CART/PENDING_PAYMENT/PAID → CANCELLED`■ (lihat diagram §46A.4) | §46A |
+| State | STM-PosTender (pos): `— → ACCEPTED` (tunai/QRIS) / `— → PENDING_CONFIRMATION → ACCEPTED` (transfer); `→ VOIDED`■ (POS-012) | §46A |
+| State | STM-PosOfflineBatch (pos): `RECEIVED → APPLIED / APPLIED_WITH_CONFLICTS`■ | §46A |
 
 ## Appendix F — Error & Reason Code Registry
 
@@ -22416,6 +23414,7 @@ Bentuk respons error mengikuti PLT-000.R50 (RFC 9457 + `code`, `message`, `reque
 | `INVALID_BARCODE` | 422 · VALIDATION | Barcode tidak valid | Periksa angka barcode atau scan ulang. | [Scan Ulang] | §25 |
 | `INVALID_LOCATION` | 422 · VALIDATION | Lokasi tidak bisa dipakai | Lokasi ini diblokir. | [Scan Ulang] | §42 |
 | `INVALID_SIGNATURE` | 422 · VALIDATION |  |  |  | §37 |
+| `INVOICE_BLOCKED` | 422 · BUSINESS_RULE | Faktur belum bisa dibuat | Data pajak belum lengkap. Hubungi Keuangan. | [Kembali] | §46A |
 | `INVOICE_ISSUED_IMMUTABLE` | 409 · CONFLICT | Invoice sudah terbit | Koreksi dilakukan dengan nota kredit. | [Buat Nota Kredit] | §34 |
 | `JOURNAL_NOT_BALANCED` | 422 · BUSINESS_RULE | Belum seimbang | Selisih debit dan kredit Rp 250.000. | [Periksa Baris] | §50 |
 | `LOAD_INCOMPLETE` | 422 · BUSINESS_RULE | Belum semua dimuat | 2 surat jalan belum dimuat. | [Lihat Daftar] | §58 |
@@ -22459,6 +23458,17 @@ Bentuk respons error mengikuti PLT-000.R50 (RFC 9457 + `code`, `message`, `reque
 | `POLICY_RETROACTIVE_CONFLICT` | 409 · CONFLICT | Tidak bisa berlaku mundur | Sudah ada transaksi yang diproses dengan aturan lama pada tanggal itu. | [Pilih Tanggal Lain] | §26 |
 | `POSSIBLE_DUPLICATE` | 409 · CONFLICT | Mungkin sudah terdaftar | Toko Makmur di jalan yang sama sudah ada. | [Buka Toko yang Ada] | §41 |
 | `POSTED_JOURNAL_IMMUTABLE` | 409 · CONFLICT | Jurnal tidak bisa diubah | Jurnal yang sudah diposting hanya bisa dibalik. | [Ajukan Pembalikan] | §50 |
+| `POS_ALREADY_HANDED_OVER` | 409 · CONFLICT | Barang sudah diambil | Struk ini diserahkan pada {waktu} oleh {petugas}. | [Lihat Riwayat] | §46A |
+| `POS_NOT_PAID` | 422 · BUSINESS_RULE | Transaksi belum lunas | Barang bisa diserahkan setelah pembayaran diterima. | [Kembali] | §46A |
+| `POS_OFFLINE_LIMIT_REACHED` | 422 · BUSINESS_RULE | Batas mode darurat tercapai | Tunggu koneksi pulih sebelum melanjutkan penjualan. | [Coba Sambungkan] | §46A |
+| `POS_OFFLINE_METHOD_NOT_ALLOWED` | 422 · BUSINESS_RULE | Metode tidak tersedia offline | Mode darurat hanya menerima tunai. | [Pilih Tunai] | §46A |
+| `POS_PRINTER_UNAVAILABLE` | 422 · BUSINESS_RULE | Printer tidak merespons | Struk tersimpan. Periksa kertas dan kabel printer. | [Cetak Ulang] | §46A |
+| `POS_SHIFT_ALREADY_OPEN` | 409 · CONFLICT | Shift sudah dibuka | Anda masih punya shift di terminal {terminal}. | [Buka Shift Itu] | §46A |
+| `POS_SHIFT_HAS_PENDING_SALE` | 422 · BUSINESS_RULE | Masih ada transaksi belum selesai | {n} transaksi menunggu pembayaran. | [Lihat Transaksi] | §46A |
+| `POS_SHIFT_NOT_OPEN` | 422 · BUSINESS_RULE | Shift belum dibuka | Buka shift sebelum menerima pembayaran. | [Buka Shift] | §46A |
+| `POS_SHIFT_STILL_OPEN` | 422 · BUSINESS_RULE | Terminal masih dipakai | Tutup shift di terminal ini sebelum menonaktifkannya. | [Lihat Shift] | §46A |
+| `POS_SKU_NOT_SELLABLE` | 422 · BUSINESS_RULE | Barang ini tidak dijual di konter | {produk} dipesan lewat {sistem sumber} sesuai aturan principal. | [Hapus Baris] | §46A |
+| `POS_STOCK_INSUFFICIENT` | 422 · BUSINESS_RULE | Stok tidak cukup | Tersedia {qty} {satuan} di gudang ini. | [Ubah Jumlah] | §46A |
 | `PO_HAS_RECEIPTS` | 422 · BUSINESS_RULE | Sudah ada penerimaan | PO ini hanya bisa ditutup, tidak bisa dibatalkan. | [Tutup PO] | §33 |
 | `PREVIOUS_PERIOD_OPEN` | 422 · BUSINESS_RULE | Periode sebelumnya masih terbuka | Tutup sementara Agustus 2026 lebih dulu. | [Buka Agustus] | §53 |
 | `PRICE_LIST_OVERLAP` | 422 · BUSINESS_RULE | Harga bertabrakan | Sudah ada daftar harga lain untuk produk dan tanggal ini. | [Lihat Daftar Harga] | §27 |
@@ -22523,6 +23533,7 @@ Reason code wajib diisi pada transisi yang kolom *Alasan*-nya ✔ (Appendix E). 
 | INV | `RC-INV-COUNT_VARIANCE`, `RC-INV-DAMAGED`, `RC-INV-EXPIRED`, `RC-INV-FOUND`, `RC-INV-LOST`, `RC-INV-OTHER`, `RC-INV-TRANSIT_LOSS` |
 | ORD | `RC-ORD-CANCELLED_AT_SOURCE`, `RC-ORD-CREDIT_REJECTED`, `RC-ORD-CUSTOMER_REQUEST`, `RC-ORD-DUPLICATE`, `RC-ORD-OTHER`, `RC-ORD-OUT_OF_STOCK`, `RC-ORD-SUPERSEDED_BY_EXTERNAL` |
 | PAY | `RC-PAY-GIRO_`, `RC-PAY-GIRO_INSUFFICIENT_FUNDS`, `RC-PAY-GIRO_OTHER`, `RC-PAY-GIRO_SIGNATURE`, `RC-PAY-REJECT_INVALID_EVIDENCE`, `RC-PAY-REJECT_NOT_FOUND`, `RC-PAY-REV_`, `RC-PAY-REV_BANK_CORRECTION`, `RC-PAY-REV_WRONG_CUSTOMER`, `RC-PAY-REV_WRONG_INVOICE` |
+| POS | `RC-POS-CANCEL_CUSTOMER_REQUEST`, `RC-POS-CANCEL_OTHER`, `RC-POS-CANCEL_WRONG_ITEM`, `RC-POS-COUNT_OVER`, `RC-POS-COUNT_SHORT`, `RC-POS-OTHER` |
 | RET | `RC-RET-DAMAGED`, `RC-RET-EXCESS`, `RC-RET-EXPIRED`, `RC-RET-OTHER`, `RC-RET-QUALITY`, `RC-RET-WRONG_ITEM` |
 | SFA | `RC-SFA-SKIP_`, `RC-SFA-SKIP_OTHER`, `RC-SFA-SKIP_OUT_OF_TIME`, `RC-SFA-SKIP_OWNER_ABSENT`, `RC-SFA-SKIP_STOCK_FULL`, `RC-SFA-SKIP_STORE_CLOSED` |
 | WMS | `RC-WMS-DISC_DAMAGED`, `RC-WMS-DISC_EXCESS`, `RC-WMS-DISC_MISSING`, `RC-WMS-DISC_WRONG_LOCATION`, `RC-WMS-SHORT_`, `RC-WMS-SHORT_DAMAGED`, `RC-WMS-SHORT_EXPIRED`, `RC-WMS-SHORT_NOT_FOUND` |
@@ -22770,6 +23781,15 @@ Status: **CLOSED** (dijawab sumber berprioritas lebih tinggi atau oleh keputusan
 | OD-186 | sertifikasi/penilaian keamanan formal | OPEN | Management | di luar v1 | §77 |
 | OD-187 | tool IaC | OPEN | Engineering | F0 | §86 |
 | OD-188 | RPO/RTO & retensi backup | OPEN | Management/Finance | F0 (ASUMSI RPO ≤ 15 menit, RTO ≤ 4 jam) | §87 |
+| OD-189 | `pos` sebagai modul `apps/api` atau deployable `apps/pos-service` terpisah | DITETAPKAN | Tech Lead | F11 | ADR-0024 — modul `apps/api` sampai kriteria ekstraksi ARC §5 terpenuhi |
+| OD-190 | Price list & stream grosir untuk konter (`pos.price_list_scope`) | OPEN | Komersial | F11 | §46A |
+| OD-191 | Penyedia & mode QRIS konter (statis vs dinamis) | OPEN | Finance | F11 | §46A; terkait OD-142 |
+| OD-192 | Faktur pajak untuk pembeli konter tanpa NPWP | OPEN | Finance/Tax | F11 | §46A |
+| OD-193 | SKU principal mandated yang difilter dari katalog konter | OPEN | Komersial | F11 | §46A |
+| OD-194 | Hardware konter (printer struk, laci kas, scanner) & cara cetak struk | OPEN | Ops | F11 | §46A |
+| OD-195 | Apakah tempo diizinkan di konter dan batasnya | OPEN | Finance | F11 | §46A |
+| OD-196 | Volume konter (transaksi/hari, jam operasional, jumlah shift) untuk sizing | OPEN | Ops + Engineering | F11 | §46A |
+| OD-197 | Desain visual final Template E — Counter | OPEN | Product Designer | F11 | §46A |
 
 ### J.2 Asumsi kerja (ASM)
 
@@ -22786,6 +23806,7 @@ Asumsi bisnis yang dibawa dari APRD dan yang ditambahkan PRD. Nilai konfigurasi 
 | ASM-07 (APRD) | Untuk pesanan yang dibuat ND6, harga/diskon dihitung ND6 | Baris authority PRICING berubah menjadi PSS | Komersial | F2 |
 | ASM.PSP-01…03 | Nilai awal Principal System Policy (§20.4) | Baris policy diubah (data) | Komersial + legal | F2 |
 | ASM-§13 | Jumlah peserta uji onboarding (5) & ambang lulus (≥ 4/5, ≤ 10 menit, jeda ≤ 30 detik) | Nilai konfigurasi diubah | Product/Ops | F7 |
+| ASM-POS-01 | Customer generik "Pelanggan Umum Grosir" per cabang sudah dibuat (kredit nonaktif) sebelum PSS Kasir aktif di gudang tersebut | Checkout default tanpa pelanggan gagal (POS-004) | Master Data Steward | F11 |
 | Nilai config berlabel ASM | Lihat Appendix N | Nilai konfigurasi diubah tanpa perubahan kode (HIER.R06) | Owner per key | Gate per key |
 
 ## Appendix K — ADR Register
@@ -22817,6 +23838,7 @@ ADR ditulis di `docs/adr/ADR-NNNN-<judul>.md` dengan format: konteks, keputusan,
 | ADR-0021 | Database Finance terpisah (`pss_finance`) dengan outbox/inbox dan audit sendiri | §65 DB.R08–R09; ARC §4.2 | Diterima (draf) |
 | ADR-0022 | Kerangka exception queue tunggal (`platform.exception_item`) dengan penyelesaian lewat command domain | DEC-110; DQ-001 | Diterima (draf) |
 | ADR-0023 | Keputusan approval di platform, efek di domain pemilik (`APPROVAL_DECIDED`) | DEC-109; APR-001 | Diterima (draf) |
+| ADR-0024 | Bounded domain `pos` (PSS Kasir, POS Grosir) sebagai skema baru `pos`; berjalan sebagai modul di `apps/api` (bukan deployable terpisah) sampai kriteria ekstraksi ARC §5 terpenuhi | §46A; DEC-114 | Diterima (draf) |
 
 ## Appendix L — Definition of Done
 
@@ -22931,6 +23953,18 @@ Tone memetakan ke semantic color DSY §3.4: `neutral` (abu), `info` (biru), `suc
 | OrderRequest · NEEDS_ATTENTION | — | ⚠ Perlu Diperiksa | warning | `alert-triangle` |
 | Visit · SKIPPED | Dilewati | Dilewati | neutral | `skip-forward` |
 | Outlet location · UNMAPPED | Lokasi belum direkam | Rekam lokasi | warning | `map-pin-off` |
+| PosShift · OPEN | Shift berjalan | — | info | `play-circle` |
+| PosShift · CLOSED | Shift ditutup | — | success | `check-circle` |
+| PosShift · CLOSED_WITH_DISCREPANCY | Ada selisih kas | — | danger | `scale` |
+| PosShift · HANDED_OVER | Kas sudah diserahkan | — | success | `badge-check` |
+| PosSale · CART | Keranjang | — | neutral | `shopping-cart` |
+| PosSale · PENDING_PAYMENT | Menunggu bayar | — | warning | `hourglass` |
+| PosSale · PAID | Lunas | — | success | `check-circle` |
+| PosSale · CREDIT_APPROVED | Tempo disetujui | — | info | `receipt` |
+| PosSale · HANDED_OVER | Barang sudah diambil | — | success | `package-check` |
+| PosSale · CANCELLED | Dibatalkan | — | neutral | `x-circle` |
+| PosTender · PENDING_CONFIRMATION | Menunggu dana masuk | — | warning | `clock` |
+| PosTender · VOIDED | Dibatalkan | — | neutral | `ban` |
 
 **Aturan:**
 
@@ -23025,6 +24059,9 @@ Label **ASM** menandai nilai asumsi kerja yang wajib divalidasi. **KOSONG** bera
 | Config | `fleet.fail_photo_required` (true) · `fleet.driver_can_request_return` (false) | §43 |
 | Config | `sfa.single_owner_per_outlet_stream` (true ASM; Sales; F7) · `wms.task_stuck_minutes` (30 ASM; Gudang; F9) | §45 |
 | Config | `integration.freshness_sla_minutes` (KOSONG per connector → "Tanpa target"; Integration + Management; F3) | §46 |
+| Config | `pos.enabled` (off per gudang) · `pos.price_list_scope` · `pos.walk_in_customer_id` · `pos.reservation_expiry_minutes` (60 ASM) · `pos.pickup.sla_minutes` · `pos.receipt.format` (80mm) · `pos.shift.open_float_amount` · `pos.shift.max_hours` · `pos.shift.close_tolerance` (0) · `pos.sod.cashier_not_handover` (true) — owner Ops + Finance, gate F11 | §46A |
+| Config | `pos.credit_sale` (off; OD-195) · `pos.qris_dynamic` (off) · `pos.qris.merchant_ref` · `pos.qris.settlement_days` · `pos.transfer.release_rule` (AFTER_VERIFICATION) · `pos.transfer.max_wait_hours` — owner Finance, gate F11 | §46A |
+| Config | `pos.offline_mode` (off) · `pos.offline.number_block_size` · `pos.offline.max_hours` · `pos.offline.max_sale_amount` (KOSONG → aktivasi ditolak) · `pos.offline.allow_immediate_handover` (false) — owner Engineering + Ops, gate F11 | §46A |
 | Config | `finance.coa.code_pattern` (KOSONG; Finance; F4) | §48 |
 | Config | `finance.go_live_date` (KOSONG → posting tidak aktif; Finance; F4) · `finance.balance_tolerance` (0; Finance; F4) | §49 |
 | Config | `approval.journal.levels` (KOSONG → level tertinggi) · `approval.journal.expiry_days` (7 ASM) | §50 |
@@ -23318,6 +24355,11 @@ Semua antrian memakai kerangka DQ-001 (`platform.exception_item`). Item hanya se
 | Queue | `Q-INVOICE_BLOCKED` — "Invoice belum bisa terbit" — owner SALES_ADMIN/FINANCE — SLA 4 jam — aksi: Lengkapi data pajak/produk | §34 |
 | Queue | `Q-AP_LEDGER_REJECTED` — "Entri utang ditolak" — owner CONTROLLER — SLA 1 hari kerja — aksi: selidiki, proses ulang | §40 |
 | Queue | `Q-LOCATION_REVIEW` — "Lokasi toko perlu dicek" — owner MASTER_DATA_STEWARD — SLA 3 hari — aksi: Verifikasi · Tolak | §57 |
+| Queue | `Q-POS_PICKUP_PENDING` — "Lunas, belum diambil" — owner WAREHOUSE_ADMIN — SLA `pos.pickup.sla_minutes` — aksi: Siapkan barang · Cari struk — eskalasi Branch Manager | §46A |
+| Queue | `Q-POS_SHIFT_NOT_CLOSED` — "Shift belum ditutup" — owner POS_SUPERVISOR — SLA `pos.shift.max_hours` — aksi: Tutup shift · Force close — eskalasi Branch Manager | §46A |
+| Queue | `Q-POS_TRANSFER_PENDING` — "Menunggu dana masuk" — owner POS_CASHIER / POS_SUPERVISOR — SLA `pos.transfer.max_wait_hours` — aksi: Cocokkan mutasi · Setujui rilis dengan bukti | §46A |
+| Queue | `Q-POS_QRIS_UNSETTLED` — "QRIS belum settle" — owner FINANCE_MAKER — SLA `pos.qris.settlement_days` — aksi: Cocokkan settlement | §46A |
+| Queue | `Q-POS_OFFLINE_CONFLICT` — "Transaksi offline perlu diperiksa" — owner POS_SUPERVISOR — SLA 4 jam — aksi: Selesaikan konflik stok/harga | §46A |
 
 ---
 

@@ -15,6 +15,7 @@
     "dev:up": "bash scripts/dev-up.sh",
     "dr:rehearse:local": "bash scripts/rehearse-local-restore.sh",
     "idp:check:local": "node scripts/check-local-idp.mjs",
+    "idp:setup:local": "node scripts/setup-local-identity.mjs",
     "storybook": "pnpm --filter @pss/web storybook",
     "test:a11y": "pnpm --filter @pss/web test:a11y",
     "test:visual": "pnpm --filter @pss/web test:visual",
@@ -22,7 +23,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint && eslint scripts tests apps/api/tests 'domains/**/tests/**/*.ts' eslint.config.mjs && node scripts/check-workspace.mjs && node scripts/check-code-quality.mjs",
     "typecheck": "turbo run typecheck",
-    "architecture:check": "node scripts/check-structure.mjs && node scripts/check-architecture.mjs",
+    "architecture:check": "node scripts/check-structure.mjs && node scripts/check-architecture.mjs && node scripts/check-api-controller-registration.mjs",
     "contracts:check": "node scripts/generate-event-catalog.mjs --check && node scripts/generate-registry-catalog.mjs --check && pnpm --filter @pss/contracts build:code && node packages/contracts/scripts/generate-docs.mjs --check",
     "db:check": "node scripts/check-database.mjs",
     "ui:check": "node scripts/check-ui.mjs",
@@ -30,7 +31,8 @@
     "secrets:check": "node scripts/check-secrets.mjs",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:e2e": "node scripts/check-scaffold-gate.mjs e2e",
+    "test:e2e": "pnpm --filter @pss/web test:e2e:ci",
+    "test:e2e:local": "pnpm --filter @pss/web test:e2e:local",
     "gen:domain": "node scripts/gen-domain.mjs"
   },
   "devDependencies": {

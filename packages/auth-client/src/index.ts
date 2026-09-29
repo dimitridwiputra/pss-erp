@@ -10,6 +10,8 @@ export interface VerifiedAccessToken {
   subject: string;
   issuedAt: number;
   expiresAt: number;
+  authenticationAt: number | undefined;
+  authenticationMethods: readonly string[];
 }
 
 export class InvalidAccessTokenError extends Error {
@@ -43,7 +45,11 @@ export function createAccessTokenVerifier(options: AccessTokenVerifierOptions) {
       if (!payload.sub || payload.iat === undefined || payload.exp === undefined) {
         throw new InvalidAccessTokenError();
       }
-      return { subject: payload.sub, issuedAt: payload.iat, expiresAt: payload.exp };
+      const authenticationAt = typeof payload.auth_time === 'number' && Number.isInteger(payload.auth_time)
+        ? payload.auth_time : undefined;
+      const authenticationMethods = Array.isArray(payload.amr) && payload.amr.every((method) => typeof method === 'string')
+        ? payload.amr : [];
+      return { subject: payload.sub, issuedAt: payload.iat, expiresAt: payload.exp, authenticationAt, authenticationMethods };
     } catch {
       throw new InvalidAccessTokenError();
     }

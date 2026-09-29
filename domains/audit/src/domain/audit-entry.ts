@@ -28,7 +28,7 @@ export const AuditEntryInputSchema = z.strictObject({
   requestId: z.string().min(1),
   correlationId: z.string().min(1),
   causationId: z.string().min(1).optional(),
-  source: z.enum(['WEB', 'MOBILE', 'API', 'SYSTEM', 'IMPORT']),
+  source: z.enum(['WEB', 'MOBILE', 'API', 'SYSTEM', 'IMPORT', 'OFFLINE', 'PAPER']),
 });
 
 export type AuditEntryInput = z.input<typeof AuditEntryInputSchema>;

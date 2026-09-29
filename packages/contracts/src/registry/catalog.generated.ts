@@ -100,6 +100,22 @@ export const registryCatalog = {
       "mfaRequired": true
     },
     {
+      "code": "POS_CASHIER",
+      "label": "Kasir Grosir",
+      "product": "PSS Kasir",
+      "defaultScope": "WAREHOUSE + OWN (shift)",
+      "permissionGroups": "POS-EXEC",
+      "mfaRequired": false
+    },
+    {
+      "code": "POS_SUPERVISOR",
+      "label": "Kepala Kasir Grosir",
+      "product": "PSS Kasir → PSS Control Station (tile konter)",
+      "defaultScope": "WAREHOUSE",
+      "permissionGroups": "POS-SUPERVISE",
+      "mfaRequired": false
+    },
+    {
       "code": "AR_OFFICER",
       "label": "Petugas Piutang",
       "product": "PSS Keuangan",
@@ -503,6 +519,35 @@ export const registryCatalog = {
       "sourceText": "`reporting.control_station.view` (dengan scope)"
     },
     {
+      "group": "POS-EXEC",
+      "permissions": [
+        "pos.shift.open",
+        "pos.shift.close",
+        "pos.sale.create",
+        "pos.sale.checkout",
+        "pos.tender.accept",
+        "pos.customer.quick_register",
+        "pos.receipt.reprint",
+        "pos.credit_sale.request",
+        "pos.credit_sale"
+      ],
+      "sourceText": "`pos.shift.open`, `pos.shift.close`, `pos.sale.create`, `pos.sale.checkout`, `pos.tender.accept`, `pos.customer.quick_register`, `pos.receipt.reprint`, `pos.credit_sale.request` (bila `pos.credit_sale` aktif)"
+    },
+    {
+      "group": "POS-SUPERVISE",
+      "permissions": [
+        "pos.terminal.manage",
+        "pos.shift.force_close",
+        "pos.shift.review",
+        "pos.sale.cancel.approve",
+        "pos.tender.void.approve",
+        "pos.transfer.release.approve",
+        "pos.offline.activate",
+        "pos.report.view"
+      ],
+      "sourceText": "`pos.terminal.manage`, `pos.shift.force_close`, `pos.shift.review`, `pos.sale.cancel.approve`, `pos.tender.void.approve`, `pos.transfer.release.approve`, `pos.offline.activate`, `pos.report.view`"
+    },
+    {
       "group": "DQ-WORK",
       "permissions": [
         "platform.exception.work"
@@ -605,6 +650,13 @@ export const registryCatalog = {
       "codes": [
         "master_data.prospect.approve",
         "fleet.shipment.view"
+      ]
+    },
+    {
+      "item": "`fulfillment.pickup.handover` (WAREHOUSE_ADMIN, WAREHOUSE_OPERATOR — serah barang customer pickup)",
+      "section": "§46A",
+      "codes": [
+        "fulfillment.pickup.handover"
       ]
     },
     {
@@ -1196,6 +1248,15 @@ export const registryCatalog = {
       "copyComplete": false
     },
     {
+      "code": "INVOICE_BLOCKED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Faktur belum bisa dibuat",
+      "explanation": "Data pajak belum lengkap. Hubungi Keuangan.",
+      "action": "[Kembali]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
       "code": "INVOICE_ISSUED_IMMUTABLE",
       "httpCategory": "409 · CONFLICT",
       "title": "Invoice sudah terbit",
@@ -1580,6 +1641,105 @@ export const registryCatalog = {
       "explanation": "Jurnal yang sudah diposting hanya bisa dibalik.",
       "action": "[Ajukan Pembalikan]",
       "section": "§50",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_ALREADY_HANDED_OVER",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Barang sudah diambil",
+      "explanation": "Struk ini diserahkan pada {waktu} oleh {petugas}.",
+      "action": "[Lihat Riwayat]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_NOT_PAID",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Transaksi belum lunas",
+      "explanation": "Barang bisa diserahkan setelah pembayaran diterima.",
+      "action": "[Kembali]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_OFFLINE_LIMIT_REACHED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Batas mode darurat tercapai",
+      "explanation": "Tunggu koneksi pulih sebelum melanjutkan penjualan.",
+      "action": "[Coba Sambungkan]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_OFFLINE_METHOD_NOT_ALLOWED",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Metode tidak tersedia offline",
+      "explanation": "Mode darurat hanya menerima tunai.",
+      "action": "[Pilih Tunai]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_PRINTER_UNAVAILABLE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Printer tidak merespons",
+      "explanation": "Struk tersimpan. Periksa kertas dan kabel printer.",
+      "action": "[Cetak Ulang]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_SHIFT_ALREADY_OPEN",
+      "httpCategory": "409 · CONFLICT",
+      "title": "Shift sudah dibuka",
+      "explanation": "Anda masih punya shift di terminal {terminal}.",
+      "action": "[Buka Shift Itu]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_SHIFT_HAS_PENDING_SALE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Masih ada transaksi belum selesai",
+      "explanation": "{n} transaksi menunggu pembayaran.",
+      "action": "[Lihat Transaksi]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_SHIFT_NOT_OPEN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Shift belum dibuka",
+      "explanation": "Buka shift sebelum menerima pembayaran.",
+      "action": "[Buka Shift]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_SHIFT_STILL_OPEN",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Terminal masih dipakai",
+      "explanation": "Tutup shift di terminal ini sebelum menonaktifkannya.",
+      "action": "[Lihat Shift]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_SKU_NOT_SELLABLE",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Barang ini tidak dijual di konter",
+      "explanation": "{produk} dipesan lewat {sistem sumber} sesuai aturan principal.",
+      "action": "[Hapus Baris]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
+      "code": "POS_STOCK_INSUFFICIENT",
+      "httpCategory": "422 · BUSINESS_RULE",
+      "title": "Stok tidak cukup",
+      "explanation": "Tersedia {qty} {satuan} di gudang ini.",
+      "action": "[Ubah Jumlah]",
+      "section": "§46A",
       "copyComplete": true
     },
     {
@@ -2404,6 +2564,36 @@ export const registryCatalog = {
       "placeholder": false
     },
     {
+      "area": "POS",
+      "code": "RC-POS-CANCEL_CUSTOMER_REQUEST",
+      "placeholder": false
+    },
+    {
+      "area": "POS",
+      "code": "RC-POS-CANCEL_OTHER",
+      "placeholder": false
+    },
+    {
+      "area": "POS",
+      "code": "RC-POS-CANCEL_WRONG_ITEM",
+      "placeholder": false
+    },
+    {
+      "area": "POS",
+      "code": "RC-POS-COUNT_OVER",
+      "placeholder": false
+    },
+    {
+      "area": "POS",
+      "code": "RC-POS-COUNT_SHORT",
+      "placeholder": false
+    },
+    {
+      "area": "POS",
+      "code": "RC-POS-OTHER",
+      "placeholder": false
+    },
+    {
       "area": "RET",
       "code": "RC-RET-DAMAGED",
       "placeholder": false
@@ -2812,6 +3002,90 @@ export const registryCatalog = {
       "frontlineLabel": "Rekam lokasi",
       "tone": "warning",
       "icon": "map-pin-off"
+    },
+    {
+      "aggregateState": "PosShift · OPEN",
+      "desktopLabel": "Shift berjalan",
+      "frontlineLabel": "—",
+      "tone": "info",
+      "icon": "play-circle"
+    },
+    {
+      "aggregateState": "PosShift · CLOSED",
+      "desktopLabel": "Shift ditutup",
+      "frontlineLabel": "—",
+      "tone": "success",
+      "icon": "check-circle"
+    },
+    {
+      "aggregateState": "PosShift · CLOSED_WITH_DISCREPANCY",
+      "desktopLabel": "Ada selisih kas",
+      "frontlineLabel": "—",
+      "tone": "danger",
+      "icon": "scale"
+    },
+    {
+      "aggregateState": "PosShift · HANDED_OVER",
+      "desktopLabel": "Kas sudah diserahkan",
+      "frontlineLabel": "—",
+      "tone": "success",
+      "icon": "badge-check"
+    },
+    {
+      "aggregateState": "PosSale · CART",
+      "desktopLabel": "Keranjang",
+      "frontlineLabel": "—",
+      "tone": "neutral",
+      "icon": "shopping-cart"
+    },
+    {
+      "aggregateState": "PosSale · PENDING_PAYMENT",
+      "desktopLabel": "Menunggu bayar",
+      "frontlineLabel": "—",
+      "tone": "warning",
+      "icon": "hourglass"
+    },
+    {
+      "aggregateState": "PosSale · PAID",
+      "desktopLabel": "Lunas",
+      "frontlineLabel": "—",
+      "tone": "success",
+      "icon": "check-circle"
+    },
+    {
+      "aggregateState": "PosSale · CREDIT_APPROVED",
+      "desktopLabel": "Tempo disetujui",
+      "frontlineLabel": "—",
+      "tone": "info",
+      "icon": "receipt"
+    },
+    {
+      "aggregateState": "PosSale · HANDED_OVER",
+      "desktopLabel": "Barang sudah diambil",
+      "frontlineLabel": "—",
+      "tone": "success",
+      "icon": "package-check"
+    },
+    {
+      "aggregateState": "PosSale · CANCELLED",
+      "desktopLabel": "Dibatalkan",
+      "frontlineLabel": "—",
+      "tone": "neutral",
+      "icon": "x-circle"
+    },
+    {
+      "aggregateState": "PosTender · PENDING_CONFIRMATION",
+      "desktopLabel": "Menunggu dana masuk",
+      "frontlineLabel": "—",
+      "tone": "warning",
+      "icon": "clock"
+    },
+    {
+      "aggregateState": "PosTender · VOIDED",
+      "desktopLabel": "Dibatalkan",
+      "frontlineLabel": "—",
+      "tone": "neutral",
+      "icon": "ban"
     }
   ],
   "offlineStatuses": [
@@ -3329,6 +3603,48 @@ export const registryCatalog = {
       "section": "§46",
       "keys": [
         "integration.freshness_sla_minutes"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`pos.enabled` (off per gudang) · `pos.price_list_scope` · `pos.walk_in_customer_id` · `pos.reservation_expiry_minutes` (60 ASM) · `pos.pickup.sla_minutes` · `pos.receipt.format` (80mm) · `pos.shift.open_float_amount` · `pos.shift.max_hours` · `pos.shift.close_tolerance` (0) · `pos.sod.cashier_not_handover` (true) — owner Ops + Finance, gate F11",
+      "section": "§46A",
+      "keys": [
+        "pos.enabled",
+        "pos.price_list_scope",
+        "pos.walk_in_customer_id",
+        "pos.reservation_expiry_minutes",
+        "pos.pickup.sla_minutes",
+        "pos.receipt.format",
+        "pos.shift.open_float_amount",
+        "pos.shift.max_hours",
+        "pos.shift.close_tolerance",
+        "pos.sod.cashier_not_handover"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`pos.credit_sale` (off; OD-195) · `pos.qris_dynamic` (off) · `pos.qris.merchant_ref` · `pos.qris.settlement_days` · `pos.transfer.release_rule` (AFTER_VERIFICATION) · `pos.transfer.max_wait_hours` — owner Finance, gate F11",
+      "section": "§46A",
+      "keys": [
+        "pos.credit_sale",
+        "pos.qris_dynamic",
+        "pos.qris.merchant_ref",
+        "pos.qris.settlement_days",
+        "pos.transfer.release_rule",
+        "pos.transfer.max_wait_hours"
+      ]
+    },
+    {
+      "kind": "Config",
+      "item": "`pos.offline_mode` (off) · `pos.offline.number_block_size` · `pos.offline.max_hours` · `pos.offline.max_sale_amount` (KOSONG → aktivasi ditolak) · `pos.offline.allow_immediate_handover` (false) — owner Engineering + Ops, gate F11",
+      "section": "§46A",
+      "keys": [
+        "pos.offline_mode",
+        "pos.offline.number_block_size",
+        "pos.offline.max_hours",
+        "pos.offline.max_sale_amount",
+        "pos.offline.allow_immediate_handover"
       ]
     },
     {
@@ -4031,6 +4347,50 @@ export const registryCatalog = {
       "section": "§57",
       "codes": [
         "Q-LOCATION_REVIEW"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-POS_PICKUP_PENDING` — \"Lunas, belum diambil\" — owner WAREHOUSE_ADMIN — SLA `pos.pickup.sla_minutes` — aksi: Siapkan barang · Cari struk — eskalasi Branch Manager",
+      "section": "§46A",
+      "codes": [
+        "Q-POS_PICKUP_PENDING",
+        "pos.pickup.sla_minutes"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-POS_SHIFT_NOT_CLOSED` — \"Shift belum ditutup\" — owner POS_SUPERVISOR — SLA `pos.shift.max_hours` — aksi: Tutup shift · Force close — eskalasi Branch Manager",
+      "section": "§46A",
+      "codes": [
+        "Q-POS_SHIFT_NOT_CLOSED",
+        "pos.shift.max_hours"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-POS_TRANSFER_PENDING` — \"Menunggu dana masuk\" — owner POS_CASHIER / POS_SUPERVISOR — SLA `pos.transfer.max_wait_hours` — aksi: Cocokkan mutasi · Setujui rilis dengan bukti",
+      "section": "§46A",
+      "codes": [
+        "Q-POS_TRANSFER_PENDING",
+        "pos.transfer.max_wait_hours"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-POS_QRIS_UNSETTLED` — \"QRIS belum settle\" — owner FINANCE_MAKER — SLA `pos.qris.settlement_days` — aksi: Cocokkan settlement",
+      "section": "§46A",
+      "codes": [
+        "Q-POS_QRIS_UNSETTLED",
+        "pos.qris.settlement_days"
+      ]
+    },
+    {
+      "kind": "Queue",
+      "item": "`Q-POS_OFFLINE_CONFLICT` — \"Transaksi offline perlu diperiksa\" — owner POS_SUPERVISOR — SLA 4 jam — aksi: Selesaikan konflik stok/harga",
+      "section": "§46A",
+      "codes": [
+        "Q-POS_OFFLINE_CONFLICT"
       ]
     }
   ]

@@ -1147,5 +1147,75 @@ export const eventCatalog = [
     "producer": null,
     "aggregate": null,
     "payloadKeys": null
+  },
+  {
+    "name": "POS_TERMINAL_UPDATED",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosTerminal",
+    "payloadKeys": "terminalId, code, branchId, warehouseId, status, version"
+  },
+  {
+    "name": "POS_SHIFT_OPENED",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosShift",
+    "payloadKeys": "shiftId, terminalId, cashierId, openingFloat, expectedCash?, countedCash?, variance?, status"
+  },
+  {
+    "name": "POS_SHIFT_CLOSED",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosShift",
+    "payloadKeys": "shiftId, terminalId, cashierId, openingFloat, expectedCash?, countedCash?, variance?, status"
+  },
+  {
+    "name": "POS_SALE_CHECKED_OUT",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosSale",
+    "payloadKeys": "posSaleId, terminalId, shiftId, salesOrderId?, invoiceId?, total, status"
+  },
+  {
+    "name": "POS_TENDER_ACCEPTED",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosSale",
+    "payloadKeys": "posSaleId, terminalId, shiftId, salesOrderId?, invoiceId?, total, status"
+  },
+  {
+    "name": "POS_SALE_PAID",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosSale",
+    "payloadKeys": "posSaleId, terminalId, shiftId, salesOrderId?, invoiceId?, total, status"
+  },
+  {
+    "name": "POS_SALE_CANCELLED",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosSale",
+    "payloadKeys": "posSaleId, terminalId, shiftId, salesOrderId?, invoiceId?, total, status"
+  },
+  {
+    "name": "POS_SALE_HANDED_OVER",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosSale",
+    "payloadKeys": "posSaleId, terminalId, shiftId, salesOrderId?, invoiceId?, total, status"
+  },
+  {
+    "name": "POS_TENDER_VOIDED",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosTender",
+    "payloadKeys": "posSaleId, tenderId, method, amount"
+  },
+  {
+    "name": "POS_OFFLINE_BATCH_SYNCED",
+    "section": "C.9",
+    "producer": "pos",
+    "aggregate": "PosOfflineBatch",
+    "payloadKeys": "batchId, terminalId, appliedCount, conflictCount"
   }
 ] as const;

@@ -1,8 +1,14 @@
-import { Controller, Get, Inject, Injectable, OnModuleDestroy, Req } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post, Req } from '@nestjs/common';
 import { createAccessTokenVerifier, InvalidAccessTokenError } from '@pss/auth-client';
-import { CurrentUserResponseSchema, CurrentUserPermissionsResponseSchema, DomainError, type CurrentUserResponse, type CurrentUserPermissionsResponse } from '@pss/contracts';
-import { loadActiveRoleAssignments, resolveActiveUser, resolveRolePermissions } from '@pss/identity';
+import { CurrentUserResponseSchema, CurrentUserPermissionsResponseSchema, DomainError, registryCatalog, type CurrentUserResponse, type CurrentUserPermissionsResponse } from '@pss/contracts';
+import { assertSessionActive, checkAccess, loadActiveRoleAssignments, requireRecentMfa, resolveActiveUser, resolveRolePermissions, revokeUserSessions } from '@pss/identity';
+import type { ApprovalAuthorization } from '@pss/platform';
+import { ZodValidationPipe } from '@pss/http';
 import { Pool } from 'pg';
+import { z } from 'zod';
+
+const RevokeSessionsSchema = z.strictObject({ reason: z.string().trim().min(1).max(200) });
 
 @Injectable()
 export class IdentityService implements OnModuleDestroy {
@@ -20,12 +26,65 @@ export class IdentityService implements OnModuleDestroy {
     if (!this.verify || !this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
     try {
       const token = await this.verify(authorizationHeader);
-      return CurrentUserResponseSchema.parse(await resolveActiveUser(this.pool, token.subject));
+      const user = await resolveActiveUser(this.pool, token.subject);
+      await assertSessionActive(this.pool, user.id, token.authenticationAt);
+      return CurrentUserResponseSchema.parse(user);
     } catch (error) {
       if (error instanceof InvalidAccessTokenError) throw new DomainError('UNAUTHENTICATED');
       if (error instanceof DomainError) throw error;
       throw new DomainError('DEPENDENCY_UNAVAILABLE');
     }
+  }
+
+  async revokeSessions(authorizationHeader: string | undefined, targetUserId: string, reason: string, requestId: string): Promise<{ status: 'REVOKED' }> {
+    if (!authorizationHeader) throw new DomainError('UNAUTHENTICATED');
+    if (!this.verify || !this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
+    let token;
+    try {
+      token = await this.verify(authorizationHeader);
+    } catch (error) {
+      if (error instanceof InvalidAccessTokenError) throw new DomainError('UNAUTHENTICATED');
+      throw error;
+    }
+    const actor = await resolveActiveUser(this.pool, token.subject);
+    await assertSessionActive(this.pool, actor.id, token.authenticationAt);
+    requireRecentMfa(token);
+    await revokeUserSessions(this.pool, { actorId: actor.id, organizationId: actor.organizationId, targetUserId, reason, requestId });
+    return { status: 'REVOKED' };
+  }
+
+  async canApprove(authorizationHeader: string | undefined, request: ApprovalAuthorization, enforceMfa: boolean): Promise<boolean> {
+    if (!authorizationHeader) throw new DomainError('UNAUTHENTICATED');
+    if (!this.verify || !this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
+    let token;
+    try { token = await this.verify(authorizationHeader); }
+    catch (error) {
+      if (error instanceof InvalidAccessTokenError) throw new DomainError('UNAUTHENTICATED');
+      throw error;
+    }
+    const actor = await resolveActiveUser(this.pool, token.subject);
+    await assertSessionActive(this.pool, actor.id, token.authenticationAt);
+    if (actor.id !== request.actorId || actor.organizationId !== request.organizationId) return false;
+    const rightsHolderId = request.onBehalfOf ?? actor.id;
+    if (request.onBehalfOf) {
+      const holder = await this.pool.query<{ organization_id: string; status: string }>(
+        'SELECT organization_id, status FROM identity.user_account WHERE id = $1', [rightsHolderId],
+      );
+      if (holder.rows[0]?.organization_id !== actor.organizationId || holder.rows[0]?.status !== 'ACTIVE') return false;
+    }
+    const assignments = await loadActiveRoleAssignments(this.pool, rightsHolderId);
+    if (!assignments.some((assignment) => assignment.roleCode === request.roleCode)) return false;
+    const allowed = checkAccess({
+      actorId: rightsHolderId, organizationId: request.organizationId,
+      assignments: assignments.filter((assignment) => assignment.roleCode === request.roleCode),
+      permission: request.permission,
+      resource: { organizationId: request.organizationId, ...(request.branchId ? { branchId: request.branchId } : {}) },
+    });
+    if (!allowed) return false;
+    if (enforceMfa && registryCatalog.roles.find((role) => role.code === request.roleCode)?.mfaRequired) {
+      requireRecentMfa(token);
+    }
+    return true;
   }
 
   async getCurrentUserPermissions(authorizationHeader: string | undefined): Promise<CurrentUserPermissionsResponse> {
@@ -58,5 +117,20 @@ export class IdentityController {
   @Get('permissions')
   getCurrentUserPermissions(@Req() request: { headers: { authorization?: string } }): Promise<CurrentUserPermissionsResponse> {
     return this.identity.getCurrentUserPermissions(request.headers.authorization);
+  }
+}
+
+@Controller('identity')
+export class IdentityAdminController {
+  constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}
+
+  @Post('users/:id/revoke-sessions')
+  revokeSessions(
+    @Req() request: { headers: { authorization?: string; 'x-request-id'?: string } },
+    @Param('id') targetUserId: string,
+    @Body(new ZodValidationPipe(RevokeSessionsSchema)) body: { reason: string },
+  ): Promise<{ status: 'REVOKED' }> {
+    if (!z.uuid().safeParse(targetUserId).success) throw new DomainError('VALIDATION_FAILED');
+    return this.identity.revokeSessions(request.headers.authorization, targetUserId, body.reason, request.headers['x-request-id'] ?? randomUUID());
   }
 }

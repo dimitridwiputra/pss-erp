@@ -1,0 +1,11 @@
+.pss-kasir-offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--warning-100);
+  color: var(--warning-700);
+  font-size: .875rem;
+  font-weight: 700;
+  text-align: center;
+}

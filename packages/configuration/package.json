@@ -1,5 +1,17 @@
 {
   "name": "@pss/configuration",
   "version": "0.1.0",
-  "private": true
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --config ../../vitest.config.ts tests"
+  },
+  "dependencies": {
+    "@openfeature/server-sdk": "1.23.0",
+    "@pss/contracts": "workspace:*"
+  }
 }

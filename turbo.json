@@ -5,7 +5,10 @@
     "lint": {},
     "typecheck": { "dependsOn": ["^build"] },
     "test": {},
-    "dev": { "cache": false, "persistent": true }
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["DATABASE_URL", "PSS_OIDC_ISSUER", "PSS_OIDC_AUDIENCE", "PSS_OIDC_JWKS_URI"]
+    }
   }
 }
-

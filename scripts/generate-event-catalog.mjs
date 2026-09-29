@@ -14,7 +14,7 @@ export function parseEventCatalog(markdown) {
   for (const line of appendix.split('\n')) {
     const sectionMatch = /^### C\.(\d+)/.exec(line);
     if (sectionMatch) section = `C.${sectionMatch[1]}`;
-    if (!line.startsWith('|') || !/^C\.[1-8]$/.test(section)) continue;
+    if (!line.startsWith('|') || !/^C\.[1-9]$/.test(section)) continue;
     const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
     if (section === 'C.8') {
       if (cells[0] !== 'Event') continue;
@@ -31,7 +31,7 @@ export function parseEventCatalog(markdown) {
       baseCount += 1;
     }
   }
-  if (baseCount !== 125 || additionCount !== 39 || new Set(catalog.map((item) => item.name)).size !== 164) {
+  if (baseCount !== 135 || additionCount !== 39 || new Set(catalog.map((item) => item.name)).size !== 174) {
     throw new Error(`Unexpected PRD event catalog: ${baseCount} base, ${additionCount} additions, ${catalog.length} total. Review Appendix C before regenerating.`);
   }
   return catalog;
@@ -52,6 +52,6 @@ if (process.argv[1]?.endsWith('/generate-event-catalog.mjs')) {
     } else process.stdout.write('Event catalog matches PRD Appendix C.\n');
   } else {
     await writeFile(outputPath, content);
-    process.stdout.write('Generated 164 catalog event names from PRD Appendix C.\n');
+    process.stdout.write('Generated 174 catalog event names from PRD Appendix C.\n');
   }
 }

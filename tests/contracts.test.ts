@@ -23,8 +23,8 @@ const validClosedEvent = {
 
 describe('PLT-003 event contracts', () => {
   it('loads all Appendix C names but publishes only registered payload versions', () => {
-    expect(eventCatalog).toHaveLength(164);
-    expect(new Set(eventCatalog.map(({ name }) => name)).size).toBe(164);
+    expect(eventCatalog).toHaveLength(174);
+    expect(new Set(eventCatalog.map(({ name }) => name)).size).toBe(174);
     expect(parseEventForPublication(validClosedEvent)).toEqual(validClosedEvent);
     expect(() => parseEventForPublication({ ...validClosedEvent, eventType: 'CUSTOMER_CREATED' }))
       .toThrow(/No payload schema registered/);

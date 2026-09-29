@@ -116,7 +116,7 @@
     "user": "Semua pengguna, semua produk",
     "outcome": "Pengguna masuk sekali dengan satu akun PSS dan langsung melihat produk yang menjadi haknya.",
     "state": "partial",
-    "note": "Verifikasi token OIDC/JWKS, akun PSS aktif, dan endpoint /me sudah diuji. Keycloak lokal memiliki realm dan klien yang mewajibkan S256 PKCE; belum ada login web, pengguna terpetakan, refresh/logout, atau pencabutan sesi."
+    "note": "Verifikasi OIDC/JWKS, status akun PSS, login web S256 PKCE, sesi HttpOnly, refresh token, logout lokal, dan pencabutan sesi admin dengan MFA diuji secara lokal. Logout IdP, batas usia data offline, dan lingkungan hosted belum tersedia."
   },
   {
     "id": "PLT-004",
@@ -131,7 +131,7 @@
     "user": "Sistem",
     "outcome": "Event ditulis ke tabel outbox dalam transaksi yang sama dengan perubahan state; dispatcher mengirimnya ke konsumen dengan jaminan at-least-once dan urutan per aggregate.",
     "state": "partial",
-    "note": "Outbox PostgreSQL, validasi event, dan dispatcher dengan urutan per aggregate serta retry dasar telah diuji. Adapter BullMQ, fan-out konsumen, arsip/replay, dan metrik masih direncanakan."
+    "note": "Outbox PostgreSQL, validasi event, dispatcher berurutan, adapter BullMQ, dan alur worker ke konsumen reporting diuji termasuk replay. Konsol arsip/replay, retensi, metrik lag, dan alarm masih terbuka."
   },
   {
     "id": "PLT-006",
@@ -191,7 +191,7 @@
     "user": "Sistem (semua command/query)",
     "outcome": "Pengguna hanya melihat dan mengubah data dalam scope-nya, secara konsisten di semua produk.",
     "state": "partial",
-    "note": "Keputusan permission, scope, dan state bersifat default-deny; endpoint /me/permissions membaca assignment aktif. Belum ada command bisnis yang memakai policy atau filter daftar berbasis scope."
+    "note": "Keputusan permission, scope, dan state bersifat default-deny. /me/permissions membaca assignment aktif; keputusan persetujuan dan pencabutan sesi memakai pemeriksaan server-side. POS/WMS belum didaftarkan di API karena belum ada pemeriksaan per route dan scope resource."
   },
   {
     "id": "SEC-001",
@@ -234,7 +234,8 @@
     ],
     "user": "Approver (semua role penyetuju)",
     "outcome": "Domain membuat ApprovalRequest untuk subject tertentu; engine menentukan step & approver berdasarkan tipe, nilai, dan scope; approver memutuskan; domain pemilik menjalankan efeknya; semua tercatat.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Kebijakan approval effective-dated, threshold, delegasi, SoD, audit, dan keputusan konkuren diuji lokal. Seed kebijakan dengan owner bisnis dan bukti hosted belum tersedia."
   },
   {
     "id": "DQ-001",
@@ -263,7 +264,8 @@
     ],
     "user": "Kasir, AR Officer, Finance Maker/Approver, Controller, CFO, Direksi, Branch Manager, Internal Audit, System Admin",
     "outcome": "Pengguna sensitif masuk dengan langkah verifikasi kedua, tanpa mengganggu pengguna lapangan.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Kebijakan step-up `requireRecentMfa` menolak token tanpa klaim `amr` atau yang melebihi `identity.step_up_minutes`, dan sudah dipakai pada pencabutan sesi serta keputusan persetujuan; uji unit dan integrasi lulus lokal. Penanda `mfa_required` pada Role Registry, flag `sensitive_flag` per permission, `ResetMfa` oleh System Admin beserta audit dan notifikasi, serta demo IdP hosted belum tersedia."
   },
   {
     "id": "IDN-003",
@@ -321,7 +323,7 @@
     "user": "Sistem / Operator",
     "outcome": "Setiap konsumen mencatat eventId yang sudah diproses dalam transaksi yang sama dengan efeknya; duplikat diabaikan; kegagalan di-retry dengan backoff lalu masuk DLQ yang dapat diputar ulang.",
     "state": "partial",
-    "note": "Pembungkus transaksi inbox mencegah efek ganda dan mendukung retry aman pada uji PostgreSQL. Konsumen aktif, antrean retry, DLQ, replay, dan monitoring belum tersedia."
+    "note": "Pembungkus transaksi inbox dan konsumen reporting aktif mencegah efek ganda pada uji PostgreSQL/Redis, termasuk pengiriman ulang. DLQ dan konsol replay beraudit, retensi, metrik, serta monitoring belum tersedia."
   },
   {
     "id": "PLT-008",
@@ -351,7 +353,8 @@
     ],
     "user": "Admin (System Admin & owner bisnis per key)",
     "outcome": "Semua nilai konfigurasi bisnis dikelola di satu registry dengan default eksplisit, scope, owner, berlaku-dari, dan approval; aplikasi membaca nilai yang berlaku pada tanggal bisnis transaksi.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Pembacaan konfigurasi effective-dated dan bertingkat scope dengan nilai UNSET serta tabel platform sudah diuji. API tulis beraudit, persetujuan owner, dan laporan asumsi belum tersedia."
   },
   {
     "id": "ADM-008",
@@ -381,7 +384,8 @@
     ],
     "user": "Approver",
     "outcome": "Satu kotak persetujuan di setiap produk desktop (dan ringkas di tablet supervisor) berisi semua request yang dapat diputuskan user, dengan konteks cukup untuk memutuskan tanpa membuka layar lain.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Kotak persetujuan dan keputusan API memakai pemeriksaan permission/scope; uji integrasi lokal lulus. Demo browser dengan akun dan kebijakan yang disetujui masih terbuka."
   },
   {
     "id": "DOC-001",
@@ -480,7 +484,8 @@
     ],
     "user": "Admin",
     "outcome": "System Admin menyalakan/mematikan kemampuan per organisasi/cabang/role; kode memeriksa flag lewat OpenFeature SDK.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Provider OpenFeature server dan tabel flag tersedia dengan evaluasi fail-closed. Konsol admin, mutasi beraudit, snapshot klien, dan bukti rollout bertahap belum tersedia."
   },
   {
     "id": "PLT-012",
@@ -523,7 +528,8 @@
     ],
     "user": "Semua",
     "outcome": "Setiap layar menampilkan skeleton saat memuat, pesan kosong yang menjelaskan langkah berikutnya, error dengan aksi pemulihan, dan banner offline di mobile.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Komponen loading skeleton, keadaan kosong, error dengan kode bantuan tersembunyi, banner offline, dan status sinkronisasi tersedia di paket UI. Empat story lulus aksesibilitas; banner PSS Kasir muncul dalam 2 detik saat koneksi hilang dan layar scan tetap tersedia. Integrasi di semua layar dan mapping kode error lengkap belum selesai."
   },
   {
     "id": "FIN-001",
@@ -696,7 +702,8 @@
     ],
     "user": "Master Data Steward (PSS Admin)",
     "outcome": "Setiap pembeli punya satu kode PSS (CUS-…) yang dipakai semua produk.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Pembuatan customer cepat berstatus PENDING_REVIEW dan audit tersedia. Uji PostgreSQL membuktikan dua nama sama di cabang berbeda memiliki ID/kode berbeda. Model Outlet, desa, aktivasi steward, pemeriksaan duplikat, event, dan AC penuh belum tersedia."
   },
   {
     "id": "CUS-002",
@@ -767,7 +774,8 @@
     ],
     "user": "Sistem (orders, integration, SFA, fulfillment, inventory, invoicing, credit, ar)",
     "outcome": "Domain memanggil satu fungsi dan menerima keputusan authority beserta mode.",
-    "state": "planned"
+    "state": "partial",
+    "note": "Aturan resolver murni menguji enam tingkat presedensi, tanggal bisnis/cutover, prioritas gudang, isolasi organisasi, dan fail-closed. Persistence policy disetujui, antrian Q-POLICY_MISSING, API batch, cache/invalidation, benchmark, serta integrasi domain belum ada."
   },
   {
     "id": "TAX-001",
@@ -4070,6 +4078,266 @@
     ],
     "user": "Finance/Tax",
     "outcome": "Faktur pajak dibuat dan nomornya kembali otomatis.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-001",
+    "name": "Terminal konter & perangkat kasir",
+    "phase": "F11",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S24",
+    "dependencies": [
+      "MDM-002",
+      "PRI-004",
+      "IDN-004"
+    ],
+    "user": "Kepala Kasir Grosir, Admin Sistem",
+    "outcome": "Kepala Kasir mendaftarkan terminal konter per gudang beserta perangkatnya. Kasir hanya melihat terminal di gudangnya.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-002",
+    "name": "Buka & tutup shift kasir (modal laci, hitung akhir, laporan shift)",
+    "phase": "F11",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S24",
+    "dependencies": [
+      "POS-001",
+      "DQ-001"
+    ],
+    "user": "Kasir Grosir, Kepala Kasir Grosir",
+    "outcome": "Kasir membuka shift dengan modal laci, bekerja, lalu menutup shift dengan menghitung uang. Sistem langsung menunjukkan apakah hitungan cocok dengan yang seharusnya.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-003",
+    "name": "Keranjang & katalog grosir (scan barcode, UOM grosir, harga & stok real-time)",
+    "phase": "F11",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S24",
+    "dependencies": [
+      "POS-002",
+      "COM-002",
+      "INV-002",
+      "PRD-004",
+      "SRC-001"
+    ],
+    "user": "Kasir Grosir",
+    "outcome": "Kasir scan barcode (pcs, pak, atau karton) atau mencari SKU; harga, satuan, dan stok tersedia langsung tampil.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-004",
+    "name": "Pelanggan grosir di konter (terdaftar, Pelanggan Umum, daftar cepat)",
+    "phase": "F11",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S25",
+    "dependencies": [
+      "POS-003",
+      "CUS-001",
+      "CUS-003",
+      "CUS-005"
+    ],
+    "user": "Kasir Grosir",
+    "outcome": "Kasir mencari pelanggan dengan nama/telepon/kode, atau memakai Pelanggan Umum Grosir. Pembeli baru yang butuh faktur pajak didaftarkan cepat.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-005",
+    "name": "Checkout konter: keranjang → pesanan, reservasi, permintaan serah, faktur draf",
+    "phase": "F11",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S25",
+    "dependencies": [
+      "POS-003",
+      "POS-004",
+      "ORD-001",
+      "ORD-003",
+      "CRD-002",
+      "FUL-001",
+      "BIL-001"
+    ],
+    "user": "Kasir Grosir",
+    "outcome": "Kasir menekan Bayar; dalam ≤ 2 detik stok sudah dicadangkan, nomor faktur sudah ada, dan layar pembayaran terbuka.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-006",
+    "name": "Pembayaran tunai di konter (uang diterima, kembalian, laci)",
+    "phase": "F11",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S25",
+    "dependencies": [
+      "POS-005",
+      "PAY-001"
+    ],
+    "user": "Kasir Grosir",
+    "outcome": "Kasir mengetik uang diterima; kembalian tampil besar; laci terbuka; struk tercetak.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-007",
+    "name": "Pembayaran QRIS di konter (statis dengan konfirmasi; dinamis bila penyedia siap)",
+    "phase": "F11",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S27",
+    "dependencies": [
+      "POS-005",
+      "PAY-001",
+      "PAY-002",
+      "PAY-007",
+      "BNK-002"
+    ],
+    "user": "Kasir Grosir; Staf Akuntansi (verifikasi)",
+    "outcome": "Kasir memilih QRIS; pembeli scan; kasir mengonfirmasi pembayaran berhasil (atau sistem mengonfirmasi otomatis pada mode dinamis); struk tercetak.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-008",
+    "name": "Pembayaran transfer bank di konter (barang ditahan sampai dana terverifikasi)",
+    "phase": "F11",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S27",
+    "dependencies": [
+      "POS-005",
+      "PAY-002",
+      "PAY-007",
+      "BNK-002",
+      "APR-001"
+    ],
+    "user": "Kasir Grosir, Kepala Kasir Grosir",
+    "outcome": "Kasir mencatat transfer dengan bukti; transaksi menunggu dana masuk; begitu mutasi cocok, transaksi siap diambil.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-009",
+    "name": "Penjualan tempo di konter untuk pelanggan grosir terdaftar",
+    "phase": "F11",
+    "priority": "P2",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S28",
+    "dependencies": [
+      "POS-005",
+      "CRD-002",
+      "CRD-003",
+      "BIL-003"
+    ],
+    "user": "Kasir Grosir, Kepala Cabang / Finance Approver (override kredit)",
+    "outcome": "Kasir memilih Tempo; sistem langsung memutuskan boleh atau perlu persetujuan kredit.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-010",
+    "name": "Pengambilan & serah barang di titik ambil gudang (customer pickup)",
+    "phase": "F11",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S26",
+    "dependencies": [
+      "POS-005",
+      "POS-006",
+      "FUL-002",
+      "FUL-003",
+      "FUL-004",
+      "ADM-006"
+    ],
+    "user": "Admin Gudang (non-WMS), Petugas Gudang (WMS)",
+    "outcome": "Petugas melihat antrian \"Siap diambil\", menyiapkan barang, scan QR struk pembeli, mengonfirmasi qty, dan meminta tanda terima.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-011",
+    "name": "Struk konter, cetak ulang, dan faktur untuk pembeli",
+    "phase": "F11",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S26",
+    "dependencies": [
+      "POS-006",
+      "DOC-001",
+      "DOC-002"
+    ],
+    "user": "Kasir Grosir",
+    "outcome": "Struk thermal tercetak otomatis saat lunas, berisi nomor transaksi, nomor faktur, rincian, PPN, metode bayar, dan QR ambil barang. Cetak ulang bertanda \"SALINAN\".",
+    "state": "planned"
+  },
+  {
+    "id": "POS-012",
+    "name": "Batal transaksi konter, batal tender, dan retur konter",
+    "phase": "F11",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S27",
+    "dependencies": [
+      "POS-005",
+      "POS-006",
+      "ORD-005",
+      "RET-001",
+      "RET-002",
+      "RET-003",
+      "PAY-004",
+      "APR-001"
+    ],
+    "user": "Kasir Grosir, Kepala Kasir Grosir",
+    "outcome": "Batal sebelum bayar cukup satu tombol. Batal setelah bayar dan retur setelah barang diambil memerlukan persetujuan Kepala Kasir dan meninggalkan jejak lengkap.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-013",
+    "name": "Mode darurat offline untuk penjualan tunai",
+    "phase": "F11",
+    "priority": "P2",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S28",
+    "dependencies": [
+      "POS-006",
+      "PLT-013"
+    ],
+    "user": "Kasir Grosir, Kepala Kasir Grosir",
+    "outcome": "Saat koneksi putus, Kepala Kasir mengaktifkan mode darurat; kasir tetap bisa menjual tunai dengan batas; semua transaksi tersinkron otomatis saat online.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-014",
+    "name": "Serah kas shift konter ke Kasir Keuangan & verifikasi",
+    "phase": "F11",
+    "priority": "P0",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S26",
+    "dependencies": [
+      "POS-002",
+      "CSH-001",
+      "CSH-002",
+      "PAY-002",
+      "PAY-003"
+    ],
+    "user": "Kasir Grosir, Kasir (Keuangan)",
+    "outcome": "Setelah tutup shift, kasir grosir menyerahkan uang penjualan (tanpa modal laci) ke Kasir Keuangan lewat QR; Kasir Keuangan menghitung dan memverifikasi.",
+    "state": "planned"
+  },
+  {
+    "id": "POS-015",
+    "name": "Beranda konter (Kepala Kasir) & laporan penjualan konter harian",
+    "phase": "F11",
+    "priority": "P1",
+    "pod": "Commerce (O2C/P2P)",
+    "sprint": "S28",
+    "dependencies": [
+      "POS-005",
+      "CST-001",
+      "CST-002",
+      "DQ-002"
+    ],
+    "user": "Kepala Kasir Grosir, Kepala Cabang",
+    "outcome": "Satu beranda berisi pengecualian konter lebih dulu, lalu penjualan per shift, metode bayar, dan kasir. Kepala Cabang melihat tile konter di Control Station.",
     "state": "planned"
   }
 ]

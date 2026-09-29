@@ -8,6 +8,10 @@ storybook-static/
 test-results/
 .env
 .env.*
+.local/
 !.env.example
 *.tsbuildinfo
 .DS_Store
+apps/web/public/sw.js
+apps/web/public/sw.js.map
+apps/web/public/swe-worker-*.js

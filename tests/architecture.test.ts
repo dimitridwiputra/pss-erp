@@ -37,16 +37,13 @@ describe('PLT-002 import boundaries', () => {
     }], packages)).toEqual([expect.stringContaining('cross-domain internals')]);
   });
 
-  it('rejects Platform-to-domain aliases and package-to-domain aliases', () => {
+  it('allows platform audit foundation and rejects package-to-domain aliases', () => {
     const packages = new Map([['@pss/audit', `${root}/domains/audit`]]);
     const violations = findArchitectureViolations([
       { path: `${root}/domains/platform/src/application/idempotency.ts`, source: "import { runAuditedWork } from '@pss/audit';" },
       { path: `${root}/packages/contracts/src/index.ts`, source: "export { runAuditedWork } from '@pss/audit';" },
     ], packages);
-    expect(violations).toEqual(expect.arrayContaining([
-      expect.stringContaining('platform cannot import a business domain'),
-      expect.stringContaining('packages cannot import domains'),
-    ]));
+    expect(violations).toEqual([expect.stringContaining('packages cannot import domains')]);
   });
 
   it('rejects direct reads and writes to another domain schema', () => {

@@ -13,7 +13,7 @@ describe('source-backed feature directory', () => {
       readFile(new URL('apps/web/data/features.generated.json', root), 'utf8'),
     ]);
     const parsed = parseFeatureCatalog(plan, prd, JSON.parse(statusText));
-    expect(parsed).toHaveLength(280);
+    expect(parsed).toHaveLength(295);
     expect(parsed).toEqual(JSON.parse(generatedText));
     expect(parsed.filter((feature) => feature.state === 'available').map((feature) => feature.id)).toEqual(['PLT-001']);
     const declaredPartial = Object.entries(JSON.parse(statusText) as Record<string, { state: string }>)

@@ -8,6 +8,7 @@ const stories = [
   'fondasi-konfirmasi',
   'fondasi-toast',
   'fondasi-tabel',
+  'fondasi-keadaan-halaman',
 ];
 
 for (const story of stories) {
@@ -23,3 +24,11 @@ for (const story of stories) {
     });
   }
 }
+
+test('standard error keeps the support request ID in details', async ({ page }) => {
+  await page.goto('/iframe.html?id=fondasi-keadaan-halaman--error&viewMode=story');
+  await expect(page.getByText('Data sudah berubah')).toBeVisible();
+  await expect(page.getByText('Kode bantuan: req-demo')).toBeHidden();
+  await page.getByText('Rincian untuk bantuan').click();
+  await expect(page.getByText('Kode bantuan: req-demo')).toBeVisible();
+});

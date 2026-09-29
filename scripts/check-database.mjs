@@ -20,6 +20,7 @@ export const schemaOwners = {
   geo: ['geo'],
   integration: ['integration'],
   reporting: ['reporting'],
+  pos: ['pos'],
 };
 
 function stripComments(sql) {

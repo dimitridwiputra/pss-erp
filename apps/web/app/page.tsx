@@ -12,6 +12,7 @@ export default function Home() {
         <p className="eyebrow">PSS OPERATING PLATFORM</p>
         <h1 id="page-title">Satu fondasi untuk operasi distribusi PSS.</h1>
         <p className="lead">Kerangka aplikasi sedang dibangun sesuai PRD. Alur penjualan, gudang, pengiriman, dan keuangan akan diaktifkan setelah kontrol data dan akses siap.</p>
+        <Link className="home-primary-link" href="/masuk">Masuk ke PSS <span aria-hidden="true">→</span></Link>
         {process.env.NODE_ENV === 'development' && <Link className="home-primary-link" href="/fitur">Jelajahi 280 fitur <span aria-hidden="true">→</span></Link>}
       </section>
       <section className="status-panel" aria-labelledby="status-title">

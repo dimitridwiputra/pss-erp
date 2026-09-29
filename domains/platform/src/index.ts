@@ -4,3 +4,5 @@ export { withIdempotentCommand, deleteExpiredIdempotencyKeys, IdempotencyError }
 export type { CommandKey, CommandResponse, CommandTransactionRunner } from './application/idempotency';
 export { withInbox } from './application/inbox';
 export type { ConsumerInbox, InboxResult } from './application/inbox';
+export { requestApproval, decideApproval, listPendingApprovals } from './application/approval';
+export type { RequestApprovalInput, DecideApprovalInput, AuthorizeApproval, ApprovalAuthorization } from './application/approval';

@@ -19,7 +19,7 @@ function readable(value) {
 }
 
 export function parseFeatureCatalog(planMarkdown, prdMarkdown, implementationStatus) {
-  const appendix = planMarkdown.split('## Lampiran A — Penjadwalan Fitur (280 fitur)')[1]?.split('## Lampiran B')[0];
+  const appendix = planMarkdown.split('## Lampiran A — Penjadwalan Fitur (295 fitur)')[1]?.split('## Lampiran B')[0];
   if (!appendix) throw new Error('Implementation plan Appendix A is missing.');
 
   const prdFeatures = new Map();
@@ -63,8 +63,8 @@ export function parseFeatureCatalog(planMarkdown, prdMarkdown, implementationSta
     });
 
   const ids = features.map((feature) => feature.id);
-  if (features.length !== 280 || new Set(ids).size !== 280 || prdFeatures.size !== 280) {
-    throw new Error(`Expected 280 unique features in plan and PRD; found plan=${features.length}, PRD=${prdFeatures.size}.`);
+  if (features.length !== 295 || new Set(ids).size !== 295 || prdFeatures.size !== 295) {
+    throw new Error(`Expected 295 unique features in plan and PRD; found plan=${features.length}, PRD=${prdFeatures.size}.`);
   }
   for (const id of Object.keys(implementationStatus)) {
     if (!ids.includes(id)) throw new Error(`Implementation status references unknown feature ${id}.`);
@@ -80,10 +80,10 @@ if (process.argv[1]?.endsWith('/generate-feature-catalog.mjs')) {
   if (process.argv.includes('--check')) {
     const existing = await readFile(outputPath, 'utf8').catch(() => '');
     if (existing !== rendered) throw new Error('Feature directory is stale. Run node scripts/generate-feature-catalog.mjs.');
-    process.stdout.write('Feature directory matches 280 PRD and implementation plan features.\n');
+    process.stdout.write('Feature directory matches 295 PRD and implementation plan features.\n');
   } else {
     await mkdir(new URL('.', outputPath), { recursive: true });
     await writeFile(outputPath, rendered);
-    process.stdout.write('Generated 280 source-backed feature directory entries.\n');
+    process.stdout.write('Generated 295 source-backed feature directory entries.\n');
   }
 }

@@ -16,4 +16,22 @@ h1 { color: var(--pss-navy-950); font-size: clamp(42px, 6vw, 76px); line-height:
 .status-marker { background: var(--warning-100); color: var(--warning-700); border-radius: 999px; padding: 10px 14px; font-size: 13px; font-weight: 700; white-space: nowrap; }
 .status-dot { display: inline-block; width: 8px; height: 8px; background: currentColor; border-radius: 50%; margin-right: 6px; }
 footer { margin-top: auto; padding-top: 48px; color: var(--gray-600); font-size: 12px; }
+.auth-page { justify-content: flex-start; }
+.auth-card { width: min(100%, 540px); margin: 92px auto 0; padding: 40px; border: 1px solid var(--gray-200); border-radius: var(--radius-panel); background: var(--pss-white); box-shadow: var(--shadow-md); }
+.auth-card h1 { font-size: clamp(38px, 5vw, 54px); }
+.auth-card p:not(.eyebrow) { color: var(--gray-600); line-height: 1.6; }
+.auth-card .auth-error { padding: 14px; border-radius: var(--radius-default); background: var(--danger-100); color: var(--danger-700); }
+.auth-signout { min-height: 48px; padding: 10px 18px; border: 1px solid var(--gray-200); border-radius: var(--radius-default); background: var(--pss-white); color: var(--pss-navy-900); font: inherit; font-weight: 700; cursor: pointer; }
+.auth-signout:hover, .auth-signout:focus-visible { background: var(--gray-100); }
 @media (max-width: 650px) { .page-shell { padding: 22px; } .masthead { align-items: flex-start; flex-direction: column; } .masthead img { width: 220px; } .hero { padding: 70px 0 52px; } .lead { font-size: 16px; } .status-panel { padding: 24px; flex-direction: column; gap: 12px; } }
+.approval-page .hero { padding-bottom: 36px; }
+.approval-list { display: grid; gap: 18px; }
+.approval-item { display: block; }
+.approval-item > div { width: 100%; }
+.approval-form { display: grid; gap: 10px; margin-top: 20px; max-width: 620px; }
+.approval-form label { font-weight: 700; }
+.approval-form textarea { width: 100%; min-height: 76px; padding: 12px; border: 1px solid var(--gray-400); border-radius: var(--radius-default); font: inherit; }
+.approval-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.approval-actions button { min-height: 48px; padding: 10px 22px; border: 1px solid var(--pss-navy-900); border-radius: var(--radius-default); background: var(--pss-navy-900); color: white; font: inherit; font-weight: 700; cursor: pointer; }
+.approval-actions button:last-child { background: white; color: var(--pss-navy-900); }
+.approval-message { padding: 14px 18px; border-radius: var(--radius-default); background: var(--pss-white); border: 1px solid var(--gray-200); }

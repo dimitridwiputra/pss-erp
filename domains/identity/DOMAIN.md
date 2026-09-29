@@ -1,6 +1,6 @@
 # Identity domain
 
-Status: IDN-001 account lookup and OIDC token boundary are partially implemented. A read-only RBAC permission/scope foundation now exists; user management, assignment commands, MFA, and session lifecycle remain planned.
+Status: IDN-001 account lookup, OIDC token boundary, and local browser login are partially implemented. A read-only RBAC permission/scope foundation exists; user management, assignment commands, MFA, and session revocation remain planned.
 
 ## Purpose
 
@@ -49,12 +49,14 @@ PostgreSQL `pg`; `@pss/contracts` error codes and response schema; `@pss/auth-cl
 
 ## Open decisions and limits
 
-IDN-001 is not complete: the local Keycloak container has no configured PSS realm or user; the web authorization-code/PKCE flow, refresh/logout, session revocation, mobile offline age, four-deployable JWKS enforcement, and three-environment IaC remain pending. OD-119/OD-120 still affect hosted IdP placement and configuration. No production account can be created through the app yet.
+IDN-001 is not complete: the local Keycloak realm and synthetic account enable a browser authorization-code/PKCE flow and PSS account mapping. Auth.js stores access/refresh tokens in its encrypted HttpOnly cookie and refreshes access tokens. Local sign-out clears the web session; IdP-wide logout, admin session revocation, mobile offline age, four-deployable JWKS enforcement, and three-environment IaC remain pending. OD-119/OD-120 still affect hosted IdP placement and configuration. No production account can be created through the app yet.
 
 RBAC-001/002 are not complete. Appendix D.1 refers to permission groups `FLT-EXCEPTION`, `APPROVE-ALL-L3`, `MDM-MANAGE`, `RPT-READ`, and `DWH-READ` without concrete permission expansion in D.2/D.3; the access policy grants none from these groups. Approval limits and SoD-07/08 require the approved assignment workflow. No business endpoint uses the policy yet, no scoped list-query predicate exists, and the client has no permission-aware navigation. These are release blockers, not implicit grants.
 
 ## Acceptance tests
 
 `apps/api/tests/identity.integration.test.ts` uses a local JWKS server and an isolated PostgreSQL database to verify `/me` accepts an active mapped user, rejects missing/wrong-audience/unknown tokens, rejects an inactive PSS account, and denies an existing token on the first request after deactivation. `packages/auth-client/tests/access-token.test.ts` checks expiry, signature, audience, and missing-claim rejection.
+
+`apps/web/tests/e2e/local-login.spec.ts` uses the synthetic local Keycloak account to verify unauthenticated redirect, successful login, scoped PSS Admin disclosure, local sign-out, and renewed protection of `/beranda`. A second test deactivates the PSS account and verifies the existing browser session loses access on its next page load, then restores the synthetic account.
 
 `domains/identity/tests/access-policy.test.ts` covers default deny, role/scope/state evaluation, organization isolation, OWN scope, System Admin separation, and unresolved groups. `apps/api/tests/identity.integration.test.ts` also checks scoped grants are loaded from the Identity table and denied for inactive accounts. `tests/architecture.test.ts` checks direct role-name decisions fail the architecture fitness rule.
