@@ -30,8 +30,9 @@ beforeAll(async () => {
   const testUrl = new URL(baseUrl);
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
-  const migration = await readFile(new URL('../infrastructure/database/migrations/0001_outbox_event.sql', import.meta.url), 'utf8');
-  await pool.query(migration);
+  for (const migration of ['0001_outbox_event.sql', '0005_event_delivery_reliability.sql']) {
+    await pool.query(await readFile(new URL(`../infrastructure/database/migrations/${migration}`, import.meta.url), 'utf8'));
+  }
   await pool.query('CREATE TABLE public.test_mutation (id uuid PRIMARY KEY)');
 }, 30_000);
 
@@ -70,14 +71,20 @@ describe('PLT-004 PostgreSQL outbox', () => {
       client.release();
     }
 
-    await expect(dispatchPendingEvents(pool, { publish: async () => { throw new Error('transport offline'); } }))
-      .rejects.toThrow('transport offline');
+    // A failed transport no longer throws: the row keeps its place in the aggregate order and
+    // waits for its next backoff window, so one broken aggregate cannot stall the dispatcher.
+    const failed = await dispatchPendingEvents(pool, { publish: async () => { throw new Error('transport offline'); } },
+      { retryBackoffMs: [60_000, 60_000] });
+    expect(failed.published).toBe(0);
+    expect(failed.attempts[0]).toMatchObject({ attempt: 1, willRetry: true, failureCode: 'UNEXPECTED_CONSUMER_FAILURE' });
     expect((await pool.query('SELECT count(*)::int AS count FROM platform.outbox_event WHERE published_at IS NULL')).rows[0].count).toBe(2);
 
     const delivered: number[] = [];
-    expect(await dispatchPendingEvents(pool, {
+    await pool.query('UPDATE platform.outbox_event SET next_attempt_at = now()');
+    const dispatched = await dispatchPendingEvents(pool, {
       publish: async (message: PublishableEvent) => { delivered.push(message.aggregateVersion); },
-    })).toBe(2);
+    });
+    expect(dispatched.published).toBe(2);
     expect(delivered).toEqual([1, 2]);
     expect((await pool.query('SELECT count(*)::int AS count FROM platform.outbox_event WHERE published_at IS NULL')).rows[0].count).toBe(0);
   });
@@ -102,15 +109,17 @@ describe('PLT-004 PostgreSQL outbox', () => {
       client.release();
     }
     const delivered: string[] = [];
-    await expect(dispatchPendingEvents(pool, {
+    const crashed = await dispatchPendingEvents(pool, {
       publish: async (message) => {
         delivered.push(message.eventId);
         throw new Error('crash after send');
       },
-    })).rejects.toThrow('crash after send');
+    }, { retryBackoffMs: [60_000, 60_000] });
+    expect(crashed.published).toBe(0);
     expect((await pool.query('SELECT published_at FROM platform.outbox_event WHERE event_id = $1', [event(3).eventId])).rows[0].published_at)
       .toBeNull();
-    expect(await dispatchPendingEvents(pool, { publish: async (message) => { delivered.push(message.eventId); } })).toBe(1);
+    await pool.query('UPDATE platform.outbox_event SET next_attempt_at = now()');
+    expect((await dispatchPendingEvents(pool, { publish: async (message) => { delivered.push(message.eventId); } })).published).toBe(1);
     expect(delivered).toEqual([event(3).eventId, event(3).eventId]);
   });
 });

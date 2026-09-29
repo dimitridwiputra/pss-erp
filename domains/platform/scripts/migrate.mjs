@@ -4,7 +4,15 @@ import pg from 'pg';
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is required for platform migration.');
 
-const migrationFiles = ['0001_outbox_event.sql', '0002_idempotency_key.sql', '0003_approval.sql', '0004_configuration.sql'];
+const migrationFiles = [
+  '0001_outbox_event.sql',
+  '0002_idempotency_key.sql',
+  '0003_approval.sql',
+  '0004_configuration.sql',
+  '0005_event_delivery_reliability.sql',
+  '0006_exception_queue.sql',
+  '0007_exception_queue_registry_seed.sql',
+];
 const client = new pg.Client({ connectionString });
 await client.connect();
 try {
@@ -14,7 +22,7 @@ try {
     await client.query(sql);
   }
   await client.query('COMMIT');
-  process.stdout.write('Platform migrations 0001-0004 applied.\n');
+  process.stdout.write(`Platform migrations ${migrationFiles[0].slice(0, 4)}-${migrationFiles.at(-1).slice(0, 4)} applied.\n`);
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;
