@@ -103,7 +103,7 @@ resource "google_monitoring_alert_policy" "api_down" {
         "metric.type=\"run.googleapis.com/request_count\"",
         "resource.type=\"cloud_run_revision\"",
         "metric.label.\"response_code_class\"=\"5xx\"",
-        "resource.labels.service_name=\"api\"",
+        "resource.labels.service_name=\"${var.name_prefix}-api\"",
       ])
       aggregations {
         alignment_period   = "300s"

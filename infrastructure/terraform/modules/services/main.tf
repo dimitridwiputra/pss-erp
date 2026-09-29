@@ -95,7 +95,7 @@ resource "google_cloud_run_v2_service" "app" {
   for_each = local.request_serving
 
   project  = var.project_id
-  name     = each.key
+  name     = "${var.name_prefix}-${each.key}"
   location = var.region
   labels   = var.labels
   ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
@@ -231,7 +231,7 @@ resource "google_cloud_run_v2_service" "app" {
 # second-largest fixed cost in this stack after the database.
 resource "google_cloud_run_v2_service" "keycloak" {
   project  = var.project_id
-  name     = "keycloak"
+  name     = "${var.name_prefix}-keycloak"
   location = var.region
   labels   = var.labels
   ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"

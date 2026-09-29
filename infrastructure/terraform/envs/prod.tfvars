@@ -2,6 +2,7 @@
 # load-test target. Every assumption behind these numbers is derived in
 # README.md; the audit-partitioning prerequisite is stated there too.
 
+project_id      = "pss-erp-510114"
 environment     = "production"
 region          = "asia-southeast2"
 zone            = "asia-southeast2-a"

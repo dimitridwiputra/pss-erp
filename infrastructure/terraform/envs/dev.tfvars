@@ -2,6 +2,7 @@
 # Cheapest configuration that still runs all five deployables plus Keycloak.
 # Not a production shape: ZONAL, no read replica, small disk.
 
+project_id      = "pss-erp-510114"
 environment     = "dev"
 region          = "asia-southeast2"
 zone            = "asia-southeast2-a"

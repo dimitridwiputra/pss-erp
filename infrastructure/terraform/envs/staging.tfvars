@@ -2,6 +2,7 @@
 # Same tiers and the same always-on invariants as production, so a staging
 # failure is representative. Data is masked; no production data (SEC-001).
 
+project_id      = "pss-erp-510114"
 environment     = "staging"
 region          = "asia-southeast2"
 zone            = "asia-southeast2-a"

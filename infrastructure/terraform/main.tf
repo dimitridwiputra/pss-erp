@@ -15,6 +15,7 @@ provider "google" {
 resource "google_project_service" "required" {
   for_each = toset([
     "compute.googleapis.com",
+    "artifactregistry.googleapis.com",
     "sqladmin.googleapis.com",
     "redis.googleapis.com",
     "storage.googleapis.com",
@@ -24,6 +25,7 @@ resource "google_project_service" "required" {
     "dns.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "cloudbilling.googleapis.com",
+    "servicenetworking.googleapis.com",
     "monitoring.googleapis.com",
     "logging.googleapis.com",
     "iam.googleapis.com",

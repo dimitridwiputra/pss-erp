@@ -129,10 +129,13 @@ backup retention above is a placeholder, not an approved value.
 The Terraform configuration is **source code, not a running environment**. As of
 30 September 2026, no dev, staging, or production state has been applied. The
 available Google Cloud project `pss-erp-510114` has billing disabled; its Cloud
-Run and Cloud SQL APIs are disabled. The values in `envs/*.tfvars` for
-`billing_account`, `domain`, and notification email addresses are examples and
-must be replaced with verified PSS-owned values. Every plan also needs a real
-`project_id`; do not put credentials or a billing account token in Git.
+Run, Cloud SQL, and Artifact Registry APIs are disabled. All billing accounts
+visible to the authenticated operator were closed at the last check. The
+`project_id` in all three `envs/*.tfvars` files is the user-provided project ID.
+The values for `billing_account`, `domain`, and notification email addresses are
+examples and must be replaced with verified PSS-owned values. Do not put
+credentials in Git. All three environments are configured for this one project;
+service and other resource names therefore include the environment prefix.
 
 Before any apply, the infrastructure owner must provide a billed GCP project,
 confirm DNS control and the intended hostnames, accept ADR-0009 and ADR-0012,
@@ -144,6 +147,15 @@ no seeded Secret Manager versions, no configured web `AUTH_SECRET` or
 resources cannot be considered functional until these are implemented and a
 staging login, API, worker, database, and restore rehearsal pass. A successful
 `terraform validate` does not establish those facts.
+
+The current service module also needs deployment wiring before it can serve
+traffic: Cloud Run has no VPC attachment to reach the private Cloud SQL and
+Valkey addresses, no load balancer/serverless NEG or DNS records for the
+`app`, `api`, and `id` hostnames, and no runtime Secret Manager access grant.
+The web and Keycloak services need their distinct runtime configuration and
+secrets. Database migrations and a hosted restore rehearsal are still required.
+These are implementation gaps, not values an operator can fill in at the
+Terraform prompt. Do not run `terraform apply` expecting a working ERP.
 
 The checked-in `.terraform.lock.hcl` pins provider selections for macOS ARM and
 Linux x86 runners. GitHub CI runs `terraform fmt`, `init -backend=false`, and
@@ -173,14 +185,14 @@ cd infrastructure/terraform
 terraform init \
   -backend-config="bucket=pss-terraform-state-pss-erp-510114" \
   -backend-config="prefix=pss/dev"
-terraform plan -var-file=envs/dev.tfvars -var="project_id=pss-erp-510114"
+terraform plan -var-file=envs/dev.tfvars
 ```
 
 Use a different remote state prefix for each environment. Never apply a plan
 from the wrong prefix, and never promote a `latest` image tag: use a reviewed
 Git SHA and verify the same image digest in staging and production. The
-Google Cloud account on this machine is authenticated, but its default project
-is unset and `pss-erp-510114` has billing disabled. **Nothing has been applied
+Google Cloud account on this machine is authenticated, but `pss-erp-510114` has
+billing disabled. **Nothing has been applied
 to PSS staging or production.** Authentication does not enable billing or
 authorize a release.
 
