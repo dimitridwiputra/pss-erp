@@ -9,10 +9,31 @@ export interface AuditedTransaction {
   appendAuditEntry(input: unknown): Promise<string>;
 }
 
-/** Use inside an already-open write transaction; rejects a callback that omitted audit. */
+/**
+ * Audit entries appended per open transaction, keyed by the client that owns it.
+ *
+ * The count has to belong to the *transaction*, not to one `runAuditedWork` invocation. Commands
+ * nest: `runCommand` opens the transaction and hands the domain function an audited transaction,
+ * and that function typically re-enters through `withConnection` with the same client. A local
+ * counter gave the inner call its own tally, so the outer guard saw zero entries and rejected a
+ * mutation that had in fact been audited — a false positive that would have pushed every nested
+ * command to open its own connection and so lose atomicity with its idempotency row.
+ *
+ * A `WeakMap` keyed by the `PoolClient` is the right scope because a client is checked out for
+ * exactly one transaction: the entry is unreachable as soon as the client is released, so a
+ * rolled-back or committed transaction cannot leak a count into the next one.
+ */
+const appendedEntries = new WeakMap<PoolClient, number>();
+
+/**
+ * Use inside an already-open write transaction; rejects a callback whose transaction appended no
+ * audit entry. Nested calls share the transaction's tally, so an inner command that audits
+ * satisfies the outer guard too — which is the intent of AGENTS.md §14: the mutation is traced
+ * once, not once per wrapper.
+ */
 export async function runAuditedWork<T>(client: PoolClient, work: (transaction: AuditedTransaction) => Promise<T>): Promise<T> {
+  const before = appendedEntries.get(client) ?? 0;
   let active = true;
-  let auditCount = 0;
   try {
     const result = await work({
       client,
@@ -38,11 +59,13 @@ export async function runAuditedWork<T>(client: PoolClient, work: (transaction: 
             input.requestId, input.correlationId, input.causationId ?? null, input.source,
           ],
         );
-        auditCount += 1;
+        appendedEntries.set(client, (appendedEntries.get(client) ?? 0) + 1);
         return id;
       },
     });
-    if (auditCount === 0) throw new Error('A state mutation requires an audit entry.');
+    if ((appendedEntries.get(client) ?? 0) === before) {
+      throw new Error('A state mutation requires an audit entry.');
+    }
     return result;
   } finally {
     active = false;

@@ -4,7 +4,7 @@ import { DomainError, type FieldError } from '@pss/contracts';
 import { getStockBalances } from '@pss/inventory';
 import { z } from 'zod';
 import { OptionalAuditContextSchema, resolveAuditContext } from './support/audit-context';
-import { withConnection } from './support/with-connection';
+import { withConnection } from '@pss/platform';
 
 const ActivateWarehouseInputSchema = z.strictObject({
   organizationId: z.uuid(),

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { AuditedTransaction } from '@pss/audit';
 import { DomainError } from '@pss/contracts';
 import { ActorInputSchema, SourceSchema } from './support/audit-context';
-import { withConnection } from './support/with-connection';
+import { withConnection } from '@pss/platform';
 
 /**
  * POS-005 (E2) and TAX-001/TAX-002 require invoicing to reject preparation when

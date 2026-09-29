@@ -5,8 +5,8 @@ import { checkAccess, loadActiveRoleAssignments } from '@pss/identity';
 import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
 import {
   configGateReport, IdempotencyError, listConfigValues, listFeatureFlags, listFlagTargeting,
-  loadConfigRows, loadFlagRows, proposeConfigValue, setFeatureFlag, setFlagTargeting,
-  staleFeatureFlags, withIdempotentCommand,
+  loadConfigRows, loadFlagRows, proposeConfigValue, runCommand, setFeatureFlag, setFlagTargeting,
+  staleFeatureFlags,
 } from '@pss/platform';
 import { Pool, type PoolClient } from 'pg';
 import { z } from 'zod';
@@ -121,14 +121,13 @@ export class ConfigAdminService implements OnModuleDestroy {
     requestBody: unknown, execute: (client: PoolClient) => Promise<T>,
   ): Promise<T> {
     try {
-      const result = await withIdempotentCommand<PoolClient>(
+      const result = await runCommand(
         this.requirePool(),
         {
           organizationId: user.organizationId, identityId: user.id, commandName,
           key: idempotencyKey, requestHash: hashRequestBody(requestBody),
         },
-        async (client, work) => work(client),
-        async (client) => ({ code: 200, body: await execute(client) }),
+        async ({ client }) => ({ code: 200, body: await execute(client) }),
       );
       return result.body as T;
     } catch (error) {

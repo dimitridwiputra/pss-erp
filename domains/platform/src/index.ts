@@ -1,7 +1,17 @@
 export { appendOutboxEvent, dispatchPendingEvents, outboxDeliveryStats, deleteDispatchedOutboxEvents } from './application/outbox';
 export type { EventTransport, PublishableEvent, DispatchAttempt, DispatchOptions, DispatchResult } from './application/outbox';
-export { withIdempotentCommand, deleteExpiredIdempotencyKeys, IdempotencyError } from './application/idempotency';
-export type { CommandKey, CommandResponse, CommandTransactionRunner } from './application/idempotency';
+/**
+ * `withIdempotentCommand` is deliberately not exported. It accepted a transaction runner, and
+ * every call site passed a pass-through, so the audit guarantee was opt-in. Use `runCommand`.
+ */
+export { deleteExpiredIdempotencyKeys, IdempotencyError } from './application/idempotency';
+export type { CommandKey, CommandResponse } from './application/idempotency';
+export { runCommand, runCommandWithoutAudit, withConnection } from './application/command';
+/**
+ * Re-exported so a caller that already depends on `@pss/platform` does not need `@pss/audit`
+ * just to type the transaction it passes to `runCommand`.
+ */
+export type { AuditedTransaction } from '@pss/audit';
 export { withInbox, recordConsumerDeadLetter } from './application/inbox';
 export type {
   ConsumerInbox, InboxResult, InboxOrdering, WithInboxOptions,

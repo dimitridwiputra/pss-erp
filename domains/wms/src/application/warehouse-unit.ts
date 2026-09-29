@@ -4,7 +4,7 @@ import type { AuditedTransaction } from '@pss/audit';
 import { DecimalStringSchema, DomainError } from '@pss/contracts';
 import { z } from 'zod';
 import { OptionalAuditContextSchema, resolveAuditContext } from './support/audit-context';
-import { withConnection } from './support/with-connection';
+import { withConnection } from '@pss/platform';
 
 const CreateWarehouseUnitLineSchema = z.strictObject({ productId: z.uuid(), uom: z.string().min(1), qty: DecimalStringSchema });
 

@@ -6,9 +6,9 @@ import {
   assertSessionActive, checkAccess, loadActiveRoleAssignments, requireAccess, requireRecentMfa,
   resolveActiveUser, resolveNavigation, resolveRolePermissions, revokeUserSessions,
 } from '@pss/identity';
-import { IdempotencyError, withIdempotentCommand, type ApprovalAuthorization } from '@pss/platform';
+import { IdempotencyError, runCommand, type ApprovalAuthorization } from '@pss/platform';
 import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
-import { Pool, type PoolClient } from 'pg';
+import { Pool } from 'pg';
 import { z } from 'zod';
 
 const RevokeSessionsSchema = z.strictObject({ reason: z.string().trim().min(1).max(200) });
@@ -83,7 +83,7 @@ export class IdentityService implements OnModuleDestroy {
    * PLT-006: revoking sessions is a state mutation, so a retry must replay the stored
    * response rather than bump `identity.user_account.version` and append a second
    * `USER_SESSIONS_REVOKED` audit entry. The revocation is handed the transaction that
-   * `withIdempotentCommand` already opened, so the idempotency row and the audited
+   * `runCommand` already opened, so the idempotency row and the audited
    * mutation commit or roll back together.
    */
   async revokeSessions(authorizationHeader: string | undefined, targetUserId: string, reason: string, requestId: string, idempotencyKey: string): Promise<{ status: 'REVOKED' }> {
@@ -101,7 +101,7 @@ export class IdentityService implements OnModuleDestroy {
     await assertSessionActive(pool, actor.id, token.authenticationAt);
     requireRecentMfa(token);
     try {
-      const result = await withIdempotentCommand<PoolClient>(
+      const result = await runCommand(
         pool,
         {
           organizationId: actor.organizationId,
@@ -110,8 +110,7 @@ export class IdentityService implements OnModuleDestroy {
           key: idempotencyKey,
           requestHash: hashRequestBody({ targetUserId, reason }),
         },
-        async (client, work) => work(client),
-        async (client) => {
+        async ({ client }) => {
           await revokeUserSessions(pool, {
             actorId: actor.id, organizationId: actor.organizationId, targetUserId, reason, requestId, client,
           });

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { withAuditedTransaction } from '../src/application/append-audit-entry';
+import { runAuditedWork, withAuditedTransaction } from '../src/application/append-audit-entry';
 
 const databaseName = `pss_audit_test_${randomUUID().replaceAll('-', '')}`;
 const organizationId = randomUUID();
@@ -86,5 +86,50 @@ describe('AUD-001 PostgreSQL transaction boundary', () => {
     await expect(pool.query('TRUNCATE audit.audit_entry')).rejects.toThrow('append-only');
     expect((await pool.query('SELECT action FROM audit.audit_entry WHERE request_id = $1', ['request-1'])).rows[0].action)
       .toBe('EXAMPLE_STATUS_CHANGED');
+  });
+
+  /**
+   * The audit count belongs to the transaction, not to one `runAuditedWork` invocation. Commands
+   * nest: `runCommand` opens the transaction and the domain function re-enters through
+   * `withConnection` with the same client. With a per-invocation counter the inner call took its
+   * own tally, the outer guard saw zero entries, and it rejected a mutation that had in fact been
+   * audited — pushing every nested command to open a second connection and so lose atomicity with
+   * its idempotency row.
+   */
+  it('counts a nested audited call against the same transaction', async () => {
+    const nestedBusinessId = randomUUID();
+    await withAuditedTransaction(pool, async (outer) => {
+      // The inner call appends on the outer client, as a domain function does via withConnection.
+      await runAuditedWork(outer.client, async (inner) => {
+        await inner.client.query('INSERT INTO public.test_record (id, status) VALUES ($1, $2)', [nestedBusinessId, 'NESTED']);
+        await inner.appendAuditEntry(entry('request-nested', 1));
+      });
+    });
+    expect((await pool.query('SELECT status FROM public.test_record WHERE id = $1', [nestedBusinessId])).rows[0].status).toBe('NESTED');
+    expect((await pool.query('SELECT count(*)::int AS n FROM audit.audit_entry WHERE request_id = $1', ['request-nested'])).rows[0].n).toBe(1);
+  });
+
+  it('still refuses a nested transaction that appends nothing', async () => {
+    const unauditedBusinessId = randomUUID();
+    await expect(withAuditedTransaction(pool, async (outer) => {
+      await runAuditedWork(outer.client, async (inner) => {
+        await inner.client.query('INSERT INTO public.test_record (id, status) VALUES ($1, $2)', [unauditedBusinessId, 'UNAUDITED']);
+      });
+    })).rejects.toThrow('requires an audit entry');
+    expect((await pool.query('SELECT id FROM public.test_record WHERE id = $1', [unauditedBusinessId])).rowCount).toBe(0);
+  });
+
+  it('does not carry an audit count from one transaction into the next', async () => {
+    // A client is checked out for exactly one transaction, so a committed transaction cannot
+    // leave a tally behind that would satisfy a later, genuinely unaudited mutation.
+    const sequentialBusinessId = randomUUID();
+    await withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+      await client.query('INSERT INTO public.test_record (id, status) VALUES ($1, $2)', [sequentialBusinessId, 'FIRST']);
+      await appendAuditEntry(entry('request-first', 1));
+    });
+    await expect(withAuditedTransaction(pool, async ({ client }) => {
+      await client.query('UPDATE public.test_record SET status = $1 WHERE id = $2', ['SECOND', sequentialBusinessId]);
+    })).rejects.toThrow('requires an audit entry');
+    expect((await pool.query('SELECT status FROM public.test_record WHERE id = $1', [sequentialBusinessId])).rows[0].status).toBe('FIRST');
   });
 });

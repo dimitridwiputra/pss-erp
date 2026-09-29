@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import ts from 'typescript';
 
 /**
@@ -152,6 +153,129 @@ export function findCommandFitnessProblems(sources, exemptions) {
   return problems;
 }
 
+/**
+ * AGENTS.md §14 / §3.6: a mutation commits exactly once and leaves an audit trail. That holds
+ * only if there is a single write path, so these rules police the *transaction plumbing* rather
+ * than the routes. Each one exists because the shape it rejects was present in this repository:
+ *
+ *   one-pipeline   — `runCommand` is the only exported entry to a retriable mutation. Reaching
+ *                    for `withIdempotentCommand` directly reinstates the transaction-runner
+ *                    injection point that made the audit guarantee opt-in.
+ *   single-audit   — the audited-transaction helper is solved once, in `@pss/platform`. Three
+ *                    per-domain copies of `withConnection` had already drifted apart in their
+ *                    comments, and twelve domains have no files yet.
+ *   audit-exempted — `runCommandWithoutAudit` is legitimate for a batch or for presence
+ *                    telemetry, and illegitimate for everything else. Each use is listed here
+ *                    with its justification so the list stays short and reviewable.
+ */
+
+const UNAUDITED_REASON_MINIMUM = 20;
+
+/** The canonical definitions are the only place a pipeline primitive may be written. */
+const CANONICAL_PIPELINE = [
+  'domains/platform/src/application/command.ts',
+  'domains/platform/src/application/idempotency.ts',
+];
+
+/** Sources that legitimately mention a primitive without calling it. */
+const DEFINES_OR_REEXPORTS = [...CANONICAL_PIPELINE, 'domains/platform/src/index.ts'];
+
+/** Every TypeScript source in the workspace, as `{ relative, source }`. */
+export async function collectWorkspaceSources(root) {
+  const collected = [];
+  const prefix = new URL('', root).pathname;
+
+  async function walk(directory) {
+    let entries;
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (['node_modules', 'dist', '.turbo', 'coverage', '.next'].includes(entry.name)) continue;
+        await walk(full);
+      } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+        collected.push({ relative: full.replace(prefix, ''), source: await readFile(full, 'utf8') });
+      }
+    }
+  }
+
+  for (const name of ['apps', 'domains', 'packages']) await walk(join(prefix, name));
+  return collected;
+}
+
+export function findPlumbingProblemsIn(sources) {
+  const problems = [];
+  const notes = [];
+
+  for (const { relative, source } of sources) {
+    const tree = ts.createSourceFile(relative, source, ts.ScriptTarget.Latest, true);
+    const isCanonical = CANONICAL_PIPELINE.some((path) => relative.endsWith(path));
+    const isDefinition = DEFINES_OR_REEXPORTS.some((path) => relative.endsWith(path));
+    const isTest = relative.includes('/tests/') || relative.includes('.test.ts');
+
+    for (const statement of tree.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+      const specifier = statement.moduleSpecifier.text;
+      const named = statement.importClause?.namedBindings;
+      if (!named || !ts.isNamedImports(named)) continue;
+      for (const element of named.elements) {
+        const imported = (element.propertyName ?? element.name).text;
+        if (imported === 'withIdempotentCommand') {
+          if (isCanonical) continue;
+          problems.push(
+            `${relative} imports \`withIdempotentCommand\`, which accepts a transaction runner and so makes the audit guarantee opt-in. Use \`runCommand\` from @pss/platform.`,
+          );
+        }
+        if (imported === 'withConnection' && /from '\.\/support\/with-connection'/.test(specifier)) {
+          problems.push(
+            `${relative} imports its own \`withConnection\`. The audited-transaction helper is solved once in @pss/platform; a per-domain copy is a second implementation of the same concern.`,
+          );
+        }
+      }
+    }
+
+    // A local definition of either primitive is the same violation as importing one.
+    for (const statement of tree.statements) {
+      if (!ts.isFunctionDeclaration(statement) || !statement.name) continue;
+      if (statement.name.text !== 'withConnection' && statement.name.text !== 'withIdempotentCommand') continue;
+      if (isCanonical) continue;
+      problems.push(
+        `${relative} defines its own \`${statement.name.text}\`. The command pipeline is solved once in @pss/platform; reimplementing it here is how the same concern ends up solved two ways.`,
+      );
+    }
+
+    // Call sites are read from the AST: a regex cannot tell a justification from any other
+    // long string literal that happens to follow the call.
+    if (!isDefinition && !isTest) {
+      const exempt = [];
+      function findCalls(node) {
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+          && node.expression.text === 'runCommandWithoutAudit') {
+          exempt.push(node);
+        }
+        ts.forEachChild(node, findCalls);
+      }
+      findCalls(tree);
+      for (const call of exempt) {
+        const justification = call.arguments[3];
+        if (!justification || !ts.isStringLiteral(justification)
+          || justification.text.trim().length < UNAUDITED_REASON_MINIMUM) {
+          problems.push(
+            `${relative} calls \`runCommandWithoutAudit\` without a string-literal justification of at least ${UNAUDITED_REASON_MINIMUM} characters as its fourth argument.`,
+          );
+          continue;
+        }
+        notes.push(`${relative}: ${justification.text.trim()}`);
+      }
+    }
+  }
+  return { problems, notes };
+}
+
 if (process.argv[1]?.endsWith('/check-command-fitness.mjs')) {
   const root = new URL('../', import.meta.url);
   const exemptions = JSON.parse(await readFile(new URL('scripts/command-fitness-exemptions.json', root), 'utf8'));
@@ -160,10 +284,18 @@ if (process.argv[1]?.endsWith('/check-command-fitness.mjs')) {
   const sources = [];
   for (const name of modules) sources.push({ fileName: name, source: await readFile(new URL(name, apiRoot), 'utf8') });
   const problems = findCommandFitnessProblems(sources, exemptions);
-  if (problems.length) {
-    process.stderr.write(`PLT-002/PLT-006 command fitness violations:\n- ${problems.join('\n- ')}\n`);
+  const plumbing = findPlumbingProblemsIn(await collectWorkspaceSources(root));
+  const all = [...problems, ...plumbing.problems];
+
+  if (all.length) {
+    process.stderr.write(`PLT-002/PLT-006 command fitness violations:\n- ${all.join('\n- ')}\n`);
     process.exitCode = 1;
   } else {
-    process.stdout.write('PLT-002/PLT-006 command fitness: every registered mutating route resolves its caller, validates its body, and carries an idempotency key.\n');
+    process.stdout.write('PLT-002/PLT-006 command fitness: every registered mutating route resolves its caller, validates its body, carries an idempotency key, and reaches the database through the single command pipeline.\n');
+    if (plumbing.notes.length) {
+      process.stdout.write(`Commands exempt from the audit guard (${plumbing.notes.length}), each with a stated reason:\n- ${plumbing.notes.join('\n- ')}\n`);
+    } else {
+      process.stdout.write('No command is exempt from the audit guard.\n');
+    }
   }
 }

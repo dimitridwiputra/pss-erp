@@ -350,6 +350,9 @@ importers:
       '@pss/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@pss/platform':
+        specifier: workspace:*
+        version: link:../platform
       pg:
         specifier: 8.23.0
         version: 8.23.0
@@ -369,6 +372,9 @@ importers:
       '@pss/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@pss/platform':
+        specifier: workspace:*
+        version: link:../platform
       pg:
         specifier: 8.23.0
         version: 8.23.0
@@ -538,6 +544,9 @@ importers:
       '@pss/inventory':
         specifier: workspace:*
         version: link:../inventory
+      '@pss/platform':
+        specifier: workspace:*
+        version: link:../platform
       pg:
         specifier: 8.23.0
         version: 8.23.0

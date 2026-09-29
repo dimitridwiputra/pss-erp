@@ -11,9 +11,12 @@ each record must state context, alternatives, consequences, and fitness tests.
 |---|---|---|---|
 | [ADR-0009](ADR-0009-hosting-jakarta.md) | Hosting: Google Cloud, Jakarta region | Proposed | OD-119 answered (vendor + residency). OD-185, OD-188 remain open. |
 | [ADR-0012](ADR-0012-infrastructure-as-code.md) | IaC tool: Terraform | Proposed | OD-187 answered. |
+| [ADR-0013](ADR-0013-single-command-pipeline.md) | One command pipeline for every mutation | Accepted | No open decision. Deliberately leaves the stored idempotency response HTTP-shaped. |
 
-Both are **Proposed, not Accepted.** Neither has Engineering sign-off, and
-`docs/releases/F0.md` still records the Engineering owner as unassigned.
+ADR-0009 and ADR-0012 are **Proposed, not Accepted.** Neither has a human
+signatory, and `docs/releases/F0.md` still records the accountable owner as
+pending. ADR-0013 is Accepted on Engineering authority and carries no open
+business decision — it constrains how a mutation is executed, not what it means.
 
 ## Still unwritten
 

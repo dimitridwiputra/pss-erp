@@ -4,7 +4,7 @@ import type { AuditedTransaction } from '@pss/audit';
 import { DecimalStringSchema, DomainError, type FieldError } from '@pss/contracts';
 import { z } from 'zod';
 import { ActorInputSchema, SourceSchema } from './support/audit-context';
-import { withConnection } from './support/with-connection';
+import { withConnection } from '@pss/platform';
 
 const ReserveStockLineSchema = z.strictObject({
   productId: z.uuid(),
