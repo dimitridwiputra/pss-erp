@@ -573,6 +573,36 @@ export async function seedDraftNumberingSchemes(
       docType, validFrom, requestId: `${input.requestId}:${docType}`,
     }, transaction));
   }
+  if (schemes.length === 0 && !transaction) {
+    // A re-seed with a fresh idempotency key finds every type already present. That is a
+    // successful no-op, not a failure, so the audit guard must not reject it — but "an operator
+    // asked to seed and everything was already there" is worth recording, so it is traced
+    // rather than passed through silently. See ADR-0013.
+    return withConnection(pool, undefined, async ({ appendAuditEntry }) => {
+      await appendAuditEntry({
+        organizationId: input.organizationId,
+        ...(input.branchId ? { branchId: input.branchId } : {}),
+        actor: { serviceIdentity: 'platform.documents', roles: [] },
+        action: 'NUMBERING_SCHEMES_SEED_NOOP',
+        entity: { domain: 'platform', type: 'NumberingScheme', id: input.organizationId, version: 1 },
+        changes: [{ path: 'created', classification: 'INTERNAL', before: S3_DOCUMENT_TYPES.length, after: 0 }],
+        requestId: input.requestId, correlationId: input.requestId, source: 'API',
+      });
+      return { created: 0, schemes: existing };
+    });
+  }
+  if (schemes.length === 0) {
+    // A caller-supplied transaction that produced nothing still needs a trail, for the same reason.
+    await transaction!.appendAuditEntry({
+      organizationId: input.organizationId,
+      ...(input.branchId ? { branchId: input.branchId } : {}),
+      actor: { serviceIdentity: 'platform.documents', roles: [] },
+      action: 'NUMBERING_SCHEMES_SEED_NOOP',
+      entity: { domain: 'platform', type: 'NumberingScheme', id: input.organizationId, version: 1 },
+      changes: [{ path: 'created', classification: 'INTERNAL', before: S3_DOCUMENT_TYPES.length, after: 0 }],
+      requestId: input.requestId, correlationId: input.requestId, source: 'API',
+    });
+  }
   return { created: schemes.length, schemes: schemes.length > 0 ? schemes : existing };
 }
 

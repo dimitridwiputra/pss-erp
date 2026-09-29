@@ -59,7 +59,17 @@ Invariants this now enforces structurally:
 - A retried command replays its stored response rather than re-applying.
 - The document-numbering commands share one commit with their idempotency row.
   They previously passed only a `Pool`, so each opened a second connection; a failed
-  outer commit left a mutation a retry would re-apply.
+  outer commit left a mutation a retry would re-apply. The same applied to
+  `setFeatureFlag` and `setFlagTargeting`, which took no transaction at all; both now
+  accept one and the configuration routes thread it, so a flag write and its
+  idempotency row commit together.
+- A command asked to do something it finds already done **succeeds and is traced**.
+  The audit guard rejects a transaction that appended no entry, which is right for a
+  forgotten append and wrong for a no-op. Rather than weaken the guard, the no-op
+  path appends its own entry: a re-seed of document numbering with a fresh
+  idempotency key writes `NUMBERING_SCHEMES_SEED_NOOP` with `created: 0` and returns
+  201. `apps/api/tests/doc-numbering.integration.test.ts` covers it, and the test
+  fails if the no-op handling is removed — it was found by review, not by the suite.
 
 ### Delivery
 
@@ -228,4 +238,4 @@ PostgreSQL `pg`, `@pss/contracts` event, registry, and error-code validation, `@
 
 `domains/platform/tests/document-numbering.integration.test.ts` covers the DRAFT seed for all 18 S3 types, the refusal to activate a half-configured scheme, **50 parallel reservations producing 50 distinct continuous numbers**, a retried `requestKey` returning the same number, a voided number never being reissued, a void recording its actor and reason, confirmation, period selection from the document date across YEARLY/MONTHLY/NEVER, per-branch and per-organization isolation, and the sequence report explaining every ordinal.
 
-`apps/api/tests/config-admin.integration.test.ts` and `apps/api/tests/doc-numbering.integration.test.ts` cover the HTTP boundary: the missing `Idempotency-Key`, malformed bodies, unauthenticated callers, a body-supplied `organizationId` being refused rather than trusted, the permission gate (asserted to deny today, which is the measured behaviour), the effective-dated rows endpoint, the stale-flag report, the GAP-16 activation refusal, the DRAFT seed over HTTP, and reserve/confirm/void over HTTP.
+`apps/api/tests/config-admin.integration.test.ts` and `apps/api/tests/doc-numbering.integration.test.ts` cover the HTTP boundary: the missing `Idempotency-Key`, malformed bodies, unauthenticated callers, a body-supplied `organizationId` being refused rather than trusted, the permission gate (asserted to deny today, which is the measured behaviour), the effective-dated rows endpoint, the stale-flag report, the GAP-16 activation refusal, the DRAFT seed over HTTP, reserve/confirm/void over HTTP, and a re-seed under a fresh idempotency key returning 201 with created 0 rather than failing the audit guard.

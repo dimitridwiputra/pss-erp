@@ -88,6 +88,15 @@ connections, which is exactly the atomicity loss in (3).
    so the list stays short and reviewable. The four WMS commands use it; a single
    business mutation has no reason to be there.
 
+4b. **A command that legitimately mutates nothing is still traced.** The guard in
+   `runAuditedWork` rejects a transaction that appended no audit entry, which is
+   right for a forgotten append and wrong for a command asked to do something it
+   finds already done — re-seeding document numbering when every type is present, a
+   `setFlag` whose value is unchanged. Weakening the guard would reopen the hole.
+   So the no-op path appends its own entry (`NUMBERING_SCHEMES_SEED_NOOP`:
+   `created: 0`) rather than passing through untraced. The command succeeds, and
+   the trail says an operator asked and nothing changed.
+
 5. **`scripts/check-command-fitness.mjs` polices the plumbing, not just the routes.**
    Beyond the existing caller/body/idempotency-key rules it now rejects: importing
    `withIdempotentCommand` outside the canonical file, defining `withConnection` or

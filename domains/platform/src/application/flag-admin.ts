@@ -2,7 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { DomainError, registryCatalog } from '@pss/contracts';
-import { withAuditedTransaction } from '@pss/audit';
+import type { AuditedTransaction } from '@pss/audit';
+import { withConnection } from './command';
 
 /**
  * PLT-010 — audited administration of `platform.feature_flag` and its targeting rules.
@@ -228,13 +229,13 @@ function inRollout(flagKey: string, subjectId: string, percentage: number): bool
  * exist yet is created disabled first, then targeted.
  */
 export async function setFeatureFlag(
-  pool: Pool, rawInput: SetFeatureFlagInput, updatedBy: string,
+  pool: Pool, rawInput: SetFeatureFlagInput, updatedBy: string, transaction?: AuditedTransaction,
 ): Promise<FeatureFlagView> {
   const parsed = SetFlagSchema.safeParse(rawInput);
   if (!parsed.success) throw new DomainError('VALIDATION_FAILED');
   const input = parsed.data;
   assertRegisteredFlagKey(input.key);
-  return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+  return withConnection(pool, transaction?.client, async ({ client, appendAuditEntry }) => {
     const before = await client.query<FlagRecord>(
       `SELECT ${FLAG_COLUMNS} FROM platform.feature_flag WHERE key = $1 FOR UPDATE`, [input.key],
     );
@@ -276,13 +277,13 @@ export async function setFeatureFlag(
  * which is what makes expiry behave as "off" rather than as a stale on (AC02, NC02).
  */
 export async function setFlagTargeting(
-  pool: Pool, rawInput: SetFlagTargetingInput, updatedBy: string,
+  pool: Pool, rawInput: SetFlagTargetingInput, updatedBy: string, transaction?: AuditedTransaction,
 ): Promise<FlagTargetingView> {
   const parsed = TargetingSchema.safeParse(rawInput);
   if (!parsed.success) throw new DomainError('VALIDATION_FAILED');
   const input = parsed.data;
   assertRegisteredFlagKey(input.flagKey);
-  return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+  return withConnection(pool, transaction?.client, async ({ client, appendAuditEntry }) => {
     const existing = await client.query<TargetingRecord>(
       `SELECT ${TARGETING_COLUMNS} FROM platform.feature_flag_targeting
        WHERE flag_key = $1

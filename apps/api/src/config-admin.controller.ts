@@ -8,7 +8,8 @@ import {
   loadConfigRows, loadFlagRows, proposeConfigValue, runCommand, setFeatureFlag, setFlagTargeting,
   staleFeatureFlags,
 } from '@pss/platform';
-import { Pool, type PoolClient } from 'pg';
+import type { AuditedTransaction } from '@pss/platform';
+import { Pool } from 'pg';
 import { z } from 'zod';
 import { IdentityService } from './identity.controller';
 
@@ -118,7 +119,7 @@ export class ConfigAdminService implements OnModuleDestroy {
    */
   private async withIdempotency<T>(
     user: CurrentUserResponse, commandName: string, idempotencyKey: string,
-    requestBody: unknown, execute: (client: PoolClient) => Promise<T>,
+    requestBody: unknown, execute: (transaction: AuditedTransaction) => Promise<T>,
   ): Promise<T> {
     try {
       const result = await runCommand(
@@ -127,7 +128,7 @@ export class ConfigAdminService implements OnModuleDestroy {
           organizationId: user.organizationId, identityId: user.id, commandName,
           key: idempotencyKey, requestHash: hashRequestBody(requestBody),
         },
-        async ({ client }) => ({ code: 200, body: await execute(client) }),
+        async (transaction) => ({ code: 200, body: await execute(transaction) }),
       );
       return result.body as T;
     } catch (error) {
@@ -140,7 +141,7 @@ export class ConfigAdminService implements OnModuleDestroy {
     authorizationHeader: string | undefined, body: ProposeConfigBody, idempotencyKey: string, requestId: string,
   ) {
     const user = await this.requireConfigurationWrite(authorizationHeader);
-    return this.withIdempotency(user, 'platform.proposeConfigValue', idempotencyKey, body, (client) =>
+    return this.withIdempotency(user, 'platform.proposeConfigValue', idempotencyKey, body, ({ client }) =>
       proposeConfigValue(this.requirePool(), { ...body, organizationId: user.organizationId, requestId }, user.id, client));
   }
 
@@ -148,16 +149,16 @@ export class ConfigAdminService implements OnModuleDestroy {
     authorizationHeader: string | undefined, body: SetFlagBody, idempotencyKey: string, requestId: string,
   ) {
     const user = await this.requireConfigurationWrite(authorizationHeader);
-    return this.withIdempotency(user, 'platform.setFeatureFlag', idempotencyKey, body, () =>
-      setFeatureFlag(this.requirePool(), { ...body, organizationId: user.organizationId, requestId }, user.id));
+    return this.withIdempotency(user, 'platform.setFeatureFlag', idempotencyKey, body, (transaction) =>
+      setFeatureFlag(this.requirePool(), { ...body, organizationId: user.organizationId, requestId }, user.id, transaction));
   }
 
   async setFlagTargeting(
     authorizationHeader: string | undefined, body: SetFlagTargetingBody, idempotencyKey: string, requestId: string,
   ) {
     const user = await this.requireConfigurationWrite(authorizationHeader);
-    return this.withIdempotency(user, 'platform.setFlagTargeting', idempotencyKey, body, () =>
-      setFlagTargeting(this.requirePool(), { ...body, organizationId: user.organizationId, requestId }, user.id));
+    return this.withIdempotency(user, 'platform.setFlagTargeting', idempotencyKey, body, (transaction) =>
+      setFlagTargeting(this.requirePool(), { ...body, organizationId: user.organizationId, requestId }, user.id, transaction));
   }
 
   async configValues(authorizationHeader: string | undefined, key: string, branchId?: string) {
