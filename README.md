@@ -11,6 +11,8 @@ The repository has a runnable **PLT-001 platform skeleton**, partial **PLT-003 c
 - Node.js 24.19.0 and pnpm 11.19.0
 - Docker with Compose for local PostgreSQL/PostGIS, Redis, MinIO, and Keycloak
 
+Staging and production are specified in [the Terraform capacity and bootstrap guide](infrastructure/terraform/README.md). They have not been provisioned; the checked-in environment values include placeholders, and the available GCP project has billing disabled. CI validates the Terraform configuration without deploying it.
+
 The local MinIO image is a pinned community build of the MinIO source because the former `minio/minio` Docker Hub tag is unavailable. This choice applies only to local development; production object storage is part of Sprint 0 infrastructure decisions.
 
 ## Start locally

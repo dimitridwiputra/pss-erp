@@ -151,7 +151,7 @@ module "services" {
   name_prefix          = local.name_prefix
   region               = var.region
   labels               = local.common_labels
-  image_repository     = "${var.region}-docker.pkg.dev/${var.project_id}/${local.name_prefix}/apps"
+  image_repository     = "${var.region}-docker.pkg.dev/${var.project_id}/${local.name_prefix}-apps"
   image_tag            = var.image_tag
   database_secret_name = module.secrets.database_url_secret_name
   issuer_secret_name   = module.secrets.oidc_issuer_secret_name

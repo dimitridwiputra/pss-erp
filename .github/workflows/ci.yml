@@ -4,6 +4,24 @@ on:
   push:
     branches: [main]
 jobs:
+  terraform-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infrastructure/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive
+      - name: Initialize providers without cloud access
+        run: terraform init -backend=false -input=false -lockfile=readonly
+      - name: Validate infrastructure configuration
+        run: terraform validate -no-color
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20

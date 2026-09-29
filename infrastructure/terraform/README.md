@@ -124,6 +124,32 @@ backup retention above is a placeholder, not an approved value.
 
 ## Bootstrapping
 
+### Current state and prerequisites
+
+The Terraform configuration is **source code, not a running environment**. As of
+30 September 2026, no dev, staging, or production state has been applied. The
+available Google Cloud project `pss-erp-510114` has billing disabled; its Cloud
+Run and Cloud SQL APIs are disabled. The values in `envs/*.tfvars` for
+`billing_account`, `domain`, and notification email addresses are examples and
+must be replaced with verified PSS-owned values. Every plan also needs a real
+`project_id`; do not put credentials or a billing account token in Git.
+
+Before any apply, the infrastructure owner must provide a billed GCP project,
+confirm DNS control and the intended hostnames, accept ADR-0009 and ADR-0012,
+and approve the unresolved release decisions in `docs/releases/F0.md`.
+Production additionally requires the audit partitioning and recovery decisions
+listed above. The current stack has **no hosted Keycloak realm/admin bootstrap,
+no seeded Secret Manager versions, no configured web `AUTH_SECRET` or
+`PSS_API_BASE_URL`, and no image publish/promotion workflow**. Cloud Run
+resources cannot be considered functional until these are implemented and a
+staging login, API, worker, database, and restore rehearsal pass. A successful
+`terraform validate` does not establish those facts.
+
+The checked-in `.terraform.lock.hcl` pins provider selections for macOS ARM and
+Linux x86 runners. GitHub CI runs `terraform fmt`, `init -backend=false`, and
+`validate` without cloud credentials. It intentionally does not run `plan` or
+`apply` against a placeholder project.
+
 The state bucket cannot be created by the stack that uses it. Create it once by
 hand or with a throwaway bootstrap stack:
 
@@ -142,12 +168,14 @@ cd infrastructure/terraform
 terraform init \
   -backend-config="bucket=pss-terraform-state-<project>" \
   -backend-config="prefix=pss/dev"
-terraform plan -var-file=envs/dev.tfvars
+terraform plan -var-file=envs/dev.tfvars -var="project_id=<billed-project-id>"
 ```
 
-**No environment has been applied.** `gcloud auth` reports no credentialed
-account in this workspace, so nothing here has been created and no cost has been
-incurred. Treat this directory as reviewed-but-unapplied.
+Use a different remote state prefix for each environment. Never apply a plan
+from the wrong prefix, and never promote a `latest` image tag: use a reviewed
+Git SHA and verify the same image digest in staging and production. The
+Google Cloud account on this machine is authenticated, but authentication
+alone does not enable billing or authorize a release.
 
 ## Capacity review triggers
 

@@ -21,7 +21,6 @@ apps/web/public/swe-worker-*.js
 .terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
 crash.log
 *.tfvars.local
 override.tf

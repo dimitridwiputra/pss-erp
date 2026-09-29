@@ -8,3 +8,4 @@ saveExact: true
 
 allowBuilds:
   esbuild: true
+  msgpackr-extract: false
