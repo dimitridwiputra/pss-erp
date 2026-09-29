@@ -1,6 +1,6 @@
 # Platform domain
 
-Status: PLT-004 outbox, PLT-005 inbox/retry/DLQ/replay, PLT-006 command idempotency, and the DQ-001 exception queue foundation are implemented. Their worker scheduling, alerting, and the DQ-001 unified screen remain open.
+Status: PLT-004 outbox, PLT-005 inbox/retry/DLQ/replay, PLT-006 command idempotency, the DQ-001 exception queue foundation, the PLT-009 configuration registry, the PLT-010 feature flag registry, and the DOC-001 document numbering mechanism are implemented. Their worker scheduling, alerting, the DQ-001 unified screen, and the registration of the two new admin controllers in `apps/api` remain open.
 
 ## Purpose
 
@@ -8,11 +8,13 @@ Provide shared persistence and delivery infrastructure for canonical domain even
 
 ## Owns
 
-`platform.outbox_event`, `platform.event_dead_letter`, `platform.idempotency_key`, `platform.queue_definition`, `platform.exception_item`, `platform.business_calendar_day`, dispatch mechanics, dead-letter replay, command replay, and exception queue lifecycle. Platform provides a reusable `withInbox` transaction boundary, but each consumer owns its inbox table and business effect. This module does not define domain event payloads; `@pss/contracts` validates those before an insert or send.
+`platform.outbox_event`, `platform.event_dead_letter`, `platform.idempotency_key`, `platform.queue_definition`, `platform.exception_item`, `platform.business_calendar_day`, `platform.config_value`, `platform.feature_flag`, `platform.feature_flag_targeting`, `platform.document_numbering_scheme`, `platform.document_number_sequence`, `platform.document_number_reservation`, dispatch mechanics, dead-letter replay, command replay, exception queue lifecycle, the effective-dated configuration registry, the feature flag registry, and the document number allocator. Platform provides a reusable `withInbox` transaction boundary, but each consumer owns its inbox table and business effect. This module does not define domain event payloads; `@pss/contracts` validates those before an insert or send.
 
 ## Does not own
 
 Business aggregates, audit entries, consumer inbox tables, event consumers, operational read models, or any subject row an exception item points at. `ExceptionItem.subject` is a `(domain, type, id)` reference only; Platform never reads or writes the subject's table (DQ-001.NC02).
+
+Platform does not own configuration **evaluation**. `@pss/configuration` turns a configuration row into a value and a flag row into a boolean; Platform owns the rows and the audited writes, and `loadConfigRows`/`loadFlagRows` return data already shaped as that library's inputs. Platform also owns the document number **counter**, not the numbering **format** — see DOC-001 under open decisions.
 
 ## Commands
 
@@ -36,12 +38,34 @@ Business aggregates, audit entries, consumer inbox tables, event consumers, oper
 - `escalateOverdueExceptions` marks past-SLA items overdue and appends the registry escalation roles to the item's visible roles, in one audited transaction, and is safe to re-run.
 - `registerBusinessCalendarDay` records a non-working date for a branch or the organization. The empty calendar is the registered default: Monday to Friday, no holidays (Appendix N section 68).
 
+### Configuration registry (PLT-009)
+
+- `proposeConfigValue(pool, input, proposedBy, client?)` writes one effective-dated `platform.config_value` row. It refuses a key outside the generated registry with `CONFIG_KEY_UNKNOWN`, closes the previous value for the same key and scope with `SUPERSEDED` and a `valid_to` (BR03/NC01 — a value is never deleted), and takes the next `revision`. Passing `client` puts the write, its audit entries, and the caller's PLT-006 idempotency record in one commit; the audit requirement holds either way. `requiresOwnerApproval` without an `approvalId` is refused, so a value cannot reach SCHEDULED on an approval that does not exist.
+- `loadConfigRows` returns the SCHEDULED/ACTIVE rows a reader hands to `getConfig`. The status filter lives here because the library treats every non-SUPERSEDED status as effective: without it a PENDING_APPROVAL value would be readable.
+- `listConfigValues` gives the console its schedule and history; `configGateReport` lists every registered key with `SET`/`KOSONG`/`UNSET` for the phase gate (R05/AC05).
+- `registeredConfigKeys` / `assertRegisteredConfigKey` re-derive the key set from the same generated `registryCatalog` the library reads, because Platform cannot import the library today. Replace them with the library's `CONFIG_KEYS`/`assertKnownConfigKey` once it is a dependency.
+
+### Feature flags (PLT-010)
+
+- `setFeatureFlag` upserts the flag's global default, owner, and target removal date. The default is what an unmatched subject evaluates to, so a rollout cannot widen by accident.
+- `setFlagTargeting` upserts one rule per (flag, organization, branch, role, user). A rule that is turned OFF is never percentage-gated, so a staged rollout cannot leave part of the population on.
+- `loadFlagRows(pool, { key, context })` projects the global default plus every rule whose constrained dimensions match the subject, is unexpired, and contains it in its percentage share. The bucket is `sha256(flagKey:subjectId) % 100`, so the same subject always gets the same decision on every node and after every restart. Only the **narrowest** constrained dimension becomes the projected target: the library's `flagRank` returns the first dimension that *matches* rather than requiring all of them, so projecting several would let a subject satisfy a branch rule on its organization alone.
+- `listFeatureFlags`, `listFlagTargeting`, and `staleFeatureFlags` back the console table and the past-target-removal report (AC04).
+
+### Document numbering (DOC-001)
+
+- `reserveDocumentNumber(pool, input, transaction?)` allocates the next ordinal for (scheme, period) and records the reservation in the same transaction. The counter row is locked and incremented in that transaction, so 50 parallel reserves produce 50 distinct, continuous numbers and a rolled-back call releases its ordinal with the rest of the work. A native SEQUENCE was rejected: it is non-transactional, so a rollback would burn a number and leave an unexplainable gap for a `NO_GAP_FISCAL` type. The same `requestKey` returns the identical reservation (R02/AC02) and the replay is still audited.
+- `confirmDocumentNumber` moves RESERVED -> CONFIRMED and binds the number to one document; a repeat is a traced replay. `voidDocumentNumber` moves RESERVED -> VOID permanently with the actor and reason (R05); the ordinal stays consumed, so the next reserve moves past it and a voided number is never reissued (BR02/NC02).
+- `createNumberingScheme` records pattern, branch code, reset policy, gap policy, and padding. All are optional because GAP-16 has not approved them; an ACTIVE scheme missing any of them is refused rather than tolerated. `seedDraftNumberingSchemes` registers the 18 S3 document types as DRAFT with every unapproved field NULL.
+- `numberSequenceUsage` reports used/reserved/voided and the highest ordinal per period, so {used + reserved + voided} equals the range and every gap is explained by a recorded BATAL (R03/AC06).
+
 ## Queries
 
 - `listOpenDeadLetters` and `summariseDeadLetters(pool)` give PLT-005.R02 its depth and age per consumer; `outboxDeliveryStats(pool)` gives PLT-004.R05 its pending count, oldest pending event, and dead-letter count.
 - `listQueueDefinitions(pool)` is the registry the queue screen and role routing read.
 - `listExceptionItems(pool, filter, authorize)` filters by organization, status, queue, branch, overdue, and owner/escalation role **in SQL**, then delegates finer scope (territory, warehouse, own-only) to `authorize` per row. Keyset pagination on `(sla_due_at, id)`.
 - `exceptionQueueMetrics(pool)` reports open, overdue, resolved, and resolution-time p50/p95 per queue (DQ-001.R04).
+- `loadConfigRows` and `loadFlagRows` are the read projections `@pss/configuration` consumes; `listConfigValues`, `configGateReport`, `listFeatureFlags`, `listFlagTargeting`, `staleFeatureFlags`, `listNumberingSchemes`, and `numberSequenceUsage` back the admin console.
 
 ## Events produced and consumed
 
@@ -55,7 +79,13 @@ The outbox transports validated events from the canonical catalog. It is neither
 
 `platform.queue_definition` (0006) holds the Appendix P registry: code, label, owner roles, escalation roles, SLA unit and default, an optional config-key SLA, permitted action labels, an optional reason-code allow-list, and `dismissible`. `platform.business_calendar_day` (0006) holds the non-working dates, national first then branch-scoped. `platform.exception_item` (0006) is the queue item: organization/branch, queue code, subject reference, owning domain, owner roles as captured at open, escalation roles once overdue, reason code, minimal context, dedupe key, status, assignee, SLA due time, overdue/escalated times, last command error, resolution, dismissal, occurrence count, and version. Migration 0007 seeds the registry from Appendix P verbatim.
 
-`ExceptionTransition` is represented by the append-only `audit.audit_entry` trail, not a second table: a duplicate transition log would be a second source of truth for the same fact (AGENTS.md 18).
+`ExceptionTransition`, `ConfigValue`, `FeatureFlag`, and `NumberReservation` transitions are represented by the append-only `audit.audit_entry` trail, not a second table: a duplicate transition log would be a second source of truth for the same fact (AGENTS.md 18).
+
+`platform.config_value` (0004, extended by 0009) adds a reason code, supersede bookkeeping, an `updated_at`, a surrogate `id` on the flag row for the audit trail, and a unique index over the coalesced scope tuple plus `valid_from` so a concurrent pair of proposals cannot both insert for one scope and period. `platform.feature_flag_targeting` (0009) is the per-rule table: organization, branch, role, user, enablement, percentage, priority, expiry, and version, unique over the coalesced target tuple.
+
+`platform.document_numbering_scheme` (0008) holds the document type, scope, effective dating, and the still-unapproved format fields. `platform.document_number_sequence` (0008) is the locked counter, one row per (scheme, period). `platform.document_number_reservation` (0008) is the number itself: document date, business year and month, period key, ordinal, the formatted string (NULL until GAP-16 approves a pattern), request key, status, and the void reason. Two unique indexes carry the guarantee: one over (scope, type, period, ordinal) so a number is never duplicated, and one over (scope, type, requestKey) so a retry returns the same one. Both include VOID rows, which is what makes "a voided number is never reissued" a database guarantee rather than a hope.
+
+All `date` columns are selected with `::text`. node-postgres materialises a `date` as a JavaScript Date at local midnight, so `toISOString()` would shift an Asia/Jakarta business date by the server's UTC offset (AGENTS.md 11).
 
 Each consuming domain must create its own `<schema>.inbox_event(consumer_name text NOT NULL, event_id uuid NOT NULL, processed_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (consumer_name, event_id))` in that domain's migration. Platform has no cross-domain inbox table.
 
@@ -73,12 +103,49 @@ Each consuming domain must create its own `<schema>.inbox_event(consumer_name te
 - An exception item has one active row per `(queue, dedupe_key)`. Its owner roles are frozen at open, so a later registry change cannot silently hand an open item to a different role.
 - An escalation role can only see an item after it is actually overdue.
 - Platform computes an SLA but never invents one: a queue whose Appendix P entry is not a duration (Appendix P writes "per tipe" for `Q-APPROVAL_PENDING` and "sebelum close" for `Q-GL_SUBLEDGER_VARIANCE`, and five P.2 queues name only a KOSONG config key) refuses to open until its owner registers a value.
+- A configuration value is never deleted; superseding closes the previous row's `valid_to` and marks it SUPERSEDED. An empty value stays empty and reads as `UNSET`; nothing is substituted for it (NC02).
+- A PENDING_APPROVAL configuration value is not readable. Reads offer the library only SCHEDULED and ACTIVE rows.
+- A scope is read with `(organizationId, branchId, principalId, customerId)`; a null column matches any value and the library ranks the most specific, so a branch value beats an organization one and neither borrows the other's (BR02).
+- A configuration read is scoped to one organization. A value written under one tenant is invisible to another.
+- An unregistered configuration or flag key is refused on the write path, not only at read time (E2).
+- A flag is off unless an administrator turned it on, an expired rule is off, and an evaluation failure is off (BR02/NC02). A rule that switches a feature off is never percentage-gated.
+- A flag decision is a pure function of (flag key, subject): the same subject always lands in the same rollout bucket.
+- A document number is allocated once and never reissued. A void is permanent, the ordinal stays consumed, and a repeat of a reserve/confirm/void re-reads the same fact and is still audited.
+- The sequence period comes from the document's own business date, never the server date (BR05/AC04).
+- Numbering is scoped to one (organization, branch, document type, period). A different organization cannot borrow another's counter.
 
 ## Dependencies
 
-PostgreSQL `pg`, `@pss/contracts` event and error-code validation, `@pss/audit` for the audit-enforcing transaction, and Zod input validation. The application layer composes Platform with Audit through their public interfaces. `EventTransport` is an adapter interface; the BullMQ implementation lives in `apps/integration-worker`.
+PostgreSQL `pg`, `@pss/contracts` event, registry, and error-code validation, `@pss/audit` for the audit-enforcing transaction, and Zod input validation. `@pss/configuration` is the intended evaluation dependency for PLT-009/PLT-010 and is **not yet declared** on `@pss/platform`, which is why the row shapes are mirrored here rather than imported. The application layer composes Platform with Audit through their public interfaces. `EventTransport` is an adapter interface; the BullMQ implementation lives in `apps/integration-worker`.
 
 ## Open decisions and limits
+
+**PLT-009 (blocked on an approval type and a key classification).**
+
+- The PRD routes a sensitive key to a `config_change` ApprovalRequest and a non-sensitive key straight to SCHEDULED (PLT-009 main flow 1.2, AC03). **Neither half exists.** There is no `config_change` row in `platform.approval_type` (migration 0003 creates the table and seeds nothing), and Appendix N records an owner and a phase gate per key but never says which keys are sensitive. `proposeConfigValue` therefore takes `requiresOwnerApproval` from the caller and **refuses the claim without an `approvalId`**, rather than inventing a sensitivity rule. Registering `config_change` with its levels (Appendix N: `approval.config_change.levels`, KOSONG -> highest level) and recording sensitivity per key would let the two paths be driven by data instead of by the caller. Until then no value can move from PENDING_APPROVAL to SCHEDULED, because nothing approves it.
+- PLT-009.BR05 (a finance/tax key change dated into a SOFT_CLOSE/CLOSED accounting period is rejected) is **not implemented**. The accounting period is Finance-owned, and AGENTS.md 3.1 forbids Platform from reading `finance`. It needs a synchronous Finance dependency (a period check) or an event-driven guard; either way it is a Finance decision, not one Platform can make.
+- PLT-009.A1 (retroactive values only for keys that allow it) is **not implemented**, for the same reason: "which keys allow retroactive values" is a per-key business rule that the registry does not carry.
+- `CONFIG_VALUE_CHANGED` is in the event catalog (Appendix C.8) but has a null producer and aggregate and no registered payload schema, so `appendOutboxEvent` would reject it. The cache-invalidation contract in PLT-009 therefore has no event yet; the audit trail and `loadConfigRows` are what a reader has today. Registering the schema in `packages/contracts` is the fix.
+- The seed values from Appendix N (PLT-009.R05) are **not** written. Appendix N marks most of them ASM or KOSONG, and writing an assumption as a live value is exactly the failure the feature exists to prevent. `configGateReport` lists them so each can be filled deliberately.
+- `tax.vat_output_rate` and `tax.vat_input_rate` are **not usable keys**. The generated registry carries the Appendix N row as one mangled expression, `"tax.vat_output_rate\` / \`tax.vat_input_rate"`, so neither half is registered and `CONFIG_KEY_UNKNOWN` is raised for both. The catalog generator's handling of that Appendix N cell is the fix; it is in `scripts/`, not here.
+- The schema name `config_value` and the table's `organization_id NOT NULL`-less shape come from migration 0004 and are not changed by a forward-only migration.
+
+**PLT-010 (partial).**
+
+- `FEATURE_FLAG_CHANGED` has the same gap as `CONFIG_VALUE_CHANGED`: catalog entry present, producer/aggregate/payload schema absent, so it is not published. Every flag write is audited instead.
+- `CONFIG_MANAGE_PERMISSION` in `apps/api/src/config-admin.controller.ts` resolves to the registry's `configuration.*.manage`. `checkAccess` matches codes exactly against a hand-transcribed group table that does not contain that wildcard, so **the configuration write endpoint denies every caller today, including SYSTEM_ADMIN**. That is the fail-closed direction AGENTS.md 15 wants, and it is asserted as such in `apps/api/tests/config-admin.integration.test.ts`, but it does mean the write path is unreachable until `domains/identity` transcribes the grant. `FEATURE_FLAG_UNKNOWN` is used by `@pss/configuration` for the same condition but is not in the Appendix F error registry, so Platform raises the registered `CONFIG_KEY_UNKNOWN` instead.
+- The client snapshot endpoint exists as `GET /platform/flags/:key/rows` and returns rows for `evaluateFlag`/the provider, but the **resolved** per-user flag map (PLT-010.TS03, the offline snapshot) is not built, because that needs the `@pss/configuration` dependency and an offline-cache contract that is not in this scope.
+- No cache invalidation, no flag retirement job, and no `FEATURE_FLAG_CHANGED` consumer exists.
+
+**DOC-001 (mechanism complete, format unapproved).**
+
+- **GAP-16 is open**: the numbering pattern, padding, gap policy per document type, and the official branch code are not approved. `pattern`, `branch_code`, `gap_policy`, and `padding` are nullable and the seeded schemes leave them NULL; `createNumberingScheme` refuses an ACTIVE scheme that is missing any of them, so `ReserveNumber` never has to guess. `formattedNumber` is null until an operator supplies an approved pattern. **No numbering format and no branch code is invented anywhere in this code.**
+- The **official branch code is not in the repository**. DOC-001.BR04 says a branch scope uses the code from the master data, but Platform cannot read `organization`'s table (AGENTS.md 3.1), so the code is supplied on the scheme by whoever holds MDM-001's approved value. Once MDM-001 exposes it, the scheme should reference it rather than store a copy.
+- `DOCUMENT_NUMBER_VOIDED` is registered in the catalog (Appendix C.8) with a null producer, aggregate, and payload schema, so the void is recorded in the audit trail but no event is published. Registering the schema unblocks the event.
+- The `NO_GAP_FISCAL` reserved-in-a-separate-transaction flow (DOC-001 main flow 3, AC05, TS02) is **not** differentiated from `GAP_ALLOWED`: all reservations run in the caller's transaction, which is the `GAP_ALLOWED` behaviour. The separate-transaction flow needs the gap policy per type (GAP-16) and a timeout sweep driven by `documents.reservation_timeout_minutes` (AC05), which no scheduler runs yet.
+- Pattern-length rejection (DOC-001.E1) is not implemented; `NUMBERING_EXHAUSTED` is raised only when the ordinal exceeds what the operator's own `padding` can express, which is a property of registered data rather than an invented limit.
+- The number report is per (document type, period) aggregate counts, not a per-number listing (R03 asks for "each number"). A per-number endpoint for auditors is not implemented.
+- No cross-domain caller exists yet: invoicing, procurement, and finance have not called `reserveDocumentNumber`, so the "one DB, in-process" claim in DOC-001 main flow 1 is untested against a real owning domain.
 
 **DQ-001 (open).** These are blockers for DQ-001 completeness, not code gaps:
 
@@ -109,3 +176,9 @@ PostgreSQL `pg`, `@pss/contracts` event and error-code validation, `@pss/audit` 
 `domains/platform/tests/exception-queue.integration.test.ts` covers the Appendix P seed, `QUEUE_UNKNOWN`, the working-day SLA including a branch holiday and a config override, the fail-closed queues, dedupe under concurrency, reopen after resolution, claim/fail/release/resolve, the owning-domain rule, the audit trail per transition, refusal to dismiss, role and branch scope filtering, escalation and re-run safety, per-queue metrics, and the 100k active-item query.
 
 `domains/platform/tests/inbox.integration.test.ts` and `domains/platform/tests/approval.integration.test.ts` cover duplicate delivery, rollback, and approval idempotency.
+
+`domains/platform/tests/config-admin.integration.test.ts` covers effective-dated and most-specific-scope resolution, supersede-without-delete, a KOSONG value reading as UNSET with nothing substituted, an unregistered key, a missing approval, an inverted validity, cross-organization isolation, the audit trail for both a proposal and its supersede, the ASM/KOSONG/UNSET gate report, per-branch flag targeting, a deterministic percentage rollout that actually splits a population and honours 0%, an expired rule reading as off, the stale-flag report, and the same flag decision through `evaluateFlag` and the OpenFeature provider.
+
+`domains/platform/tests/document-numbering.integration.test.ts` covers the DRAFT seed for all 18 S3 types, the refusal to activate a half-configured scheme, **50 parallel reservations producing 50 distinct continuous numbers**, a retried `requestKey` returning the same number, a voided number never being reissued, a void recording its actor and reason, confirmation, period selection from the document date across YEARLY/MONTHLY/NEVER, per-branch and per-organization isolation, and the sequence report explaining every ordinal.
+
+`apps/api/tests/config-admin.integration.test.ts` and `apps/api/tests/doc-numbering.integration.test.ts` cover the HTTP boundary: the missing `Idempotency-Key`, malformed bodies, unauthenticated callers, a body-supplied `organizationId` being refused rather than trusted, the permission gate (asserted to deny today, which is the measured behaviour), the effective-dated rows endpoint, the stale-flag report, the GAP-16 activation refusal, the DRAFT seed over HTTP, and reserve/confirm/void over HTTP.

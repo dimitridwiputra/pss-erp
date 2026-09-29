@@ -42,3 +42,27 @@ export {
   BUSINESS_TIME_ZONE, addWorkingDays, loadNonWorkingDates, calendarHorizon,
 } from './application/business-calendar';
 export type { NonWorkingDates } from './application/business-calendar';
+export {
+  proposeConfigValue, loadConfigRows, listConfigValues,
+  configGateReport, registeredConfigKeys, assertRegisteredConfigKey,
+} from './application/config-admin';
+export type {
+  ProposeConfigValueInput, LoadConfigRowsInput, ConfigValueRow, ConfigValueStatus, ConfigScope,
+  ConfigValueView, ConfigGateReportEntry,
+} from './application/config-admin';
+export {
+  setFeatureFlag, setFlagTargeting, loadFlagRows, listFeatureFlags, listFlagTargeting,
+  staleFeatureFlags, registeredFlagKeys, assertRegisteredFlagKey,
+} from './application/flag-admin';
+export type {
+  SetFeatureFlagInput, SetFlagTargetingInput, LoadFlagRowsInput, FlagRow, FlagTarget,
+  FeatureFlagView, FlagTargetingView, StaleFlag,
+} from './application/flag-admin';
+export {
+  reserveDocumentNumber, confirmDocumentNumber, voidDocumentNumber,
+  createNumberingScheme, seedDraftNumberingSchemes, listNumberingSchemes, numberSequenceUsage,
+} from './application/document-numbering';
+export type {
+  ReserveNumberInput, ConfirmNumberInput, VoidNumberInput, CreateSchemeInput,
+  SeedDraftSchemesInput, DocumentNumber, NumberingSchemeView, SequenceUsage,
+} from './application/document-numbering';

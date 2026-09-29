@@ -12,6 +12,8 @@ const migrationFiles = [
   '0005_event_delivery_reliability.sql',
   '0006_exception_queue.sql',
   '0007_exception_queue_registry_seed.sql',
+  '0008_document_numbering.sql',
+  '0009_config_flag_admin.sql',
 ];
 const client = new pg.Client({ connectionString });
 await client.connect();
