@@ -106,7 +106,7 @@
   },
   "PLT-011": {
     "state": "partial",
-    "note": "Stack Terraform untuk Google Cloud asia-southeast2 (Jakarta) tersedia di infrastructure/terraform dan mencakup VPC tanpa Kubernetes, Cloud SQL PostgreSQL 17 + PostGIS, Memorystore untuk Valkey, empat bucket terenkripsi CMEK, Cloud Run untuk lima deployable plus Keycloak, Secret Manager, anggaran dan alert. `terraform validate` lulus dan dev, staging, dan produksi masing-masing menghasilkan plan bersih. Kapasitas diturunkan dari 1.500 pesanan/hari dan 15.000 baris/hari dengan amplop 2x serta target uji beban 50.000 baris/hari dan 500 pengguna konkuren. BELUM DIAPLIKASIKAN: gcloud tidak memiliki akun terotorisasi, sehingga tidak ada sumber daya yang dibuat dan belum ada biaya. ADR-0009 dan ADR-0012 berstatus Proposed dan belum ditandatangani."
+    "note": "Stack Terraform untuk Google Cloud Jakarta tersedia dan lulus `terraform validate` di mesin lokal serta CI. Dev, staging, dan produksi belum memiliki plan dengan kredensial cloud atau deployment. Project pss-erp-510114 ada tetapi billing dinonaktifkan; domain, penerima alert, Secret Manager, Keycloak hosted, dan promosi image masih memerlukan konfigurasi dan verifikasi. ADR-0009 dan ADR-0012 masih Proposed."
   },
   "UX-001": {
     "state": "partial",
