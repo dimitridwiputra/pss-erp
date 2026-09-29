@@ -173,16 +173,16 @@ cd infrastructure/terraform
 terraform init \
   -backend-config="bucket=pss-terraform-state-pss-erp-510114" \
   -backend-config="prefix=pss/dev"
-terraform plan -var-file=envs/dev.tfvars
+terraform plan -var-file=envs/dev.tfvars -var="project_id=pss-erp-510114"
 ```
 
 Use a different remote state prefix for each environment. Never apply a plan
 from the wrong prefix, and never promote a `latest` image tag: use a reviewed
 Git SHA and verify the same image digest in staging and production. The
-Google Cloud account on this machine is authenticated and the project
-`pss-erp-510114` is active, but **nothing has been applied**: no resource
-exists and no cost has been incurred. Authentication does not enable
-billing or authorize a release.
+Google Cloud account on this machine is authenticated, but its default project
+is unset and `pss-erp-510114` has billing disabled. **Nothing has been applied
+to PSS staging or production.** Authentication does not enable billing or
+authorize a release.
 
 Two things need a human decision before the first `terraform apply`, and
 neither is engineering work:

@@ -9,3 +9,7 @@ saveExact: true
 allowBuilds:
   esbuild: true
   msgpackr-extract: false
+
+overrides:
+  # Serwist resolves 10.4.5; 10.5.0 patches GHSA-5j98-mcp5-4vw2.
+  "glob@10.4.5": "10.5.0"
