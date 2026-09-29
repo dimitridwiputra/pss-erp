@@ -48,6 +48,6 @@ pnpm test:visual:docker
 pnpm build
 ```
 
-The PostgreSQL URL above points only to the local Compose development database. Run `pnpm dev:up` in another terminal to start it if needed. Run `pnpm test:a11y` and `pnpm test:visual:docker` separately: both manage Storybook on port 6006. The visual script starts the pinned Playwright Linux browser container and cleans it up. `pnpm test:e2e` is still a scaffold and does not certify a user workflow.
+The PostgreSQL URL above points only to the local Compose development database. Run `pnpm dev:up` in another terminal to start it if needed. Run `pnpm test:a11y` and `pnpm test:visual:docker` separately: both manage Storybook on port 6006. The visual script starts the pinned Playwright Linux browser container and cleans it up. `pnpm test:e2e` is now a real Playwright gate covering the POS preview and PSS Kasir offline banner; it does not yet certify an order, approval, or WMS workflow.
 
 The current engineering result is a stronger local foundation with reproducible container health and architecture checks. **S0, S1, and S2 cannot be marked Definition of Done** until their remaining criteria and external gate evidence above are recorded.

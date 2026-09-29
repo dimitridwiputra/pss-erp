@@ -4,12 +4,15 @@
 
 | Field | Nilai |
 |---|---|
-| Versi | 1.0 — draf untuk review |
-| Tanggal | 24 September 2026 |
+| Versi | 1.1 — draf untuk review (tambahan F11 PSS Kasir / POS Grosir) |
+| Tanggal | 24 September 2026 (1.0); amandemen 1.1 lihat catatan revisi di bawah |
 | Lokasi di repo | `docs/IMPLEMENTATION_PLAN.md` |
-| Dokumen induk | `docs/PRODUCT_PRD.md` (PSS Operating Platform — Product & Development PRD 1.0) |
-| Cakupan | 280 fitur PRD, fase F0–F10, dari Sprint 0 (28 Sep 2026) sampai rollout cabang 2028 |
+| Dokumen induk | `docs/PRODUCT_PRD.md` (PSS Operating Platform — Product & Development PRD 1.0, §46A revisi 1.1) |
+| Cakupan | 295 fitur PRD, fase F0–F11, dari Sprint 0 (28 Sep 2026) sampai rollout cabang 2028 |
 | Sifat | Rencana kerja yang **berubah per sprint**. Rencana ini tidak mengubah perilaku produk (DOC-CTL.R05) |
+| Perubahan 1.1 | Menambahkan Lampiran A rows **POS-001…POS-015** (§46A PSS Kasir / POS Grosir; 1 S + 9 M + 5 L = 54 poin) di bawah fase **F11**, Pod Commerce (O2C/P2P), sprint indikatif S24–S28. **Catatan urutan kerja:** implementasi `domains/pos` pada repository ini dikerjakan lebih awal dari sprint indikatif tersebut atas permintaan eksplisit — lihat commit/PR terkait untuk detail keputusan re-sequencing (IP.R02: dependensi domain di-stub dengan slice minimal-real, bukan dilompati diam-diam). |
+
+**Execution addendum, 29 September 2026:** [Next implementation plan](NEXT_IMPLEMENTATION_PLAN_2026-09-29.md) lists the remaining F0 tickets and their dependency order against the current checkout. [F0 evidence register](releases/F0.md) records which release criteria are verified locally and which still require hosted proof or owner decisions. These records do not change PRD behavior, the baseline dates, or the gate's sign-off requirement.
 
 ---
 
@@ -31,7 +34,7 @@
 14. Strategi QA & Lingkungan
 15. Risiko & Mitigasi
 16. Pelacakan, Pelaporan & Rekalibrasi
-- Lampiran A — Penjadwalan Fitur (280 fitur)
+- Lampiran A — Penjadwalan Fitur (295 fitur)
 - Lampiran B — Breakdown Tugas S1–S2 (siap dikerjakan)
 - Lampiran C — Template Tiket & Prompt Coding Agent
 - Lampiran D — Runbook Ringkas Go-live Finance & Cutover Pilot
@@ -40,7 +43,7 @@
 
 ## 1. Ringkasan
 
-Rencana ini menurunkan 280 feature spec PRD menjadi **32 sprint dua-mingguan** yang dikerjakan **enam pod**. Urutan kerja disusun dari graf dependensi fitur (field DEPENDENCIES di PRD), fase F0–F10, dan kapasitas tim. Setiap fitur sudah dijadwalkan setelah semua dependensinya. Jadwal ini dibuat dengan penjadwal berbasis dependensi, lalu disesuaikan secara manual untuk tanggal go-live.
+Rencana ini menurunkan 295 feature spec PRD (termasuk 15 fitur F11 PSS Kasir, revisi 1.1) menjadi **32 sprint dua-mingguan** yang dikerjakan **enam pod**. Urutan kerja disusun dari graf dependensi fitur (field DEPENDENCIES di PRD), fase F0–F10, dan kapasitas tim. Setiap fitur sudah dijadwalkan setelah semua dependensinya. Jadwal ini dibuat dengan penjadwal berbasis dependensi, lalu disesuaikan secara manual untuk tanggal go-live.
 
 | Milestone | Target | Isi |
 |---|---|---|
@@ -56,7 +59,7 @@ Rencana ini menurunkan 280 feature spec PRD menjadi **32 sprint dua-mingguan** y
 | **Gate F9** — PSS Gudang pilot | **Jan 2028** | Aktivasi WMS gudang pilot setelah stock opname akhir tahun |
 | F10 & rollout cabang | 2028 | Fitur lanjutan; gelombang cutover cabang lain |
 
-Beban fitur terencana adalah **1098 poin**. Kapasitas steady state 56 poin/sprint, dan rata-rata beban fitur ±70% kapasitas. Sisa kapasitas sengaja disisihkan untuk integrasi data nyata, defect, UAT, dan persiapan cutover (§5.3).
+Beban fitur terencana adalah **1152 poin** (1098 + 54 poin F11). Kapasitas steady state 56 poin/sprint, dan rata-rata beban fitur ±70% kapasitas. Sisa kapasitas sengaja disisihkan untuk integrasi data nyata, defect, UAT, dan persiapan cutover (§5.3).
 
 **Tiga hal yang paling menentukan jadwal:**
 
@@ -146,12 +149,12 @@ Ukuran fitur diturunkan dari jumlah requirement atomik di PRD Appendix B (BR + R
 
 | Ukuran | Jumlah ID requirement | Poin | Jumlah fitur |
 |---|---|---|---|
-| S | ≤ 11 | 2 | 55 |
-| M | 12–14 | 3 | 124 |
-| L | 15–20 | 5 | 64 |
+| S | ≤ 11 | 2 | 56 |
+| M | 12–14 | 3 | 133 |
+| L | 15–20 | 5 | 69 |
 | XL | > 20 | 8 | 37 |
 
-Total **1098 poin** untuk 280 fitur.
+Total **1152 poin** untuk 295 fitur (F11 PSS Kasir: 1 S, 9 M, 5 L = 54 poin).
 
 **1 poin ≈ 1 hari kerja engineer dengan coding agent**, termasuk test otomatis dan review. Nilai ini dikalibrasi ulang setelah S3.
 
@@ -178,9 +181,9 @@ Alokasi ini mencerminkan pergeseran fokus. F0 dikerjakan seluruh tim. Data/Integ
 | Pod Data & Reporting | CST, CUS, DQ, DWH, MDM, PRD, PRI, RPT | 115 | 37 |
 | Pod Integrasi | INT | 94 | 18 |
 | Pod Finance | AP, BNK, CLS, FIN, GL, MIG, TAX | 200 | 38 |
-| Pod Commerce (O2C/P2P) | ADM, AR, BIL, COL, COM, CRD, CSH, FUL, INV, MIG, ORD, PAY, PUR, RET, TAX | 275 | 86 |
+| Pod Commerce (O2C/P2P) | ADM, AR, BIL, COL, COM, CRD, CSH, FUL, INV, MIG, ORD, PAY, POS, PUR, RET, TAX | 329 | 101 |
 | Pod Lapangan (Geo/Sales/Antar/Gudang) | DLV, FLT, GEO, PLT, SFA, SUP, WMS | 211 | 66 |
-| **Total** | | **1098** | **280** |
+| **Total** | | **1152** | **295** |
 
 ### 5.4 Cadangan kapasitas
 
@@ -741,7 +744,7 @@ Setiap akhir sprint ganjil:
 
 ---
 
-## Lampiran A — Penjadwalan Fitur (280 fitur)
+## Lampiran A — Penjadwalan Fitur (295 fitur)
 
 Urut menurut sprint. Kolom *Sprint* adalah sprint di mana fitur memenuhi Appendix L PRD.
 
@@ -1027,6 +1030,21 @@ Urut menurut sprint. Kolom *Sprint* adalah sprint di mana fitur memenuhi Appendi
 | PAY-009 | QRIS / Virtual Account | F10 | P3 | M (3) | Commerce (O2C/P2P) | S31 | PAY-007 |
 | RET-004 | Retur ke principal | F10 | P3 | S (2) | Commerce (O2C/P2P) | S31 | RET-002, PUR-004 |
 | TAX-005 | Integrasi langsung sistem faktur pajak DJP | F10 | P3 | S (2) | Commerce (O2C/P2P) | S32 | TAX-004 |
+| POS-001 | Terminal konter & perangkat kasir | F11 | P1 | M (3) | Commerce (O2C/P2P) | S24 | MDM-002, PRI-004, IDN-004 |
+| POS-002 | Buka & tutup shift kasir (modal laci, hitung akhir, laporan shift) | F11 | P0 | L (5) | Commerce (O2C/P2P) | S24 | POS-001, DQ-001 |
+| POS-003 | Keranjang & katalog grosir (scan barcode, UOM grosir, harga & stok real-time) | F11 | P1 | L (5) | Commerce (O2C/P2P) | S24 | POS-002, COM-002, INV-002, PRD-004, SRC-001 |
+| POS-004 | Pelanggan grosir di konter (terdaftar, Pelanggan Umum, daftar cepat) | F11 | P1 | M (3) | Commerce (O2C/P2P) | S25 | POS-003, CUS-001, CUS-003, CUS-005 |
+| POS-005 | Checkout konter: keranjang → pesanan, reservasi, permintaan serah, faktur draf | F11 | P0 | L (5) | Commerce (O2C/P2P) | S25 | POS-003, POS-004, ORD-001, ORD-003, CRD-002, FUL-001, BIL-001 |
+| POS-006 | Pembayaran tunai di konter (uang diterima, kembalian, laci) | F11 | P0 | M (3) | Commerce (O2C/P2P) | S25 | POS-005, PAY-001 |
+| POS-007 | Pembayaran QRIS di konter (statis dengan konfirmasi; dinamis bila penyedia siap) | F11 | P1 | L (5) | Commerce (O2C/P2P) | S27 | POS-005, PAY-001, PAY-002, PAY-007, BNK-002 |
+| POS-008 | Pembayaran transfer bank di konter (barang ditahan sampai dana terverifikasi) | F11 | P1 | M (3) | Commerce (O2C/P2P) | S27 | POS-005, PAY-002, PAY-007, BNK-002, APR-001 |
+| POS-009 | Penjualan tempo di konter untuk pelanggan grosir terdaftar | F11 | P2 | S (2) | Commerce (O2C/P2P) | S28 | POS-005, CRD-002, CRD-003, BIL-003 |
+| POS-010 | Pengambilan & serah barang di titik ambil gudang (customer pickup) | F11 | P0 | L (5) | Commerce (O2C/P2P) | S26 | POS-005, POS-006, FUL-002, FUL-003, FUL-004, ADM-006 |
+| POS-011 | Struk konter, cetak ulang, dan faktur untuk pembeli | F11 | P1 | M (3) | Commerce (O2C/P2P) | S26 | POS-006, DOC-001, DOC-002 |
+| POS-012 | Batal transaksi konter, batal tender, dan retur konter | F11 | P1 | M (3) | Commerce (O2C/P2P) | S27 | POS-005, POS-006, ORD-005, RET-001, RET-002, RET-003, PAY-004, APR-001 |
+| POS-013 | Mode darurat offline untuk penjualan tunai | F11 | P2 | M (3) | Commerce (O2C/P2P) | S28 | POS-006, PLT-013 |
+| POS-014 | Serah kas shift konter ke Kasir Keuangan & verifikasi | F11 | P0 | M (3) | Commerce (O2C/P2P) | S26 | POS-002, CSH-001, CSH-002, PAY-002, PAY-003 |
+| POS-015 | Beranda konter (Kepala Kasir) & laporan penjualan konter harian | F11 | P1 | M (3) | Commerce (O2C/P2P) | S28 | POS-005, CST-001, CST-002, DQ-002 |
 
 ---
 

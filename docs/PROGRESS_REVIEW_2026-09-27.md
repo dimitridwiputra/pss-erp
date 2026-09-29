@@ -2,6 +2,8 @@
 
 **As of:** 27 September 2026 (Asia/Jakarta)
 
+> **Superseded on 29 September 2026.** This file is retained as the dated 27 September baseline and still describes the 280-feature PRD of that day. The PRD and implementation plan now contain 295 features, including the 15 F11 PSS Kasir additions, and the POS/WMS API controllers have since been removed from the deployable module. Do not use this file as current release evidence. See [NEXT_IMPLEMENTATION_PLAN_2026-09-29.md](NEXT_IMPLEMENTATION_PLAN_2026-09-29.md) and [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
+
 **Basis:** `docs/PRODUCT_PRD.md` (behavior and Appendix L), `docs/IMPLEMENTATION_PLAN.md` (dependencies and baseline schedule), `docs/ARCHITECTURE.md`, `docs/DESIGN_SYSTEM.md`, and the current checkout.
 
 **Purpose:** execution addendum. It does not change the PRD, feature dependencies, phase gates, or approved milestone dates.

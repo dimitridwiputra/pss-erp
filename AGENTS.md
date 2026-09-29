@@ -283,6 +283,7 @@ pss-platform/
     ar/
     payments/
     finance/
+    pos/
     sfa/
     wms/
     fleet/
