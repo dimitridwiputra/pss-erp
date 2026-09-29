@@ -109,14 +109,29 @@ describeIfDatabase('AUD-001 partitioned audit prerequisites', () => {
   });
 
   it('leaves the live audit_entry append-only and still the write target', async () => {
-    const tableoid = await pool.query<{ table: string }>(
-      'SELECT tableoid::regclass::text AS table FROM audit.audit_entry LIMIT 1',
-    );
-    expect(tableoid.rows.length === 0 || tableoid.rows[0].table === 'audit.audit_entry').toBe(true);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const id = randomUUID();
+      await client.query(
+        `INSERT INTO audit.audit_entry
+           (id, organization_id, entity_id, entity_version, changes, request_id,
+            correlation_id, actor_service_identity, action, entity_domain, entity_type, source)
+         VALUES ($1,$2,$3,1,'[]'::jsonb,$4,$5,'probe','PROBE','probe','Probe','SYSTEM')`,
+        [id, randomUUID(), randomUUID(), randomUUID(), randomUUID()],
+      );
+      const tableoid = await client.query<{ table: string }>(
+        'SELECT tableoid::regclass::text AS table FROM audit.audit_entry WHERE id = $1', [id],
+      );
+      expect(tableoid.rows[0]?.table).toBe('audit.audit_entry');
 
-    // The immutability trigger must still refuse a mutation on the live table.
-    await expect(
-      pool.query(`UPDATE audit.audit_entry SET action = 'TAMPERED' WHERE id = (SELECT id FROM audit.audit_entry LIMIT 1)`),
-    ).rejects.toThrow(/append-only/);
+      // An UPDATE needs a matching row to fire the row-level immutability trigger.
+      await expect(
+        client.query(`UPDATE audit.audit_entry SET action = 'TAMPERED' WHERE id = $1`, [id]),
+      ).rejects.toThrow(/append-only/);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
   });
 });
