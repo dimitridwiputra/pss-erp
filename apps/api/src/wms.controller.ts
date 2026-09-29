@@ -19,7 +19,7 @@ import {
 } from '@pss/contracts';
 import { checkAccess, loadActiveRoleAssignments, requireAccess, type RoleAssignment } from '@pss/identity';
 import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
-import { IdempotencyError, withIdempotentCommand } from '@pss/platform';
+import { IdempotencyError, runCommand, runCommandWithoutAudit } from '@pss/platform';
 import { z } from 'zod';
 import {
   activateWarehouse, addWarehouseUnitLine, allocatePickTask, assignException, completePacking,
@@ -98,30 +98,53 @@ export class WmsService implements OnModuleDestroy {
 
   /**
    * PLT-006: every mutating `/gudang` or `/wms` command replays its stored response for a
-   * previously-seen `(organizationId, identityId, commandName, key)` instead of re-executing —
-   * the `client` handed to `execute` is `withIdempotentCommand`'s own open transaction, so a
-   * domain command that accepts a `client` shares one commit boundary with the idempotency
-   * bookkeeping. A few WMS commands (`heartbeatOperatorSession`, `assignException`,
-   * `resolveException`, `syncOfflineConfirmations`) always manage their own connection — `execute`
-   * simply ignores `client` for those, since PLT-006 header/replay semantics still apply even
-   * though the domain effect itself isn't inside the same transaction.
+   * previously-seen `(organizationId, identityId, commandName, key)` instead of re-executing.
+   *
+   * `runCommand` opens one transaction and requires `execute` to append an audit entry into it
+   * (`AGENTS.md` §14), so a command that ignored the supplied client and opened its own
+   * connection used to commit its effect outside the idempotency bookkeeping while still
+   * reporting success. That was previously documented as accepted for `heartbeatOperatorSession`,
+   * `assignException`, `resolveException`, and `syncOfflineConfirmations`; the audit guard now
+   * rejects it, which is the point — those commands were the exception, not the rule.
+   */
+  /**
+   * The audited wrapper. Prefer this; reach for `withoutAudit` only where the domain effect
+   * cannot share the caller's transaction, and say which of the two qualifying shapes applies.
    */
   private async withIdempotency<T>(
     user: CurrentUserResponse, commandName: string, idempotencyKey: string, requestBody: unknown,
     execute: (client: PoolClient) => Promise<T>,
   ): Promise<T> {
     try {
-      const result = await withIdempotentCommand<PoolClient>(
+      const result = await runCommand(
         this.requirePool(),
         { organizationId: user.organizationId, identityId: user.id, commandName, key: idempotencyKey, requestHash: hashRequestBody(requestBody) },
-        async (client, work) => work(client),
-        async (client) => ({ code: 200, body: await execute(client) }),
+        async ({ client }) => ({ code: 200, body: await execute(client) }),
       );
       return result.body as T;
     } catch (error) {
       if (error instanceof IdempotencyError) throw new DomainError(error.code);
       throw error;
     }
+  }
+
+  /**
+   * Key construction and error translation shared by the unaudited commands below. The command
+   * itself is invoked inline rather than through a wrapper so that its justification is a string
+   * literal at the call site, where `scripts/check-command-fitness.mjs` can require it. A wrapper
+   * that forwarded a `reason` parameter made the justification invisible to the gate, which is
+   * the same invisible exception the gate exists to prevent.
+   */
+  private unauditedKey(user: CurrentUserResponse, commandName: string, idempotencyKey: string, requestBody: unknown) {
+    return {
+      organizationId: user.organizationId, identityId: user.id, commandName,
+      key: idempotencyKey, requestHash: hashRequestBody(requestBody),
+    };
+  }
+
+  private rethrowIdempotency(error: unknown): never {
+    if (error instanceof IdempotencyError) throw new DomainError(error.code);
+    throw error;
   }
 
   async registerLocation(user: CurrentUserResponse, input: RegisterWarehouseLocationRequest, idempotencyKey: string) {
@@ -357,14 +380,28 @@ export class WmsService implements OnModuleDestroy {
       if (!warehouseId) continue;
       requireAccess({ actorId: user.id, organizationId: user.organizationId, assignments, permission: 'wms.task.execute', resource: { organizationId: user.organizationId, warehouseId } });
     }
-    return this.withIdempotency(user, 'wms.syncOffline', idempotencyKey, input, () =>
-      syncOfflineConfirmations(this.requirePool(), { actor: this.actorOf(user, assignments), confirmations: input.confirmations }));
+    try {
+      const result = await runCommandWithoutAudit(
+        this.requirePool(),
+        this.unauditedKey(user, 'wms.syncOffline', idempotencyKey, input),
+        async () => ({ code: 200, body: await syncOfflineConfirmations(this.requirePool(), { actor: this.actorOf(user, assignments), confirmations: input.confirmations }) }),
+        'Batch: each confirmation commits independently so one rejected scan becomes NEEDS_REVIEW instead of discarding the device queue.',
+      );
+      return result.body;
+    } catch (error) { this.rethrowIdempotency(error); }
   }
 
   async heartbeat(user: CurrentUserResponse, input: HeartbeatRequest, idempotencyKey: string) {
     await this.requirePermission(user, 'wms.task.execute', input.warehouseId);
-    return this.withIdempotency(user, 'wms.heartbeat', idempotencyKey, input, () =>
-      heartbeatOperatorSession(this.requirePool(), { organizationId: user.organizationId, warehouseId: input.warehouseId, userId: user.id, currentTaskId: input.currentTaskId }));
+    try {
+      const result = await runCommandWithoutAudit(
+        this.requirePool(),
+        this.unauditedKey(user, 'wms.heartbeat', idempotencyKey, input),
+        async () => ({ code: 200, body: await heartbeatOperatorSession(this.requirePool(), { organizationId: user.organizationId, warehouseId: input.warehouseId, userId: user.id, currentTaskId: input.currentTaskId }) }),
+        'Presence telemetry: the heartbeat records that an operator is still on a task; no aggregate state changes.',
+      );
+      return result.body as { ok: true };
+    } catch (error) { this.rethrowIdempotency(error); }
   }
 
   async getActiveOperators(user: CurrentUserResponse, warehouseId: string) {
@@ -382,15 +419,29 @@ export class WmsService implements OnModuleDestroy {
   async assignException(user: CurrentUserResponse, id: string, input: AssignExceptionRequest, idempotencyKey: string) {
     const warehouseId = await this.warehouseIdOf('wms.exception_queue', id);
     await this.requirePermission(user, 'wms.task.reassign', warehouseId);
-    return this.withIdempotency(user, 'wms.assignException', idempotencyKey, { id, ...input }, () =>
-      assignException(this.requirePool(), { id, assignedTo: input.assignedTo }));
+    try {
+      const result = await runCommandWithoutAudit(
+        this.requirePool(),
+        this.unauditedKey(user, 'wms.assignException', idempotencyKey, { id, ...input }),
+        async () => ({ code: 200, body: await assignException(this.requirePool(), { id, assignedTo: input.assignedTo }) }),
+        'Queue bookkeeping: assignment is a triage state on the ticket, not a change to a business aggregate.',
+      );
+      return result.body as { id: string };
+    } catch (error) { this.rethrowIdempotency(error); }
   }
 
   async resolveException(user: CurrentUserResponse, id: string, idempotencyKey: string) {
     const warehouseId = await this.warehouseIdOf('wms.exception_queue', id);
     await this.requirePermission(user, 'wms.count.review', warehouseId);
-    return this.withIdempotency(user, 'wms.resolveException', idempotencyKey, { id }, () =>
-      resolveException(this.requirePool(), { id }));
+    try {
+      const result = await runCommandWithoutAudit(
+        this.requirePool(),
+        this.unauditedKey(user, 'wms.resolveException', idempotencyKey, { id }),
+        async () => ({ code: 200, body: await resolveException(this.requirePool(), { id }) }),
+        'Queue bookkeeping: closing the ticket is triage state; the underlying correction was already audited when it happened.',
+      );
+      return result.body as { id: string };
+    } catch (error) { this.rethrowIdempotency(error); }
   }
 
   async getLocationUtilization(user: CurrentUserResponse, warehouseId: string) {

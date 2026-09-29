@@ -18,6 +18,59 @@ Platform does not own configuration **evaluation**. `@pss/configuration` turns a
 
 ## Commands
 
+### Command pipeline (ADR-0013)
+
+The single write path for every retriable mutation. `AGENTS.md` 3.6 (idempotent),
+14 (audited), and 18 (no duplicate systems) are properties of how a mutation runs,
+so they are solved once here instead of per domain.
+
+- `runCommand(pool, key, execute)` opens one transaction, holds the
+  `platform.idempotency_key` row, and hands `execute` an `AuditedTransaction`. The
+  transaction runner is **not** a parameter, so a mutation cannot commit without an
+  audit entry and a retry cannot double-apply. `execute` returns `{ code, body }`:
+  the stored response is HTTP-shaped because `platform.idempotency_key` columns are
+  `response_code`/`response_body`. The lower-level `withIdempotentCommand` is no
+  longer exported, because the runner it accepted made the audit guarantee opt-in
+  and all four call sites passed a pass-through.
+- `withConnection(pool, transaction, work)` runs a domain function in an audited
+  transaction, reusing an open one. This used to be copied into `inventory`, `wms`,
+  and `invoicing` as `application/support/with-connection.ts`; those three copies
+  are deleted and their 15 call sites repointed here. A domain function takes the
+  caller's transaction rather than an optional `client`, so the idempotency row and
+  the mutation cannot land in separate commits.
+- `runCommandWithoutAudit(pool, key, execute, reason)` covers the two shapes that
+  cannot share the caller's transaction: a batch that must stay independent per item
+  (`syncOfflineConfirmations`, so one rejected scan becomes `NEEDS_REVIEW` instead of
+  discarding a device queue) and operational presence (`heartbeatOperatorSession`,
+  where no aggregate changes). `reason` is a mandatory string literal of at least 20
+  characters. `scripts/check-command-fitness.mjs` prints every use with its
+  justification, so the exemption list is reviewable rather than invisible.
+- **The audit count belongs to the transaction, not the invocation.** `runAuditedWork`
+  in `@pss/audit` tallies entries in a `WeakMap` keyed by `PoolClient`, so nested
+  calls accumulate. A per-invocation counter made the outer guard see zero entries
+  for a mutation the inner call had already audited, which would have pushed every
+  nested command to open a second connection and lose atomicity with its idempotency
+  row. Keying by client is safe because a client is checked out for exactly one
+  transaction, so a rolled-back or committed transaction cannot leak a count forward.
+
+Invariants this now enforces structurally:
+
+- A committed mutation has at least one `audit.audit_entry` in the same transaction.
+- A retried command replays its stored response rather than re-applying.
+- The document-numbering commands share one commit with their idempotency row.
+  They previously passed only a `Pool`, so each opened a second connection; a failed
+  outer commit left a mutation a retry would re-apply. The same applied to
+  `setFeatureFlag` and `setFlagTargeting`, which took no transaction at all; both now
+  accept one and the configuration routes thread it, so a flag write and its
+  idempotency row commit together.
+- A command asked to do something it finds already done **succeeds and is traced**.
+  The audit guard rejects a transaction that appended no entry, which is right for a
+  forgotten append and wrong for a no-op. Rather than weaken the guard, the no-op
+  path appends its own entry: a re-seed of document numbering with a fresh
+  idempotency key writes `NUMBERING_SCHEMES_SEED_NOOP` with `created: 0` and returns
+  201. `apps/api/tests/doc-numbering.integration.test.ts` covers it, and the test
+  fails if the no-op handling is removed — it was found by review, not by the suite.
+
 ### Delivery
 
 - `appendOutboxEvent(client, event)` validates the event type, version, producer, aggregate, and implemented payload schema, then inserts into the caller's active transaction. Call with the same client as the domain mutation and audit entry.
@@ -167,6 +220,10 @@ PostgreSQL `pg`, `@pss/contracts` event, registry, and error-code validation, `@
 
 ## Acceptance tests
 
+`tests/command-fitness.test.ts` covers the command pipeline gate: a command through `runCommand` is accepted, an import of `withIdempotentCommand` outside the canonical file is rejected, the canonical file may call it, a fourth per-domain `withConnection` copy is rejected whether imported or defined locally, an `runCommandWithoutAudit` without a literal justification is rejected, one with a justification is reported rather than rejected, and a justification hidden behind an indirection the gate cannot read is rejected. Each rule is exercised against a violating source, not only a compliant one.
+
+`domains/audit/tests/audit-transaction.integration.test.ts` covers the per-transaction audit count (ADR-0013): a nested audited call on the same client satisfies the outer guard and commits its business row, a nested call that appends nothing still rolls the business row back, and a committed transaction's tally does not carry into the next one.
+
 `domains/platform/tests/outbox.integration.test.ts` verifies rollback, event validation, per-aggregate order, and at-least-once duplicate behaviour after a send succeeds but acknowledgement fails.
 
 `domains/platform/tests/event-delivery-reliability.integration.test.ts` covers the registered backoff table, delayed retry, exhaustion into a dead letter that frees the aggregate, failure classification, duplicate suppression, a version gap that defers and then applies once the gap closes, out-of-order exhaustion into one visible dead letter, a handler failure's code/attempts/timestamps, audited replay, replay releasing a dead-lettered outbox row, audited discard with a mandatory reason, DLQ depth/age summary, and both retention helpers.
@@ -181,4 +238,4 @@ PostgreSQL `pg`, `@pss/contracts` event, registry, and error-code validation, `@
 
 `domains/platform/tests/document-numbering.integration.test.ts` covers the DRAFT seed for all 18 S3 types, the refusal to activate a half-configured scheme, **50 parallel reservations producing 50 distinct continuous numbers**, a retried `requestKey` returning the same number, a voided number never being reissued, a void recording its actor and reason, confirmation, period selection from the document date across YEARLY/MONTHLY/NEVER, per-branch and per-organization isolation, and the sequence report explaining every ordinal.
 
-`apps/api/tests/config-admin.integration.test.ts` and `apps/api/tests/doc-numbering.integration.test.ts` cover the HTTP boundary: the missing `Idempotency-Key`, malformed bodies, unauthenticated callers, a body-supplied `organizationId` being refused rather than trusted, the permission gate (asserted to deny today, which is the measured behaviour), the effective-dated rows endpoint, the stale-flag report, the GAP-16 activation refusal, the DRAFT seed over HTTP, and reserve/confirm/void over HTTP.
+`apps/api/tests/config-admin.integration.test.ts` and `apps/api/tests/doc-numbering.integration.test.ts` cover the HTTP boundary: the missing `Idempotency-Key`, malformed bodies, unauthenticated callers, a body-supplied `organizationId` being refused rather than trusted, the permission gate (asserted to deny today, which is the measured behaviour), the effective-dated rows endpoint, the stale-flag report, the GAP-16 activation refusal, the DRAFT seed over HTTP, reserve/confirm/void over HTTP, and a re-seed under a fresh idempotency key returning 201 with created 0 rather than failing the audit guard.

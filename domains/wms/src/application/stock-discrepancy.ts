@@ -5,7 +5,7 @@ import { adjustStock } from '@pss/inventory';
 import { DecimalStringSchema, DomainError } from '@pss/contracts';
 import { z } from 'zod';
 import { OptionalAuditContextSchema, resolveAuditContext } from './support/audit-context';
-import { withConnection } from './support/with-connection';
+import { withConnection } from '@pss/platform';
 
 const ReportTypeSchema = z.enum(['DAMAGED', 'MISSING', 'EXCESS', 'WRONG_LOCATION']);
 

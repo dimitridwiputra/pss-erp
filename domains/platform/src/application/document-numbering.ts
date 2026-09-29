@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { DomainError } from '@pss/contracts';
-import { withAuditedTransaction, type AuditedTransaction } from '@pss/audit';
+import { type AuditedTransaction } from '@pss/audit';
 import { BUSINESS_TIME_ZONE } from './business-calendar';
+import { withConnection } from './command';
 
 /**
  * DOC-001 — document numbering per (document type, scope, business period).
@@ -227,9 +228,10 @@ export async function reserveDocumentNumber(
   const parsed = ReserveSchema.safeParse(rawInput);
   if (!parsed.success) throw new DomainError('VALIDATION_FAILED');
   const input = parsed.data;
-  if (transaction) return runReserve(transaction.client, transaction.appendAuditEntry, input);
-
-  return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+  // `withConnection` reuses the caller's open transaction when there is one. The previous
+  // `if (transaction) return runReserve(transaction.client, ...)` short-circuit skipped
+  // `runAuditedWork`, so a caller-supplied transaction was not checked for an audit entry.
+  return withConnection(pool, transaction?.client, async ({ client, appendAuditEntry }) => {
     const { number, replayed } = await runReserve(client, appendAuditEntry, input);
     if (replayed) {
       // The audit wrapper refuses to commit without an entry, and a caller retrying a reserve
@@ -372,8 +374,7 @@ export async function confirmDocumentNumber(
     });
     return toDocumentNumber(confirmed);
   };
-  if (transaction) return run(transaction.client, transaction.appendAuditEntry);
-  return withAuditedTransaction(pool, ({ client, appendAuditEntry }) => run(client, appendAuditEntry));
+  return withConnection(pool, transaction?.client, ({ client, appendAuditEntry }) => run(client, appendAuditEntry));
 }
 
 /**
@@ -437,8 +438,7 @@ export async function voidDocumentNumber(
     });
     return toDocumentNumber(voided);
   };
-  if (transaction) return run(transaction.client, transaction.appendAuditEntry);
-  return withAuditedTransaction(pool, ({ client, appendAuditEntry }) => run(client, appendAuditEntry));
+  return withConnection(pool, transaction?.client, ({ client, appendAuditEntry }) => run(client, appendAuditEntry));
 }
 
 export interface NumberingSchemeView {
@@ -495,7 +495,7 @@ function toSchemeView(row: Record<string, unknown>): NumberingSchemeView {
  * refused so `reserveDocumentNumber` never has to guess a missing field.
  */
 export async function createNumberingScheme(
-  pool: Pool, rawInput: CreateSchemeInput,
+  pool: Pool, rawInput: CreateSchemeInput, transaction?: AuditedTransaction,
 ): Promise<NumberingSchemeView> {
   const parsed = CreateSchemeSchema.safeParse(rawInput);
   if (!parsed.success) throw new DomainError('VALIDATION_FAILED');
@@ -505,7 +505,7 @@ export async function createNumberingScheme(
     || input.resetPolicy === undefined || input.gapPolicy === undefined || input.padding === undefined)) {
     throw new DomainError('INVALID_STATE_TRANSITION');
   }
-  return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+  return withConnection(pool, transaction?.client, async ({ client, appendAuditEntry }) => {
     const id = randomUUID();
     const { rows } = await client.query<Record<string, unknown>>(
       `INSERT INTO platform.document_numbering_scheme (
@@ -555,7 +555,7 @@ const S3_DOCUMENT_TYPES = [
 ] as const;
 
 export async function seedDraftNumberingSchemes(
-  pool: Pool, rawInput: SeedDraftSchemesInput,
+  pool: Pool, rawInput: SeedDraftSchemesInput, transaction?: AuditedTransaction,
 ): Promise<{ created: number; schemes: NumberingSchemeView[] }> {
   const parsed = SeedDraftsSchema.safeParse(rawInput);
   if (!parsed.success) throw new DomainError('VALIDATION_FAILED');
@@ -565,12 +565,43 @@ export async function seedDraftNumberingSchemes(
   const missing = S3_DOCUMENT_TYPES.filter((docType) => !known.has(docType));
   const validFrom = input.validFrom ?? jakartaBusinessDate();
   const schemes: NumberingSchemeView[] = [];
+  // One transaction for the whole seed: either every registered document type lands or none does.
   for (const docType of missing) {
     schemes.push(await createNumberingScheme(pool, {
       organizationId: input.organizationId,
       ...(input.branchId ? { branchId: input.branchId } : {}),
       docType, validFrom, requestId: `${input.requestId}:${docType}`,
-    }));
+    }, transaction));
+  }
+  if (schemes.length === 0 && !transaction) {
+    // A re-seed with a fresh idempotency key finds every type already present. That is a
+    // successful no-op, not a failure, so the audit guard must not reject it — but "an operator
+    // asked to seed and everything was already there" is worth recording, so it is traced
+    // rather than passed through silently. See ADR-0013.
+    return withConnection(pool, undefined, async ({ appendAuditEntry }) => {
+      await appendAuditEntry({
+        organizationId: input.organizationId,
+        ...(input.branchId ? { branchId: input.branchId } : {}),
+        actor: { serviceIdentity: 'platform.documents', roles: [] },
+        action: 'NUMBERING_SCHEMES_SEED_NOOP',
+        entity: { domain: 'platform', type: 'NumberingScheme', id: input.organizationId, version: 1 },
+        changes: [{ path: 'created', classification: 'INTERNAL', before: S3_DOCUMENT_TYPES.length, after: 0 }],
+        requestId: input.requestId, correlationId: input.requestId, source: 'API',
+      });
+      return { created: 0, schemes: existing };
+    });
+  }
+  if (schemes.length === 0) {
+    // A caller-supplied transaction that produced nothing still needs a trail, for the same reason.
+    await transaction!.appendAuditEntry({
+      organizationId: input.organizationId,
+      ...(input.branchId ? { branchId: input.branchId } : {}),
+      actor: { serviceIdentity: 'platform.documents', roles: [] },
+      action: 'NUMBERING_SCHEMES_SEED_NOOP',
+      entity: { domain: 'platform', type: 'NumberingScheme', id: input.organizationId, version: 1 },
+      changes: [{ path: 'created', classification: 'INTERNAL', before: S3_DOCUMENT_TYPES.length, after: 0 }],
+      requestId: input.requestId, correlationId: input.requestId, source: 'API',
+    });
   }
   return { created: schemes.length, schemes: schemes.length > 0 ? schemes : existing };
 }

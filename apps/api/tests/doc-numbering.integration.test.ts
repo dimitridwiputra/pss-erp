@@ -168,6 +168,20 @@ describe('DOC-001 document numbering route boundary', () => {
       scheme.status === 'DRAFT' && scheme.pattern === null && scheme.branchCode === null)).toBe(true);
   });
 
+  /**
+   * A re-seed under a *fresh* idempotency key finds every type already present. That is a
+   * successful no-op, and the audit guard in `runCommand` must not turn it into a 500 — a
+   * command that is asked to do something it finds already done has to succeed. It is still
+   * traced, so the trail records that the seed ran and changed nothing.
+   */
+  it('succeeds and is traced when a fresh key re-seeds types that already exist', async () => {
+    const response = await post('/platform/documents/numbering/schemes/seed-drafts', { branchId }, randomUUID());
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.created).toBe(0);
+    expect(body.schemes).toHaveLength(18);
+  });
+
   it('reserves, confirms, and voids a number, and a retried reserve returns the same one', async () => {
     await createActiveScheme();
     const requestKey = randomUUID();

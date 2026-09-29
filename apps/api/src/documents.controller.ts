@@ -4,9 +4,9 @@ import { DomainError, type CurrentUserResponse } from '@pss/contracts';
 import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
 import {
   confirmDocumentNumber, createNumberingScheme, IdempotencyError, listNumberingSchemes,
-  numberSequenceUsage, reserveDocumentNumber, seedDraftNumberingSchemes, voidDocumentNumber,
-  withIdempotentCommand,
+  numberSequenceUsage, reserveDocumentNumber, runCommand, seedDraftNumberingSchemes, voidDocumentNumber,
 } from '@pss/platform';
+import type { AuditedTransaction } from '@pss/platform';
 import { Pool } from 'pg';
 import { z } from 'zod';
 import { IdentityService } from './identity.controller';
@@ -82,19 +82,25 @@ export class DocumentNumberingService implements OnModuleDestroy {
     return this.identity.getCurrentUser(authorizationHeader);
   }
 
+  /**
+   * The audited transaction is threaded into the command rather than a bare pool, so the
+   * idempotency row, the mutation, and its audit entry share one commit (AGENTS.md §3.6).
+   * Passing only `pool` here committed the mutation on a second connection while the
+   * idempotency row was still in flight, so a failed outer commit left a mutation that a
+   * retry would re-apply.
+   */
   private async withIdempotency<T>(
     user: CurrentUserResponse, commandName: string, idempotencyKey: string,
-    requestBody: unknown, execute: () => Promise<T>,
+    requestBody: unknown, execute: (transaction: AuditedTransaction) => Promise<T>,
   ): Promise<T> {
     try {
-      const result = await withIdempotentCommand(
+      const result = await runCommand(
         this.requirePool(),
         {
           organizationId: user.organizationId, identityId: user.id, commandName,
           key: idempotencyKey, requestHash: hashRequestBody(requestBody),
         },
-        async (client, work) => work(client),
-        async () => ({ code: 200, body: await execute() }),
+        async (transaction) => ({ code: 200, body: await execute(transaction) }),
       );
       return result.body as T;
     } catch (error) {
@@ -107,10 +113,10 @@ export class DocumentNumberingService implements OnModuleDestroy {
     authorizationHeader: string | undefined, body: CreateSchemeBody, idempotencyKey: string, requestId: string,
   ) {
     const user = await this.requireUser(authorizationHeader);
-    return this.withIdempotency(user, 'platform.createNumberingScheme', idempotencyKey, body, () =>
+    return this.withIdempotency(user, 'platform.createNumberingScheme', idempotencyKey, body, (transaction) =>
       createNumberingScheme(this.requirePool(), {
         ...body, organizationId: user.organizationId, requestId,
-      }));
+      }, transaction));
   }
 
   /** DOC-001.R04: the S3 document types registered as DRAFT so Finance/Ops can review GAP-16. */
@@ -118,42 +124,42 @@ export class DocumentNumberingService implements OnModuleDestroy {
     authorizationHeader: string | undefined, body: { branchId?: string }, idempotencyKey: string, requestId: string,
   ) {
     const user = await this.requireUser(authorizationHeader);
-    return this.withIdempotency(user, 'platform.seedDraftNumberingSchemes', idempotencyKey, body, () =>
+    return this.withIdempotency(user, 'platform.seedDraftNumberingSchemes', idempotencyKey, body, (transaction) =>
       seedDraftNumberingSchemes(this.requirePool(), {
         organizationId: user.organizationId, ...(body.branchId ? { branchId: body.branchId } : {}), requestId,
-      }));
+      }, transaction));
   }
 
   async reserve(
     authorizationHeader: string | undefined, body: ReserveBody, idempotencyKey: string, requestId: string,
   ) {
     const user = await this.requireUser(authorizationHeader);
-    return this.withIdempotency(user, 'platform.reserveDocumentNumber', idempotencyKey, body, () =>
+    return this.withIdempotency(user, 'platform.reserveDocumentNumber', idempotencyKey, body, (transaction) =>
       reserveDocumentNumber(this.requirePool(), {
         ...body, organizationId: user.organizationId, reservedBy: user.id,
         requestingDomain: 'api', requestId,
-      }));
+      }, transaction));
   }
 
   async confirm(
     authorizationHeader: string | undefined, reservationId: string, body: ConfirmBody, idempotencyKey: string, requestId: string,
   ) {
     const user = await this.requireUser(authorizationHeader);
-    return this.withIdempotency(user, 'platform.confirmDocumentNumber', idempotencyKey, { reservationId, ...body }, () =>
+    return this.withIdempotency(user, 'platform.confirmDocumentNumber', idempotencyKey, { reservationId, ...body }, (transaction) =>
       confirmDocumentNumber(this.requirePool(), {
         organizationId: user.organizationId, reservationId, documentId: body.documentId, requestId,
-      }));
+      }, transaction));
   }
 
   async voidNumber(
     authorizationHeader: string | undefined, reservationId: string, body: VoidBody, idempotencyKey: string, requestId: string,
   ) {
     const user = await this.requireUser(authorizationHeader);
-    return this.withIdempotency(user, 'platform.voidDocumentNumber', idempotencyKey, { reservationId, ...body }, () =>
+    return this.withIdempotency(user, 'platform.voidDocumentNumber', idempotencyKey, { reservationId, ...body }, (transaction) =>
       voidDocumentNumber(this.requirePool(), {
         organizationId: user.organizationId, reservationId, reason: body.reason,
         voidedBy: user.id, requestId,
-      }));
+      }, transaction));
   }
 
   async listSchemes(authorizationHeader: string | undefined, branchId?: string) {
