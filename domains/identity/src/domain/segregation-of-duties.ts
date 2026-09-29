@@ -40,7 +40,7 @@ const BUSINESS_MUTATION_ROLES = new Set([
  * (RBAC-001.R02), which is the right outcome: SOD-07 is a constraint on which roles
  * may be composed, not an authorization decision.
  */
-const TECHNICAL_ROLES = new Set(
+const TECHNICAL_ROLES = new Set<string>(
   registryCatalog.roles
     .filter((role) => String(role.defaultScope).trim().toLowerCase() === 'teknis')
     .map((role) => role.code),

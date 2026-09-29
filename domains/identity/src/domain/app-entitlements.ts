@@ -1,4 +1,3 @@
-import { registryCatalog } from '@pss/contracts';
 import { resolveRolePermissions } from './role-permissions';
 
 /**
