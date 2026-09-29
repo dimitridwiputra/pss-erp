@@ -15,3 +15,14 @@ test-results/
 apps/web/public/sw.js
 apps/web/public/sw.js.map
 apps/web/public/swe-worker-*.js
+
+# Terraform (PLT-011 / OD-187). State contains connection metadata and is never
+# committed; see infrastructure/terraform/README.md "Bootstrapping".
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+*.tfvars.local
+override.tf
+override_*.tf
