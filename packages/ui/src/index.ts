@@ -20,3 +20,4 @@ export * from './charts';
 export * from './finance-close-template';
 export * from './counter-template';
 export * from './standard-states';
+export * from './status-vocabulary';

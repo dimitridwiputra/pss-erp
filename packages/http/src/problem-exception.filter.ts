@@ -1,6 +1,12 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
 import { createProblemDetails, DomainError, MalformedRequestError, type ErrorCode } from '@pss/contracts';
-import { createServiceLogger, requestContextFrom, type ObservedRequest } from '@pss/observability';
+import {
+  createServiceLogger,
+  formatTraceparent,
+  requestContextFrom,
+  runWithTraceContext,
+  type ObservedRequest,
+} from '@pss/observability';
 
 type HttpRequest = ObservedRequest & {
   originalUrl?: string;
@@ -42,10 +48,15 @@ export class ProblemExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const request = host.switchToHttp().getRequest<HttpRequest>();
     const response = host.switchToHttp().getResponse<HttpResponse>();
-    const { requestId, correlationId } = requestContextFrom(request);
+    const { requestId, correlationId, trace } = requestContextFrom(request);
     const normalized = normalizeError(exception);
-    if (!normalized) (request.pssLogger ?? this.fallbackLogger.child({ requestId, correlationId }))
-      .error({ code: 'INTERNAL' }, 'Unhandled HTTP error');
+    // The exception filter can run outside the request's trace scope (a filter is
+    // invoked from the exception layer, not the middleware), so the ids are bound
+    // explicitly rather than inherited.
+    if (!normalized) runWithTraceContext(trace, () => {
+      (request.pssLogger ?? this.fallbackLogger.child({ requestId, correlationId }))
+        .error({ code: 'INTERNAL' }, 'Unhandled HTTP error');
+    });
     const problem = createProblemDetails(normalized, {
       requestId,
       correlationId,
@@ -53,6 +64,7 @@ export class ProblemExceptionFilter implements ExceptionFilter {
     });
     response.setHeader('x-request-id', requestId);
     response.setHeader('x-correlation-id', correlationId);
+    response.setHeader('traceparent', formatTraceparent(trace));
     response.status(problem.status).type('application/problem+json').json(problem);
   }
 }
