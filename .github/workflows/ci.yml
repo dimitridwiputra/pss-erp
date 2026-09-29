@@ -39,6 +39,15 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,9 +87,14 @@ jobs:
         run: pnpm audit --prod --audit-level high
       - name: Unit tests
         run: pnpm test
+      - name: Prepare audit schema for integration tests
+        env:
+          DATABASE_URL: postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational
+        run: pnpm --filter @pss/audit db:migrate
       - name: Integration scaffold check
         env:
           PSS_TEST_DATABASE_URL: postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational
+          REDIS_URL: redis://127.0.0.1:6379
         run: pnpm test:integration
       - name: E2E scaffold check
         run: pnpm test:e2e
