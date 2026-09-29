@@ -8,7 +8,11 @@ const client = new pg.Client({ connectionString });
 await client.connect();
 try {
   await client.query('BEGIN');
-  for (const file of ['0001_audit_entry.sql', '0002_audit_source_offline_paper.sql']) {
+  for (const file of [
+    '0001_audit_entry.sql',
+    '0002_audit_source_offline_paper.sql',
+    '0003_audit_entry_partitioning_prereq.sql',
+  ]) {
     const sql = await readFile(new URL(`../infrastructure/database/migrations/${file}`, import.meta.url), 'utf8');
     await client.query(sql);
   }
