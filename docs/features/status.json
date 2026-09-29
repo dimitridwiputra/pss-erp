@@ -19,9 +19,33 @@
     "state": "partial",
     "note": "Verifikasi OIDC/JWKS, status akun PSS, login web S256 PKCE, sesi HttpOnly, refresh token, logout lokal, dan pencabutan sesi admin dengan MFA diuji secara lokal. Logout IdP, batas usia data offline, dan lingkungan hosted belum tersedia."
   },
+  "RBAC-003": {
+    "state": "partial",
+    "note": "Navigasi dihitung server-side: GET /me/navigation hanya mengembalikan aplikasi dan menu yang benar-benar boleh dibuka pemanggil, sehingga item yang ditolak tidak pernah dikirim sebagai menu nonaktif (BR01). Navigasi bawah mobile dibatasi empat item dan pemangkasan ditandai agar klien dapat menawarkan \"Lainnya\" (BR02). Uji integrasi membuktikan penolakan akun nonaktif, penyembunyian item per izin, dan determinisme urutan. Belum ada entitlement per peran yang terhubung ke registry role di luar beberapa peran, dan kedalaman navigasi masih perlu layar \"tidak ada akses\" di semua produk."
+  },
+  "PLT-008": {
+    "state": "partial",
+    "note": "Satu layarrrr diimplementasikan ujung ke ujung: kotak persetujuan lintas produk (PLT-008.AC01). Status hanya pernah dikirim sebagai objek berlabel, permittedActions menyatu dalam satu respons, dan kebocoran enum mentah mustahil secara struktural. Kegagalan sumber dinyatakan eksplisit melalui `sources` dengan `items: null` saat baca gagal, bukan daftar kosong yang tampil sebagai \"tidak ada pekerjaan\". Uji integrasi membuktikan data cabang lain tidak ada pada byte respons dan BFF tidak menulis ke basis data. Delapan BFF masih harus dibangun, dan endpoint sinkronisasi batch mobile belum ada."
+  },
+  "DQ-001": {
+    "state": "partial",
+    "note": "Semua 41 antrean Appendix P (30 dari P.1 dan 11 dari P.2) ditabur secara verbatim; tidak ada kode, label, peran, atau SLA yang dikarang. Dedupe aman terhadap konkurensi, SLA hari kerja dihitung di Asia/Jakarta melalui tabel kalender terdaftar, eskalasi dan cakupan per peran tersedia, dan jalur resolusi tetap milik domain pemilik. Bukti kueri 100.000 item diukur: 3,5-23 ms untuk worklist per peran, filter terlambat, dan satu cabang. AC05 (notifikasi terlambat) BELUM diimplementasikan dan tidak diklaim karena bergantung pada NTF-001. Event EXCEPTION_* tidak terbit karena skema payload belum terdaftar."
+  },
+  "DOC-001": {
+    "state": "partial",
+    "note": "Mekanisme penomoran tersedia: penghitung terkunci per (cakupan, tipe, periode) dengan dua indeks unik yang keduanya menyertakan baris BATAL, sehingga nomor batal tidak dapat dipakai ulang. 50 reservasi paralel menghasilkan 50 nilai berbeda berupa rentang kontinu 1..50 tanpa duplikasi dan tanpa celah. Pola, branch_code, gap_policy, dan padding sengaja dibiarkan NULL dan pembuatan scheme AKTIF yang lengkap ditolak, karena skema dokumen dan kode cabang resmi belum disetujui (GAP-16). Reservasi NO_GAP_FISCAL terpisah dengan void otomatis atas timeout belum ada. Endpoint belum terdaftar di main.ts."
+  },
+  "UX-002": {
+    "state": "partial",
+    "note": "Registry status memetakan setiap union state kontrak ke label Bahasa Indonesia, tone, dan ikon, dengan fallback \"Status tidak dikenal\" yang tidak pernah membocorkan kode mentah. Pemeriksaan kelengkapan tersambung ke ui:check dan membaca union state langsung dari sumber kontrak, sehingga state baru tanpa label menggagalkan CI. 22 state masih tanpa label dan sengaja dicatat di pendingStatusLabels alih-alih dikarang, karena UX-002 menyerahkan copywriting ke Product/Ops dan GAP-23 masih terbuka (State · ApprovalRequest, seluruh WMS, dan sebagian POS)."
+  },
+  "SEC-001": {
+    "state": "partial",
+    "note": "Klasifikasi field (PUBLIC | INTERNAL | CONFIDENTIAL | PERSONAL | SENSITIVE_PERSONAL) tersedia sebagai metadata kontrak yang bertahan melewati .optional(), .nullable(), dan .array(), beserta helper masking dan varian penuh yang hanya dipakai bila ada izin *.view_full. Trace W3C kini benar-benar menyeberang HTTP ke event dan job. Belum ada masking PII pada payload logger secara umum, enkripsi tingkat kolom dengan KMS, atau pekerjaan retensi; OD-40 dan OD-185 masih terbuka."
+  },
   "IDN-002": {
     "state": "partial",
-    "note": "Kebijakan step-up `requireRecentMfa` menolak token tanpa klaim `amr` atau yang melebihi `identity.step_up_minutes`, dan sudah dipakai pada pencabutan sesi serta keputusan persetujuan; uji unit dan integrasi lulus lokal. Penanda `mfa_required` pada Role Registry, flag `sensitive_flag` per permission, `ResetMfa` oleh System Admin beserta audit dan notifikasi, serta demo IdP hosted belum tersedia."
+    "note": "Kebijakan step-up `requireRecentMfa` menolak token tanpa klaim `amr` atau yang melebihi `identity.step_up_minutes`, dan sudah dipakai pada pencabutan sesi serta keputusan persetujuan; uji unit dan integrasi lulus lokal. Penanda `mfa_required` pada Role Registry, flag `sensitive_flag` per permission, `ResetMfa` oleh System Admin beserta audit dan notifikasi, serta demo IdP hosted belum tersedia. Peran dengan scope `Teknis` pada registry diperlakukan sebagai role teknis oleh SOD-07, sehingga aturan tersebut berlaku ke role teknis mana pun di masa depan."
   },
   "RBAC-001": {
     "state": "partial",
@@ -82,7 +106,7 @@
   },
   "PLT-011": {
     "state": "partial",
-    "note": "Layanan lokal berjalan; staging dan produksi berbasis IaC belum tersedia."
+    "note": "Stack Terraform untuk Google Cloud asia-southeast2 (Jakarta) tersedia di infrastructure/terraform dan mencakup VPC tanpa Kubernetes, Cloud SQL PostgreSQL 17 + PostGIS, Memorystore untuk Valkey, empat bucket terenkripsi CMEK, Cloud Run untuk lima deployable plus Keycloak, Secret Manager, anggaran dan alert. `terraform validate` lulus dan dev, staging, dan produksi masing-masing menghasilkan plan bersih. Kapasitas diturunkan dari 1.500 pesanan/hari dan 15.000 baris/hari dengan amplop 2x serta target uji beban 50.000 baris/hari dan 500 pengguna konkuren. BELUM DIAPLIKASIKAN: gcloud tidak memiliki akun terotorisasi, sehingga tidak ada sumber daya yang dibuat dan belum ada biaya. ADR-0009 dan ADR-0012 berstatus Proposed dan belum ditandatangani."
   },
   "UX-001": {
     "state": "partial",

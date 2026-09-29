@@ -186,5 +186,8 @@ describe('PLT-004/005 live outbox to BullMQ to reporting inbox', () => {
       await failingWorker.close();
       await pool.query('ALTER TABLE reporting.delivery_order_status DROP CONSTRAINT IF EXISTS reject_projection');
     }
-  });
+    // The loop above waits up to 20s for the retry budget to be spent, so the harness
+    // timeout has to exceed that. At the default 5s this test passed only when it ran
+    // alone with a warm queue, and timed out under full-suite load.
+  }, 40_000);
 });
