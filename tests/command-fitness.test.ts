@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findCommandFitnessProblems, findPlumbingProblemsIn } from '../scripts/check-command-fitness.mjs';
+import { registeredControllerNames } from '../scripts/check-api-controller-registration.mjs';
 
 const noExemptions = { exemptions: [] };
 
@@ -160,5 +161,26 @@ describe('command pipeline is solved once', () => {
       }`;
     const { problems } = findPlumbingProblemsIn([{ relative: 'apps/api/src/x.ts', source: indirect }]);
     expect(problems.join('\n')).toContain('without a string-literal justification');
+  });
+});
+
+describe('PLT-002/PLT-006 command fitness: registered controllers only', () => {
+  const unsafe = controllerWith(`      @Post()
+      create(@Body() body: unknown) { return body; }`);
+
+  it('inspects a controller once the API module registers it', () => {
+    const registered = registeredControllerNames('@Module({ controllers: [HealthController, ThingController] }) class AppModule {}');
+    expect(findCommandFitnessProblems([{ fileName: 'thing.ts', source: unsafe }], noExemptions, registered).length).toBeGreaterThan(0);
+  });
+
+  it('skips a controller the API module does not register, because it serves no route', () => {
+    const registered = registeredControllerNames('@Module({ controllers: [HealthController] }) class AppModule {}');
+    expect(findCommandFitnessProblems([{ fileName: 'thing.ts', source: unsafe }], noExemptions, registered)).toEqual([]);
+  });
+
+  it('inspects everything when the controllers array cannot be read statically', () => {
+    const registered = registeredControllerNames('@Module({ controllers: [...controllers] }) class AppModule {}');
+    expect(registered).toBeUndefined();
+    expect(findCommandFitnessProblems([{ fileName: 'thing.ts', source: unsafe }], noExemptions, registered).length).toBeGreaterThan(0);
   });
 });
