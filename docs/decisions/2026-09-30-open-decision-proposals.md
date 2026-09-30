@@ -26,6 +26,33 @@ be kept in the primary database for 10 years.**
 - The unmeasured "~3 audit rows per mutation" assumption must be measured against real
   traffic, because it sets the archive volume and therefore the bill.
 
+### Two consequences of this decision you should see
+
+**1. A partition drop is the only way a row leaves `audit.audit_entry`.** The append-only
+triggers forbid `DELETE`, so there is no way to trim a partition at 24 months without dropping
+it. That follows from what was decided, and it is the correct behaviour for an audit trail. But
+it makes the **archive receipt the only evidence that a row exists anywhere**. A silently-failing
+archive client would let rows be released into nothing. The drop rule therefore requires a digest
+match on every page rather than a row count alone, and the archive is a narrow interface with no
+implementation yet — **no restore path has been exercised**, which is a production prerequisite
+before the swap runs.
+
+**2. The swap weakens the once-per-version guarantee from global to per-month.** PostgreSQL
+requires the partition key in every unique constraint on a partitioned table, so the constraint
+becomes `(occurred_at, request_id, entity_domain, entity_type, entity_id, entity_version)`.
+Verified empirically against the partitioned table: the same `request_id` + entity + version
+written in February and again in March is **accepted twice**.
+
+This is a real change to an audit guarantee, not a cosmetic one — an auditor asking "how many times
+was this entity version recorded?" can now get two answers. It is accepted here on the basis that
+one request writes one entry per entity version inside one transaction, so the duplicate would
+have to be a bug in the writer rather than a race. That reasoning is worth revisiting if audit
+writing ever moves out of a single transaction.
+
+The row `id` is also no longer globally unique (the primary key is `(occurred_at, id)`), but the id
+is generated server-side by `randomUUID()` and is never caller-supplied, so the practical exposure
+is nil.
+
 ### GAP-23 — status vocabulary
 
 **Keep all 22 states in `pendingStatusLabels`.**
