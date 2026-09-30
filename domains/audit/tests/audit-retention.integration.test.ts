@@ -202,6 +202,10 @@ function faithfulArchive(received: AuditArchiveEntry[] = []): AuditArchive & { p
       return {
         partition: page.partition,
         cursor: page.cursor,
+        // The client names its own object. Returning nothing here is not a harmless omission: the
+        // retention run reads the URI from the receipt and holds the partition when it is absent, so
+        // a fixture that omits it silently turns every drop test into a HELD test.
+        objectUri: `mem://${page.partition}/${encodeURIComponent(page.cursor)}`,
         rows: page.entries.length,
         digest: auditArchiveDigest(page.entries),
         archivedAt: '2026-09-30T00:00:00.000Z',
@@ -636,6 +640,7 @@ describe('OD-19 archive-and-drop against a real partitioned table', () => {
         return {
           partition: page.partition,
           cursor: page.cursor,
+          objectUri: `mem://${page.partition}/${encodeURIComponent(page.cursor)}`,
           rows: page.entries.length,
           digest: auditArchiveDigest(page.entries),
           archivedAt: '2026-09-30T00:00:00.000Z',
@@ -703,6 +708,7 @@ describe('OD-19 archive-and-drop against a real partitioned table', () => {
         return {
           partition: page.partition,
           cursor: page.cursor,
+          objectUri: `mem://${page.partition}/${encodeURIComponent(page.cursor)}`,
           rows: page.entries.length,
           digest: auditArchiveDigest(page.entries),
           archivedAt: '2026-09-30T00:00:00.000Z',
@@ -823,6 +829,7 @@ describe('OD-19 archive-and-drop against a real partitioned table', () => {
         return {
           partition: page.partition,
           cursor: page.cursor,
+          objectUri: `mem://${page.partition}/${encodeURIComponent(page.cursor)}`,
           rows: page.entries.length,
           digest: auditArchiveDigest(page.entries),
           archivedAt: '2026-09-30T00:00:00.000Z',

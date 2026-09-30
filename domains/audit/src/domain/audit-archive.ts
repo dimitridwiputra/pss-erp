@@ -64,6 +64,16 @@ export interface AuditArchivePage {
 export interface AuditArchivePageReceipt {
   partition: string;
   cursor: string;
+  /**
+   * Where the client actually put the bytes.
+   *
+   * Reported by the client rather than composed by the caller, because only the client knows where
+   * it wrote them. The use case used to build a `audit://partition/cursor` string itself, which is a
+   * fiction: nothing could resolve it, so the recorded URI described a location that did not exist
+   * and the restore had no way to read the artifact back. A real client must be able to name its own
+   * object, and the receipt is the only place that name can come from.
+   */
+  objectUri: string;
   /** Row count the archive says it stored. Must equal the page it was handed. */
   rows: number;
   /** Content digest the archive computed. Must equal the digest the domain computed. */
@@ -73,6 +83,20 @@ export interface AuditArchivePageReceipt {
 
 export interface AuditArchive {
   archive(page: AuditArchivePage): Promise<AuditArchivePageReceipt>;
+}
+
+/**
+ * Reading an artifact back, which is the other half of the archive contract.
+ *
+ * `AuditArchive` is write-only by design — a client that cannot read its own objects cannot be
+ * verified, and an unverifiable archive cannot gate a partition drop. Keeping the read side as a
+ * separate interface means the restore verifier depends on the ability to retrieve an artifact, not
+ * on the write path that produced it, so a restore genuinely exercises storage rather than replaying
+ * whatever the writer still has in memory.
+ */
+export interface AuditArchiveReader {
+  /** Resolve an `objectUri` from a receipt back to the rows it was written from. */
+  read(objectUri: string): Promise<readonly AuditArchiveEntry[]>;
 }
 
 /**

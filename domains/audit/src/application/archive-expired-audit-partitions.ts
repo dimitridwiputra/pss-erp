@@ -96,7 +96,19 @@ const ArchiveExpiredAuditPartitionsSchema = z.strictObject({
 export type ArchiveExpiredAuditPartitionsInput = z.input<typeof ArchiveExpiredAuditPartitionsSchema>;
 
 export type PartitionOutcome =
-  | { partition: string; outcome: 'ARCHIVED_AND_DROPPED'; rows: number; pages: number; purgeAfter: string }
+  /**
+   * `retention` rather than a `purgeAfter` date. The earlier shape filled a null purge date with the
+   * partition's own end, which silently answered "never destroy this" with a concrete date in the
+   * month the archive happened to cover — and a caller scheduling a deletion from that field would
+   * have destroyed an INDEFINITE archive on schedule.
+   */
+  | {
+    partition: string;
+    outcome: 'ARCHIVED_AND_DROPPED';
+    rows: number;
+    pages: number;
+    retention: AuditArchiveRetention;
+  }
   | { partition: string; outcome: 'HELD'; reason: PartitionHoldReason; detail: string };
 
 export interface ArchiveExpiredAuditPartitionsResult {
@@ -519,7 +531,21 @@ async function runRetention(
     // One digest, computed once and used for both the stored artifact and the restore request, so
     // the evidence recorded is the evidence the verifier was asked to reproduce.
     const partitionDigest = auditArchiveDigest(archivedEntries);
-    const objectUri = `audit://${partition.partition}/${attempts.map((a) => a.receipt?.cursor ?? 'unknown').join('+')}`;
+    // Taken from the receipts rather than composed here. Every page reports where its own bytes
+    // landed, and a partition archived over several pages has several objects; the run records the
+    // first and requires all of them to have acknowledged, so the recorded URI is a real location
+    // and not a string this module invented.
+    const objectUri = attempts[0]?.receipt?.objectUri;
+    if (objectUri === undefined) {
+      heldPartitions += 1;
+      outcomes.push({
+        partition: partition.partition,
+        outcome: 'HELD',
+        reason: 'ARCHIVE_RECEIPT_MISMATCH',
+        detail: 'No page reported an object URI, so there is nothing to restore from.',
+      });
+      continue;
+    }
     const objectRetention = resolveAuditArchiveRetention(partition.periodThrough, periods[defaultAuditRetentionClass].totalYears);
     await client.query(
       `INSERT INTO audit.audit_archive_object (
@@ -616,7 +642,9 @@ async function runRetention(
       outcome: 'ARCHIVED_AND_DROPPED',
       rows: disposition.rows,
       pages: disposition.pages,
-      purgeAfter: (purgeAfter ?? partition.periodThrough).toISOString(),
+      retention: purgeAfter === null
+        ? { mode: 'INDEFINITE' as const, purgeAfter: null }
+        : { mode: 'PURGE_AFTER' as const, purgeAfter },
     });
   }
 
