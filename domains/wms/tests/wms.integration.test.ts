@@ -101,8 +101,6 @@ beforeAll(async () => {
   // The whole audit domain, not one file: a fixture that replays only
   // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
   await applyAuditMigrations(pool);
-
-  await applyMigration('../../audit/infrastructure/database/migrations/0002_audit_source_offline_paper.sql');
   await applyMigration('../../inventory/infrastructure/database/migrations/0001_inventory.sql');
   await applyMigration('../../inventory/infrastructure/database/migrations/0002_inventory_receive_adjust.sql');
   await applyMigration('../infrastructure/database/migrations/0001_wms.sql');

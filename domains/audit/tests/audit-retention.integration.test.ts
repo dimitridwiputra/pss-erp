@@ -19,7 +19,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';import {
 } from '../src/index';
 import { AuditRetentionPolicySchema } from '../src/domain/retention-policy';
 import { withAuditedTransaction } from '../src/application/append-audit-entry';
-import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 /**
  * OD-19 audit retention, against a real PostgreSQL.
@@ -49,6 +48,7 @@ async function applyMigrations(): Promise<void> {
   const directory = new URL('../infrastructure/database/migrations/', import.meta.url);
   const files = (await readdir(directory)).filter((file) => file.endsWith('.sql')).sort();
   expect(files).toEqual([
+    '0001_audit_entry.sql',
     '0002_audit_source_offline_paper.sql',
     '0003_audit_entry_partitioning_prereq.sql',
     '0004_audit_entry_retention_class.sql',
@@ -71,9 +71,7 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
 
-  // The whole audit domain, not one file: a fixture that replays only
-  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
-  await applyAuditMigrations(pool);
+  // Every audit migration in order, pinned by name above (MIG-RISK-AUD-001).
   await applyMigrations();
   // The retention job's own audit entries are written at `now()`, so the current month must have a
   // partition before the job can run at all. That is the real deployment order, and it is why
