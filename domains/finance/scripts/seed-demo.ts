@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import { PostingTemplateSchema, demoPostingRules } from '../src/domain/posting-rule';
+import { CompensationTemplateSchema, PostingTemplateSchema, demoCompensationRules, demoPostingRules } from '../src/domain/posting-rule';
 
 if (!process.env.DATABASE_URL || !process.env.DEMO_ORGANIZATION_ID) {
   throw new Error('DATABASE_URL and DEMO_ORGANIZATION_ID are required.');
@@ -32,8 +32,27 @@ try {
        ON CONFLICT (code) DO NOTHING`, [code, name, type, normalBalance],
     );
   }
+  for (const [roleCode, accountCode] of [
+    ['AR_CONTROL', '1-1300'], ['INVENTORY', '1-1400'], ['GRNI', '2-1150'],
+    ['SALES_REVENUE', '4-1000'], ['COGS', '5-1000'],
+  ]) {
+    await client.query(
+      `INSERT INTO finance.account_role_mapping (role_code, account_code, effective_from)
+       VALUES ($1,$2,'2026-10-01') ON CONFLICT (role_code, account_code, effective_from) DO NOTHING`,
+      [roleCode, accountCode],
+    );
+  }
   for (const rule of demoPostingRules) {
     const template = PostingTemplateSchema.parse(rule.template);
+    await client.query(
+      `INSERT INTO finance.posting_rule (id, event_type, version, effective_from, line_template)
+       VALUES ($1,$2,$3,'2026-10-01',$4::jsonb)
+       ON CONFLICT (event_type, version) DO NOTHING`,
+      [randomUUID(), rule.eventType, rule.version, JSON.stringify(template)],
+    );
+  }
+  for (const rule of demoCompensationRules) {
+    const template = CompensationTemplateSchema.parse(rule.template);
     await client.query(
       `INSERT INTO finance.posting_rule (id, event_type, version, effective_from, line_template)
        VALUES ($1,$2,$3,'2026-10-01',$4::jsonb)

@@ -74,6 +74,8 @@ export function parseRegistryCatalog(markdown) {
     .map(([group, permissions]) => ({ group, permissions: codes(permissions ?? ''), sourceText: permissions }));
   const permissionAdditions = rowsBetween(markdown, '### D.3 Permission & approval type tambahan', '### D.4 Segregation of Duties')
     .filter(([kind]) => kind === 'Permission').map(([, item, section]) => ({ item, section, codes: codes(item ?? '') }));
+  const approvalTypes = [...new Set(rowsBetween(markdown, '### D.3 Permission & approval type tambahan', '### D.4 Segregation of Duties')
+    .filter(([kind]) => kind === 'Approval type').flatMap(([, item]) => codes(item ?? '')))];
   const baseErrors = rowsBetween(markdown, '### F.1 Kode dasar', '### F.2 Kode domain')
     .map(([code, httpCategory, description]) => ({ code: unquote(code), httpCategory, description }));
   const domainErrors = rowsBetween(markdown, '### F.2 Kode domain', '### F.3 Reason code')
@@ -124,7 +126,7 @@ export function parseRegistryCatalog(markdown) {
   const queueAdditions = rowsBetween(markdown, '### P.2 Antrian tambahan', '\n---\n')
     .map(([kind, item, section]) => ({ kind, item, section, codes: codes(item ?? '') }));
 
-  const catalog = { version: 1, source: 'docs/PRODUCT_PRD.md Appendices D, F, M, N, P', roles, permissionGroups, permissionAdditions, baseErrors, domainErrors, reasonCodes, statuses, offlineStatuses, configurationSeeds, configurationAdditions, queueSeeds, queueAdditions };
+  const catalog = { version: 1, source: 'docs/PRODUCT_PRD.md Appendices D, F, M, N, P', roles, permissionGroups, permissionAdditions, approvalTypes, baseErrors, domainErrors, reasonCodes, statuses, offlineStatuses, configurationSeeds, configurationAdditions, queueSeeds, queueAdditions };
   for (const [name, entries] of Object.entries(catalog)) {
     if (!Array.isArray(entries)) continue;
     if (!entries.length) throw new Error(`Registry ${name} is empty; review the PRD parser.`);

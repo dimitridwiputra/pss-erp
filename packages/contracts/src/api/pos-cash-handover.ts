@@ -49,7 +49,7 @@ export type CashHandoverListResponse = z.infer<typeof CashHandoverListResponseSc
 
 /**
  * POST /payments/cash-handovers/{id}/verify. A count that differs from the declaration needs a
- * registered RC-CSH-* reason (MVP-OD-9); the verifier is the caller and may not be the collector (SOD-06).
+ * registered RC-CSH-* reason (MVP-OD-26); the verifier is the caller and may not be the collector (SOD-06).
  */
 export const VerifyCashHandoverRequestSchema = z.strictObject({
   countedAmount: CounterMoneyInputSchema,

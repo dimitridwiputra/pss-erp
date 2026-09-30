@@ -28,7 +28,7 @@ interface LineRow { product_id: string; uom: string; qty: string; unit_price: st
  * product and unit, so a cart reaching checkout must hold each product once. Scanning merges
  * repeats; a product still on two lines is either a price that changed between scans
  * (REPRICE_REQUIRED, POS-003.AC04) or two units of one product, which inventory cannot reserve
- * separately yet (MVP_PLAN §10, MVP-OD-12).
+ * separately yet (MVP_PLAN §10, MVP-OD-28).
  */
 function assertOneLinePerProduct(lines: readonly LineRow[]): void {
   const seen = new Map<string, LineRow>();

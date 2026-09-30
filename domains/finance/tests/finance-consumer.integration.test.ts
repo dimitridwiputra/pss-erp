@@ -54,6 +54,55 @@ afterAll(async () => {
 });
 
 describe('finance economic event consumer', () => {
+  it('posts a registered source-domain compensation once and keeps provenance', async () => {
+    await pool.query(`INSERT INTO finance.account (code, name, type, normal_balance) VALUES
+      ('1-1110','Kas Konter','ASSET','DEBIT'),('1-1300','Piutang','ASSET','DEBIT')`);
+    await pool.query(`INSERT INTO finance.posting_rule (event_type, version, effective_from, line_template)
+      VALUES ('PAYMENT_RECEIVED',1,'2026-10-01','{"kind":"PAYMENT"}'),
+             ('PAYMENT_REVERSED',1,'2026-10-01','{"kind":"COMPENSATE","originalEventType":"PAYMENT_RECEIVED"}')`);
+    const paymentId = randomUUID();
+    const originalEventId = newEventId();
+    const branchId = randomUUID();
+    const original = {
+      eventId: originalEventId, eventType: 'PAYMENT_RECEIVED', eventVersion: 1,
+      occurredAt: '2026-10-02T06:00:00.000Z', businessDate: '2026-10-02',
+      organizationId, branchId, aggregateType: 'Payment', aggregateId: paymentId,
+      aggregateVersion: 1, producer: 'payments', correlationId: randomUUID(), causationId: randomUUID(),
+      payload: { paymentId, method: 'TUNAI', amount: '100.00', currency: 'IDR',
+        customerId: randomUUID(), referenceType: 'POS_SALE', referenceId: randomUUID(),
+        invoiceId: null, receivedBy: randomUUID(), cashLocationType: 'POS_SHIFT',
+        cashLocationId: randomUUID(), businessDate: '2026-10-02' },
+    };
+    expect(await consumeEconomicEvent(pool, original)).toMatchObject({
+      status: 'PROCESSED', value: { status: 'POSTED' },
+    });
+    const correction = {
+      eventId: newEventId(), eventType: 'PAYMENT_REVERSED', eventVersion: 1,
+      occurredAt: '2026-10-03T06:00:00.000Z', businessDate: '2026-10-03',
+      organizationId, branchId, aggregateType: 'Payment', aggregateId: paymentId,
+      aggregateVersion: 2, producer: 'payments', correlationId: original.correlationId,
+      causationId: originalEventId,
+      payload: { paymentId, originalEventId, reasonCode: 'PAYMENT_CORRECTION', businessDate: '2026-10-03' },
+    };
+    const results = await Promise.all([consumeEconomicEvent(pool, correction), consumeEconomicEvent(pool, correction)]);
+    expect(results.map((result) => result.status).sort()).toEqual(['DUPLICATE', 'PROCESSED']);
+    const journals = (await pool.query<{
+      id: string; status: string; reverses_journal_id: string | null;
+      reversed_by_journal_id: string | null; branch_id: string;
+    }>(
+      `SELECT id, status, reverses_journal_id, reversed_by_journal_id, branch_id
+       FROM finance.journal WHERE source_event_id IN ($1,$2) ORDER BY business_date`,
+      [originalEventId, correction.eventId],
+    )).rows;
+    expect(journals).toHaveLength(2);
+    expect(journals[0]).toMatchObject({ status: 'REVERSED', reversed_by_journal_id: journals[1]!.id });
+    expect(journals[1]).toMatchObject({ status: 'POSTED', reverses_journal_id: journals[0]!.id,
+      branch_id: branchId });
+    const lateDuplicate = { ...correction, eventId: newEventId() };
+    expect(await consumeEconomicEvent(pool, lateDuplicate)).toMatchObject({
+      status: 'PROCESSED', value: { status: 'EXCEPTION', reason: 'CORRECTION_ALREADY_APPLIED' },
+    });
+  });
   it('deduplicates simultaneous deliveries by inbox and source event id', async () => {
     const event = receipt('100.00');
     const results = await Promise.all([consumeEconomicEvent(pool, event), consumeEconomicEvent(pool, event)]);
@@ -62,7 +111,8 @@ describe('finance economic event consumer', () => {
       'SELECT count(*)::int AS count FROM finance.journal WHERE source_event_id = $1', [event.eventId],
     )).rows[0]!.count).toBe(1);
     expect((await pool.query<{ count: number }>(
-      `SELECT count(*)::int AS count FROM platform.outbox_event WHERE event_type = 'JOURNAL_POSTED'`,
+      `SELECT count(*)::int AS count FROM platform.outbox_event
+       WHERE event_type = 'JOURNAL_POSTED' AND envelope->>'causationId' = $1`, [event.eventId],
     )).rows[0]!.count).toBe(1);
     await pool.query('DELETE FROM finance.event_inbox WHERE event_id = $1', [event.eventId]);
     expect(await consumeEconomicEvent(pool, event)).toMatchObject({

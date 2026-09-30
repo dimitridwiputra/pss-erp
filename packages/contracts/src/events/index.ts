@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BusinessDateSchema, UtcTimestampSchema } from '../primitives';
 import { eventCatalog } from './catalog.generated';
+import { registryCatalog } from '../registry';
 export { v7 as newEventId } from 'uuid';
 
 export { eventCatalog } from './catalog.generated';
@@ -33,6 +34,8 @@ export const EventEnvelopeSchema = z.strictObject({
   causationId: z.string().min(1),
   payload: z.unknown().refine((value) => value !== undefined, 'Payload is required.'),
 });
+
+export const ApprovalTypeCodeSchema = z.enum(registryCatalog.approvalTypes);
 
 // Only implemented payload schemas may be published. Catalog presence alone grants no publish permission.
 export const DeliveryOrderClosedV1Schema = EventEnvelopeSchema.extend({
@@ -68,6 +71,35 @@ export const ApprovalDecidedV1Schema = EventEnvelopeSchema.extend({
     requestId: z.uuid(), type: z.string().min(1), subjectRef: z.string().min(1),
     ownerDomain: z.string().min(1), decision: z.enum(['APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED']),
     decidedBy: z.uuid().optional(), level: z.int().positive(),
+  }),
+});
+
+const approvalSubjectV2 = {
+  requestId: z.uuid(), type: ApprovalTypeCodeSchema,
+  ownerDomain: z.string().min(1), subjectType: z.string().min(1),
+  subjectRef: z.string().min(1), subjectVersion: z.int().positive(),
+};
+
+export const FinanceApprovalSubmittedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('FINANCE_APPROVAL_SUBMITTED'), eventVersion: z.literal(1),
+  payload: z.strictObject({
+    ...approvalSubjectV2, requestedBy: z.uuid(), summary: z.string().min(1).max(200),
+    scopeType: z.enum(['ORGANIZATION', 'BRANCH']), scopeId: z.uuid(),
+    contextHash: z.string().regex(/^[a-f0-9]{64}$/),
+    amount: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+  }),
+});
+
+export const ApprovalRequestedV2Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('APPROVAL_REQUESTED'), eventVersion: z.literal(2),
+  payload: z.strictObject({ ...approvalSubjectV2, decision: z.literal('PENDING') }),
+});
+
+export const ApprovalDecidedV2Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('APPROVAL_DECIDED'), eventVersion: z.literal(2),
+  payload: z.strictObject({
+    ...approvalSubjectV2, decision: z.enum(['APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED']),
+    decidedBy: z.uuid(), reason: z.string().optional(), step: z.int().positive(),
   }),
 });
 
@@ -132,6 +164,15 @@ export const PaymentReceivedV1Schema = EventEnvelopeSchema.extend({
   }),
 });
 
+/** Authoritative Payments compensation for the demo's PAYMENT_RECEIVED posting. */
+export const PaymentReversedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('PAYMENT_REVERSED'), eventVersion: z.literal(1),
+  payload: z.strictObject({
+    paymentId: z.uuid(), originalEventId: z.uuidv7(), reasonCode: z.string().min(1),
+    businessDate: BusinessDateSchema,
+  }),
+});
+
 export const CashCustodyVerifiedV1Schema = EventEnvelopeSchema.extend({
   eventType: z.literal('CASH_CUSTODY_VERIFIED'),
   eventVersion: z.literal(1),
@@ -164,20 +205,31 @@ export const AccountingPeriodClosedV1Schema = EventEnvelopeSchema.extend({
   payload: z.strictObject({ periodId: z.uuid(), periodCode: z.string().min(1), closedBy: z.uuid() }),
 });
 
+export const AccountingPeriodReopenedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('ACCOUNTING_PERIOD_REOPENED'), eventVersion: z.literal(1),
+  payload: z.strictObject({
+    periodId: z.uuid(), periodCode: z.string().min(1), reopenedBy: z.uuid(),
+    approvalRequestId: z.uuid(), reason: z.string().min(1),
+  }),
+});
+
 export const eventSchemaRegistry = {
   DELIVERY_ORDER_CLOSED: { 1: DeliveryOrderClosedV1Schema },
   DELIVERY_ORDER_DELIVERED: { 1: DeliveryOrderDeliveredV1Schema },
-  APPROVAL_REQUESTED: { 1: ApprovalRequestedV1Schema },
-  APPROVAL_DECIDED: { 1: ApprovalDecidedV1Schema },
+  APPROVAL_REQUESTED: { 1: ApprovalRequestedV1Schema, 2: ApprovalRequestedV2Schema },
+  APPROVAL_DECIDED: { 1: ApprovalDecidedV1Schema, 2: ApprovalDecidedV2Schema },
+  FINANCE_APPROVAL_SUBMITTED: { 1: FinanceApprovalSubmittedV1Schema },
   INVENTORY_RECEIVED: { 1: InventoryReceivedV1Schema },
   INVENTORY_ISSUED: { 1: InventoryIssuedV1Schema },
   INVENTORY_ADJUSTED: { 1: InventoryAdjustedV1Schema },
   INVOICE_ISSUED: { 1: InvoiceIssuedV1Schema },
   PAYMENT_RECEIVED: { 1: PaymentReceivedV1Schema },
+  PAYMENT_REVERSED: { 1: PaymentReversedV1Schema },
   CASH_CUSTODY_VERIFIED: { 1: CashCustodyVerifiedV1Schema },
   JOURNAL_POSTED: { 1: JournalPostedV1Schema },
   JOURNAL_REVERSED: { 1: JournalReversedV1Schema },
   ACCOUNTING_PERIOD_CLOSED: { 1: AccountingPeriodClosedV1Schema },
+  ACCOUNTING_PERIOD_REOPENED: { 1: AccountingPeriodReopenedV1Schema },
 } satisfies Partial<Record<EventName, Record<number, z.ZodType>>>;
 
 export function parseEventForPublication(input: unknown) {

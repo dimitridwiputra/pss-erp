@@ -17,7 +17,7 @@ export type {
   ConsumerInbox, InboxResult, InboxOrdering, WithInboxOptions,
   DeliveryFailureCause, RecordConsumerDeadLetterInput,
 } from './application/inbox';
-export { requestApproval, decideApproval, listPendingApprovals } from './application/approval';
+export { requestApproval, decideApproval, listPendingApprovals, processFinanceApprovalSubmission } from './application/approval';
 export type { RequestApprovalInput, DecideApprovalInput, AuthorizeApproval, ApprovalAuthorization } from './application/approval';
 export {
   upsertDeadLetter, listOpenDeadLetters, summariseDeadLetters,

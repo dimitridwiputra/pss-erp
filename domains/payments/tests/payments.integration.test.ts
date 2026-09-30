@@ -256,7 +256,7 @@ describe('CSH-001 verifyCashCustody', () => {
   });
 });
 
-describe('MVP-OD-9 cash variance at verification, and CASH_CUSTODY_VERIFIED', () => {
+describe('MVP-OD-26 cash variance at verification, and CASH_CUSTODY_VERIFIED', () => {
   async function outbox(aggregateId: string) {
     const rows = await pool.query<{ envelope: { payload: Record<string, unknown> } }>(
       "SELECT envelope FROM platform.outbox_event WHERE aggregate_id = $1 AND event_type = 'CASH_CUSTODY_VERIFIED'", [aggregateId],

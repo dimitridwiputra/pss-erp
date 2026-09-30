@@ -23,5 +23,5 @@ export default defineConfig({
       { find: /^@pss\/wms$/, replacement: fileURLToPath(new URL('./domains/wms/src/index.ts', import.meta.url)) },
     ],
   },
-  test: { include: ['tests/*.test.ts', 'packages/auth-client/tests/**/*.test.ts', 'packages/configuration/tests/**/*.test.ts', 'domains/identity/tests/**/*.test.ts', 'domains/principal-policy/tests/**/*.test.ts', 'domains/finance/tests/**/*.test.ts'] },
+  test: { include: ['tests/*.test.ts', 'apps/finance-api/tests/**/*.test.ts', 'packages/auth-client/tests/**/*.test.ts', 'packages/configuration/tests/**/*.test.ts', 'domains/identity/tests/**/*.test.ts', 'domains/principal-policy/tests/**/*.test.ts', 'domains/finance/tests/**/*.test.ts'] },
 });

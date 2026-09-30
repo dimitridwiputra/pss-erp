@@ -28,6 +28,7 @@ export function ManualJournalForm() {
   });
   const { fields, append, remove } = useFieldArray({ control, name: 'lines' });
   const [message, setMessage] = useState('');
+  const [draftId, setDraftId] = useState<string | null>(null);
   const lines = watch('lines');
   const sums = lines.reduce((value, line) => ({ debit: value.debit.plus(decimalInput(line.debit) ?? 0),
     credit: value.credit.plus(decimalInput(line.credit) ?? 0) }), { debit: new Decimal(0), credit: new Decimal(0) });
@@ -49,8 +50,21 @@ export function ManualJournalForm() {
       });
       if (!response.ok) throw new Error('Jurnal belum tersimpan. Periksa data lalu coba lagi.');
       const result = await response.json() as { id: string };
-      setMessage(`Draf tersimpan. Buka jurnal ${result.id} untuk melihat rinciannya.`);
+      setDraftId(result.id);
+      setMessage('Draf tersimpan. Ajukan persetujuan setelah meninjau kembali baris jurnal.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Jurnal belum tersimpan.'); }
+  }
+
+  async function submitDraft() {
+    if (!draftId) return;
+    try {
+      const response = await fetch(`/api/bff/finance/finance/journals/${draftId}/submit`, {
+        method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() },
+      });
+      if (!response.ok) throw new Error('Jurnal belum dapat diajukan. Periksa akun dan periode, lalu coba lagi.');
+      setMessage('Jurnal menunggu persetujuan petugas keuangan lain.');
+      setDraftId(null);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Pengajuan belum berhasil.'); }
   }
 
   return <><h1>Jurnal Manual</h1><p className="finance-intro">Isi baris debit dan kredit. Jurnal disimpan sebagai draf sebelum persetujuan.</p>
@@ -74,7 +88,9 @@ export function ManualJournalForm() {
       </p>
       {errors.root && <p role="alert" className="finance-message finance-error">{errors.root.message}</p>}
       {message && <p role="status" className="finance-message">{message}</p>}
-      <div className="finance-actions"><button className="finance-button" type="submit" disabled={!balanced || isSubmitting || !accounts.data}>Simpan draf</button></div>
+      {draftId && <p><Link href={`/keuangan/jurnal/${draftId}`}>Tinjau draf jurnal</Link></p>}
+      <div className="finance-actions"><button className="finance-button" type="submit" disabled={!balanced || isSubmitting || !accounts.data}>Simpan draf</button>
+        {draftId && <button className="finance-button" type="button" onClick={() => void submitDraft()}>Ajukan persetujuan</button>}</div>
     </form></>;
 }
 
@@ -106,7 +122,8 @@ export function Periods() {
   const result = useFinanceData<Period[]>('finance/periods');
   const permissions = useFinancePermissions();
   const canManage = permissions.includes('finance.close.manage');
-  const [selected, setSelected] = useState<{ id: string; action: 'soft-close' | 'close'; code: string } | null>(null);
+  const canReopen = permissions.includes('finance.period.reopen.request');
+  const [selected, setSelected] = useState<{ id: string; action: 'soft-close' | 'close' | 'reopen-requests'; code: string } | null>(null);
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -119,8 +136,10 @@ export function Periods() {
         method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
         body: JSON.stringify(selected.action === 'close' ? { reason, overrideExceptions: false } : { reason }),
       });
-      if (!response.ok) throw new Error('Periode belum dapat ditutup. Periksa pengecualian posting atau status periode.');
-      setMessage('Status periode diperbarui. Muat ulang halaman untuk melihat hasil.');
+      if (!response.ok) throw new Error('Permintaan belum dapat diproses. Periksa pengecualian posting atau status periode.');
+      setMessage(selected.action === 'soft-close'
+        ? 'Periode ditutup sementara. Muat ulang halaman untuk melihat hasil.'
+        : 'Permintaan menunggu persetujuan petugas lain.');
       setSelected(null);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Periode belum dapat diperbarui.'); }
     finally { setBusy(false); }
@@ -135,11 +154,14 @@ export function Periods() {
         <tbody>{result.data.map((period) => <tr key={period.id}><td>{period.code}</td><td>{periodLabel(period.status)}</td>
           <td>{canManage && period.status === 'OPEN' ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'soft-close' })}>Tutup sementara</button>
             : canManage && period.status === 'SOFT_CLOSED' ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'close' })}>Tutup periode</button>
-              : <span>Ditutup</span>}</td></tr>)}</tbody></table>}
+              : canReopen && period.status === 'CLOSED'
+                ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'reopen-requests' })}>Ajukan buka kembali</button>
+                : <span>Ditutup</span>}</td></tr>)}</tbody></table>}
     </section>
     {selected && <><div className="finance-panel finance-form"><label>Alasan tindakan<textarea value={reason} onChange={(event) => setReason(event.target.value)} required /></label></div>
-      <ConfirmationDialog title={`Tutup periode ${selected.code}?`} description="Tindakan ini mengunci pembukuan sesuai status yang dipilih. Pastikan alasan sudah benar."
-        confirmLabel={selected.action === 'close' ? 'Tutup periode' : 'Tutup sementara'}
+      <ConfirmationDialog title={`${selected.action === 'reopen-requests' ? 'Buka kembali' : 'Tutup'} periode ${selected.code}?`}
+        description={selected.action === 'soft-close' ? 'Periode akan ditutup sementara.' : 'Permintaan ini memerlukan persetujuan petugas lain.'}
+        confirmLabel={selected.action === 'reopen-requests' ? 'Ajukan buka kembali' : selected.action === 'close' ? 'Ajukan tutup periode' : 'Tutup sementara'}
         onConfirm={() => void act()} onCancel={() => { setSelected(null); setReason(''); }}
         state={busy || !reason.trim() ? 'disabled' : 'default'} /></>}
   </>;

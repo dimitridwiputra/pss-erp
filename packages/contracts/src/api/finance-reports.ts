@@ -11,6 +11,23 @@ export const FinanceDateRangeQuerySchema = z.strictObject({
 
 export const FinanceThroughQuerySchema = z.strictObject({ through: z.iso.date() });
 
+export const FinanceGrossProfitSummaryQuerySchema = z.strictObject({
+  businessDate: z.iso.date(), branchId: z.uuid().optional(),
+});
+const FinanceGrossProfitPeriodSchema = z.strictObject({
+  from: z.iso.date(), to: z.iso.date(),
+  netSales: z.string().regex(/^-?\d+\.\d{2}$/),
+  cogs: z.string().regex(/^-?\d+\.\d{2}$/),
+  grossProfit: z.string().regex(/^-?\d+\.\d{2}$/),
+  grossMarginPercent: z.string().regex(/^-?\d+\.\d{2}$/).nullable(),
+});
+export const FinanceGrossProfitSummarySchema = z.strictObject({
+  businessDate: z.iso.date(), scope: z.enum(['ORGANIZATION','BRANCH']),
+  branchId: z.uuid().nullable(), today: FinanceGrossProfitPeriodSchema,
+  monthToDate: FinanceGrossProfitPeriodSchema, previousDay: FinanceGrossProfitPeriodSchema,
+  previousComparableMonthToDate: FinanceGrossProfitPeriodSchema,
+});
+
 export const FinanceLedgerQuerySchema = z.strictObject({
   accountCode: z.string().regex(/^[1-6]-\d{4}$/),
   from: z.iso.date(), to: z.iso.date(),

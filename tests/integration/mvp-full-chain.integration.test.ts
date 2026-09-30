@@ -109,7 +109,7 @@ describe('MVP full chain: receipt → sale → handover → close → verify', (
     await closePosShift(pool, undefined, { shiftId: shift.id, countedCash: '736000.00', ...meta(cashierId) });
     const handover = await declarePosCashHandover(pool, undefined, { shiftId: shift.id, ...meta(cashierId) });
     custodyId = handover.cashCustodyRecordId;
-    // Finance counts Rp1.000 short and says why (MVP-OD-9).
+    // Finance counts Rp1.000 short and says why (MVP-OD-26).
     await verifyCashCustody(pool, undefined, {
       cashCustodyRecordId: custodyId, countedAmount: '235000.00', verifiedBy: financeCashierId, reasonCode: 'RC-CSH-COUNT_SHORT',
       requestId: randomUUID(), correlationId,
@@ -133,7 +133,7 @@ describe('MVP full chain: receipt → sale → handover → close → verify', (
     expect(invoice).toMatchObject({ invoiceNumber, subtotal: '236000.00', taxAmount: '0.00', total: '236000.00', channel: 'POS' });
     // Payment is posted before the invoice at the counter (§8): same amount, same customer, same invoice.
     expect(payment).toMatchObject({ amount: invoice.total, customerId: invoice.customerId, invoiceId: invoice.invoiceId });
-    // The declaration is the recorded cash, never the float (POS-014.BR01, MVP-OD-11); counted − declared = variance.
+    // The declaration is the recorded cash, never the float (POS-014.BR01, MVP-OD-29); counted − declared = variance.
     expect(custody).toMatchObject({ declaredAmount: payment.amount, countedAmount: '235000.00', varianceAmount: '-1000.00', sourceId: payment.cashLocationId });
 
     const stock = await pool.query<{ qty_on_hand: string; qty_reserved: string }>(

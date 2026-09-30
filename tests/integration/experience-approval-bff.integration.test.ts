@@ -88,6 +88,7 @@ beforeAll(async () => {
   for (const relativePath of [
     '../../domains/platform/infrastructure/database/migrations/0001_outbox_event.sql',
     '../../domains/platform/infrastructure/database/migrations/0003_approval.sql',
+    '../../domains/platform/infrastructure/database/migrations/0011_approval_subject_version.sql',
     '../../domains/identity/infrastructure/database/migrations/0001_user_account.sql',
     '../../domains/identity/infrastructure/database/migrations/0002_role_assignment.sql',
   ]) {

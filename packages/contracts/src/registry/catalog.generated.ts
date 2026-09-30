@@ -32,7 +32,7 @@ export const registryCatalog = {
       "label": "Kepala Cabang",
       "product": "PSS Control Station",
       "defaultScope": "BRANCH",
-      "permissionGroups": "CST-VIEW, ORD-CANCEL, COM-OVERRIDE-L2, CRD-OVERRIDE-L1, INV-ADJ-APPROVE-L1, CSH-DISCREPANCY-APPROVE, RET-APPROVE",
+      "permissionGroups": "CST-VIEW, CST-GROSS-PROFIT-SUMMARY, ORD-CANCEL, COM-OVERRIDE-L2, CRD-OVERRIDE-L1, INV-ADJ-APPROVE-L1, CSH-DISCREPANCY-APPROVE, RET-APPROVE",
       "mfaRequired": true
     },
     {
@@ -152,7 +152,7 @@ export const registryCatalog = {
       "label": "Controller",
       "product": "PSS Keuangan",
       "defaultScope": "ORG",
-      "permissionGroups": "FIN-CONFIG, CLS-MANAGE, GL-PERIOD-DECISION, GL-MAKE, GL-APPROVE",
+      "permissionGroups": "FIN-CONFIG, FIN-PNL-VIEW, CLS-MANAGE, GL-PERIOD-DECISION, GL-MAKE, GL-APPROVE",
       "mfaRequired": true
     },
     {
@@ -160,15 +160,23 @@ export const registryCatalog = {
       "label": "CFO",
       "product": "PSS Control Station",
       "defaultScope": "ORG",
-      "permissionGroups": "CST-VIEW, CLS-APPROVE, CLS-REOPEN-APPROVE, APPROVE-ALL-L3",
+      "permissionGroups": "CST-VIEW, CST-GROSS-PROFIT-SUMMARY, FIN-PNL-VIEW, CLS-APPROVE, CLS-REOPEN-APPROVE, APPROVE-ALL-L3",
       "mfaRequired": true
     },
     {
-      "code": "CEO / COO",
-      "label": "Direksi",
+      "code": "CEO",
+      "label": "Direktur Utama",
       "product": "PSS Control Station",
       "defaultScope": "ORG",
-      "permissionGroups": "CST-VIEW, APPROVE-ALL-L3",
+      "permissionGroups": "CST-VIEW, CST-GROSS-PROFIT-SUMMARY, FIN-PNL-VIEW, APPROVE-ALL-L3",
+      "mfaRequired": true
+    },
+    {
+      "code": "COO",
+      "label": "Direktur Operasional",
+      "product": "PSS Control Station",
+      "defaultScope": "ORG",
+      "permissionGroups": "CST-VIEW, CST-GROSS-PROFIT-SUMMARY, FIN-PNL-VIEW, APPROVE-ALL-L3",
       "mfaRequired": true
     },
     {
@@ -465,6 +473,14 @@ export const registryCatalog = {
       "sourceText": "`finance.coa.manage`, `finance.posting_rule.manage`, `finance.account_role.map`"
     },
     {
+      "group": "FIN-PNL-VIEW",
+      "permissions": [
+        "finance.report.pnl.view",
+        "CST-GROSS-PROFIT-SUMMARY"
+      ],
+      "sourceText": "`finance.report.pnl.view` (laporan lengkap; terpisah dari kartu `CST-GROSS-PROFIT-SUMMARY`)"
+    },
+    {
       "group": "MDM-MANAGE / MERGE",
       "permissions": [
         "master_data.*.manage",
@@ -517,6 +533,14 @@ export const registryCatalog = {
         "reporting.control_station.view"
       ],
       "sourceText": "`reporting.control_station.view` (dengan scope)"
+    },
+    {
+      "group": "CST-GROSS-PROFIT-SUMMARY",
+      "permissions": [
+        "control_station.gross_profit_summary.view",
+        "finance.branch_pnl_visible"
+      ],
+      "sourceText": "`control_station.gross_profit_summary.view` (ORG untuk CEO/COO/CFO; BRANCH untuk BRANCH_MANAGER). Hanya ringkasan posted Finance, tanpa P&L/GL/drill-down. Independen dari `finance.branch_pnl_visible`."
     },
     {
       "group": "POS-EXEC",
@@ -675,6 +699,39 @@ export const registryCatalog = {
         "finance.bank.account.view_full"
       ]
     }
+  ],
+  "approvalTypes": [
+    "branch_change",
+    "prospect_conversion",
+    "outlet_customer_move",
+    "supplier_bank_change",
+    "principal_policy_change",
+    "tax_rate_change",
+    "credit_profile_change",
+    "credit_override",
+    "purchase_order",
+    "supplier_invoice_variance",
+    "sales_return",
+    "credit_note_adjustment",
+    "payment_reversal",
+    "payment_application_reversal",
+    "cash_discrepancy",
+    "supplier_payment",
+    "supplier_payment_reversal",
+    "discount_override",
+    "coa_change",
+    "posting_rule_change",
+    "journal",
+    "journal_reversal",
+    "period_reopen",
+    "stock_adjustment",
+    "bank_account_change",
+    "petty_cash_expense",
+    "internal_transfer",
+    "period_close",
+    "metric_definition",
+    "reporting_attribution",
+    "config_change"
   ],
   "baseErrors": [
     {

@@ -15,7 +15,7 @@ export const handoverStatusLabel: Record<string, { label: string; tone: 'green' 
   RESOLVED: { label: 'Selisih diputuskan', tone: 'green' },
 };
 
-/** Registered Appendix F reason codes of area CSH (MVP-OD-9); the verifier sees only the words. */
+/** Registered Appendix F reason codes of area CSH (MVP-OD-26); the verifier sees only the words. */
 export const cashVarianceReasons = [
   { code: 'RC-CSH-COUNT_SHORT', label: 'Uang kurang' },
   { code: 'RC-CSH-COUNT_OVER', label: 'Uang lebih' },

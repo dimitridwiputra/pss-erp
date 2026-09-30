@@ -2,8 +2,22 @@ import { Injectable } from '@nestjs/common';
 import { createAccessTokenVerifier, InvalidAccessTokenError } from '@pss/auth-client';
 import {
   CurrentUserPermissionsResponseSchema, CurrentUserResponseSchema, DomainError,
-  type CurrentUserResponse,
+  type CurrentUserResponse, type UserPermissionGrant,
 } from '@pss/contracts';
+
+export function grossProfitScopeForGrants(user: CurrentUserResponse,
+  grants: readonly UserPermissionGrant[], requestedBranchId?: string) {
+  const allowed = grants.filter((grant) => grant.permission === 'control_station.gross_profit_summary.view');
+  if (allowed.some((grant) => grant.scopeType === 'ORGANIZATION'
+    && (grant.scopeId === null || grant.scopeId === user.organizationId))) {
+    return { organizationId: user.organizationId, branchId: requestedBranchId ?? null };
+  }
+  const branches = allowed.filter((grant) => grant.scopeType === 'BRANCH' && grant.scopeId !== null)
+    .map((grant) => grant.scopeId!);
+  const branchId = requestedBranchId ?? (branches.length === 1 ? branches[0] : undefined);
+  if (!branchId || !branches.includes(branchId)) throw new DomainError('PERMISSION_DENIED');
+  return { organizationId: user.organizationId, branchId };
+}
 
 @Injectable()
 export class FinanceAuth {
@@ -16,7 +30,9 @@ export class FinanceAuth {
   private readonly coreApi = process.env.PSS_API_BASE_URL ?? 'http://127.0.0.1:4000';
 
   /** Identity facts arrive through the core API, never through identity tables. */
-  async require(authorization: string | undefined, permission: string | readonly string[]): Promise<CurrentUserResponse> {
+  private async principal(authorization: string | undefined): Promise<{
+    user: CurrentUserResponse; grants: UserPermissionGrant[];
+  }> {
     if (!authorization) throw new DomainError('UNAUTHENTICATED');
     if (!this.verify) throw new DomainError('DEPENDENCY_UNAVAILABLE');
     try { await this.verify(authorization); }
@@ -35,12 +51,25 @@ export class FinanceAuth {
     if (!userResponse.ok || !grantsResponse.ok) throw new DomainError('DEPENDENCY_UNAVAILABLE');
     const user = CurrentUserResponseSchema.parse(await userResponse.json());
     const grants = CurrentUserPermissionsResponseSchema.parse(await grantsResponse.json());
+    if (grants.userId !== user.id) throw new DomainError('PERMISSION_DENIED');
+    return { user, grants: grants.grants };
+  }
+
+  async require(authorization: string | undefined, permission: string | readonly string[]): Promise<CurrentUserResponse> {
+    const { user, grants } = await this.principal(authorization);
     const accepted = Array.isArray(permission) ? permission : [permission];
-    if (grants.userId !== user.id || !grants.grants.some((grant) =>
+    if (!grants.some((grant) =>
       accepted.includes(grant.permission) && (
         grant.scopeType === 'ORGANIZATION' && (grant.scopeId === null || grant.scopeId === user.organizationId)
         || grant.scopeType === 'BRANCH' && grant.scopeId === user.primaryBranchId
       ))) throw new DomainError('PERMISSION_DENIED');
     return user;
+  }
+
+  async grossProfitScope(authorization: string | undefined, requestedBranchId?: string): Promise<{
+    organizationId: string; branchId: string | null;
+  }> {
+    const { user, grants } = await this.principal(authorization);
+    return grossProfitScopeForGrants(user, grants, requestedBranchId);
   }
 }

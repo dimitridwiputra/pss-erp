@@ -51,5 +51,5 @@ export function periodLabel(status: string) {
 }
 
 export function journalLabel(status: string) {
-  return ({ DRAFT: 'Draf', PENDING_APPROVAL: 'Menunggu persetujuan', POSTED: 'Dibukukan', REVERSED: 'Dibalik' } as Record<string, string>)[status] ?? 'Perlu dicek';
+  return ({ DRAFT: 'Draf', PENDING_APPROVAL: 'Menunggu persetujuan', POSTED: 'Dibukukan', REVERSED: 'Dibalik', REJECTED: 'Ditolak' } as Record<string, string>)[status] ?? 'Perlu dicek';
 }
