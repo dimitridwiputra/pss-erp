@@ -727,8 +727,21 @@ describe('inventory: listStockBalances', () => {
     // A total that silently omitted unvalued stock would understate inventory value.
     expect(page.totalValue).toBeNull();
 
-    const unvalued = await listStockBalances(pool, undefined, { organizationId, warehouseId, unvaluedOnly: true });
-    expect(unvalued.items.some((item) => item.productId === productId)).toBe(true);
+    // The exception queue's read. It is paged over the whole warehouse, so this test cannot assert
+    // membership on page one — how many other unvalued balances exist is the order tests happen to
+    // run in, and a test that passes only while it is last is not a test. Asking with the product as
+    // well is deterministic, and the valued balance below proves the filter still excludes it.
+    const unvalued = await listStockBalances(pool, undefined, {
+      organizationId, warehouseId, unvaluedOnly: true, productId, pageSize: 100,
+    });
+    expect(unvalued.items.map((item) => item.productId)).toEqual([productId]);
+
+    const valuedProductId = randomUUID();
+    await receipt([{ productId: valuedProductId, uom: 'PCS', qty: '30', unitCost: '1000' }]);
+    const stillUnvalued = await listStockBalances(pool, undefined, {
+      organizationId, warehouseId, unvaluedOnly: true, pageSize: 100,
+    });
+    expect(stillUnvalued.items.map((item) => item.productId)).not.toContain(valuedProductId);
   });
 
   it('filters by a low-stock threshold supplied by the caller, never a constant in the query', async () => {
