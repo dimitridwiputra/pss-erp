@@ -61,11 +61,14 @@ export async function issueInventory(
     const facts: InventoryMovementFacts[] = [];
 
     for (const line of input.lines) {
+      // The unit is part of the match, not just the insert key (MVP-OD-12): a sale may hold 2 KARTON
+      // and 3 PCS of one product, and the handover has to consume the line for the unit it is
+      // handing over rather than whichever line the query found first.
       const reservation = await tx.query<{ id: string }>(
         `SELECT id FROM inventory.stock_reservation
-         WHERE reference_type = $1 AND reference_id = $2 AND product_id = $3 AND status = 'ACTIVE'
+         WHERE reference_type = $1 AND reference_id = $2 AND product_id = $3 AND uom = $4 AND status = 'ACTIVE'
          FOR UPDATE`,
-        [input.referenceType, input.referenceId, line.productId],
+        [input.referenceType, input.referenceId, line.productId, line.uom],
       );
       const reservationRow = reservation.rows[0];
       if (!reservationRow) throw new DomainError('NOT_FOUND');

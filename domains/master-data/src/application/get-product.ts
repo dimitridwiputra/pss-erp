@@ -137,14 +137,16 @@ export async function getProduct(
  * their barcodes instead of a name typed by the cashier. The caller applies its own sellability
  * rules (`PosService.scan` requires `orderCapture === 'PSS'` and `status === 'ACTIVE'`); this read
  * reports what the product actually has, because master data is the only owner of that fact.
+ *
+ * **Two arguments, not three.** `getProduct` above takes `(pool, client, input)` because the API
+ * reads the product back inside a command's transaction; this one never does, and the POS stream
+ * asked for `getProductSaleUnits(pool, { organizationId, productId })`. A three-argument shape here
+ * would silently take a body where a client is expected, so the difference is deliberate and is the
+ * one place in this domain where a read is not transaction-aware.
  */
-export async function getProductSaleUnits(
-  pool: Pool,
-  client: PoolClient | undefined,
-  rawInput: GetProductInput,
-): Promise<ProductSaleUnits> {
+export async function getProductSaleUnits(pool: Pool, rawInput: GetProductInput): Promise<ProductSaleUnits> {
   const input = parseCommandInput(GetProductInputSchema, rawInput);
-  const read = await readProduct(client ?? pool, input.organizationId, input.productId);
+  const read = await readProduct(pool, input.organizationId, input.productId);
   if (!read) throw new DomainError('NOT_FOUND');
   return {
     productId: read.product.id,
