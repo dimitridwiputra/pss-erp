@@ -21,7 +21,6 @@ export interface ProductUnit {
 
 export interface ProductDetail {
   productId: string;
-  organizationId: string;
   sku: string;
   name: string;
   baseUom: string;
@@ -29,6 +28,8 @@ export interface ProductDetail {
   status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
   version: number;
   units: ProductUnit[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -47,13 +48,14 @@ export interface ProductSaleUnits {
 
 interface ProductRow {
   id: string;
-  organization_id: string;
   sku: string;
   name: string;
   base_uom: string;
   order_capture: 'PSS' | 'EXTERNAL';
   status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
   version: number;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface UnitRow {
@@ -70,7 +72,7 @@ async function readProduct(
   productId: string,
 ): Promise<{ product: ProductRow; units: UnitRow[] } | null> {
   const product = await runner.query<ProductRow>(
-    `SELECT id, organization_id, sku, name, base_uom, order_capture, status, version
+    `SELECT id, sku, name, base_uom, order_capture, status, version, created_at, updated_at
      FROM core.product WHERE id = $1 AND organization_id = $2`,
     [productId, organizationId],
   );
@@ -92,13 +94,14 @@ async function readProduct(
 function toDetail(read: { product: ProductRow; units: UnitRow[] }): ProductDetail {
   return {
     productId: read.product.id,
-    organizationId: read.product.organization_id,
     sku: read.product.sku,
     name: read.product.name,
     baseUom: read.product.base_uom,
     orderCapture: read.product.order_capture,
     status: read.product.status,
     version: read.product.version,
+    createdAt: read.product.created_at.toISOString(),
+    updatedAt: read.product.updated_at.toISOString(),
     units: read.units.map((unit) => ({
       uom: unit.uom,
       conversionFactor: unit.conversion_factor,
@@ -114,7 +117,9 @@ function toDetail(read: { product: ProductRow; units: UnitRow[] }): ProductDetai
  * covers mutations).
  *
  * A product in another organization is `NOT_FOUND` rather than an empty result: an id this caller
- * cannot see should not be distinguishable from one that does not exist.
+ * cannot see should not be distinguishable from one that does not exist. The `organization_id` filter
+ * is the whole ownership check — which is why the answer carries no `organizationId` of its own,
+ * since every caller already knows the organization it asked about.
  */
 export async function getProduct(
   pool: Pool,

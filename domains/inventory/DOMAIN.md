@@ -83,10 +83,10 @@ It says three things in its own types rather than collapsing them into a zero:
   balance was never valued.
 
 Two more cases it deliberately refuses to guess: a valued receipt landing on a balance that still
-holds unvalued quantity values **neither** (that is a stock revaluation, MVP-OD-15), and a total is
+holds unvalued quantity values **neither** (that is a stock revaluation, MVP-OD-16), and a total is
 multiplied out at full precision and rounded last, so the total finance posts is never recomputed from a
 rounded unit cost (the residual is INV-003's own rounding case, its exception flow E1). Rounding is
-4 places for a unit cost and 2 for a total, half away from zero, with `decimal.js` (MVP-OD-12 records
+4 places for a unit cost and 2 for a total, half away from zero, with `decimal.js` (MVP-OD-13 records
 the PRD's `inventory.cost_precision` default of 6 against the column and payload's 4).
 
 ## Queries
@@ -96,7 +96,7 @@ the PRD's `inventory.cost_precision` default of 6 against the column and payload
 - `listStockBalances(pool, client, input)` — balances for one warehouse with `avgUnitCost` and
   `stockValue`, paginated, with allow-listed `sort` (`product`, `qtyOnHand`, `value`). `maxQty` is the
   low-stock filter and is **an input, not a constant**: the PRD registers no minimum-stock
-  configuration key, so the threshold has to come from the caller (MVP-OD-16). `unvaluedOnly` selects
+  configuration key, so the threshold has to come from the caller (MVP-OD-17). `unvaluedOnly` selects
   the balances finance still has to value. `totalValue` is `null` when any balance in the set is
   unvalued, because a total that silently omitted unvalued stock would understate inventory and look
   like an answer. A `warehouseId` is required (MVP-OD-4).
@@ -107,7 +107,7 @@ the PRD's `inventory.cost_precision` default of 6 against the column and payload
   millisecond still come back in the order they were written.
 - `listAdjustmentReasons(pool, client?)` — the active reason codes with their Indonesian labels, for
   the Penyesuaian Stok form. No organization parameter, because the reference table has none
-  (MVP-OD-14).
+  (MVP-OD-15).
 
 ## Events produced and consumed
 
@@ -121,7 +121,7 @@ the PRD's `inventory.cost_precision` default of 6 against the column and payload
 | `INVENTORY_ADJUSTED` | `adjustStock` | §5, with a signed `totalCostDelta` and the line's `reasonCode` |
 
 Money is published at 2 places and quantity at 3, which is the contract's scale rather than the
-column's; `unitCost` is therefore rounded from the ledger's 4 places down to 2 (MVP-OD-12). That is
+column's; `unitCost` is therefore rounded from the ledger's 4 places down to 2 (MVP-OD-13). That is
 safe because `totalCost` is what finance posts (MVP_PLAN §8), never `qty × unitCost`. A `null` cost
 means **unvalued**, and is the signal for finance to route the movement to its exception queue rather
 than post a zero (MVP_PLAN §5, AGENTS.md §3.7).
@@ -166,18 +166,18 @@ PostgreSQL `pg`; `decimal.js` for money arithmetic; `@pss/contracts` for `Domain
 
 ## Open decisions
 
-- **MVP-OD-4 / MVP-OD-11 (valuation unit):** the average is per warehouse × product × UoM, because
+- **MVP-OD-4 / MVP-OD-12 (valuation unit):** the average is per warehouse × product × UoM, because
   `stock_balance` is unique per `(warehouse_id, product_id)`. The PRD's `inventory.valuation_unit`
   defaults to BRANCH, which would need a second balance key.
-- **MVP-OD-12 (cost precision):** 4 places for a unit cost here; the PRD's
+- **MVP-OD-13 (cost precision):** 4 places for a unit cost here; the PRD's
   `inventory.cost_precision` default is 6, and the §5 event payload declares `unitCost` as 2-place
   money. A request to widen the payload is with the stream that owns
   `packages/contracts/src/events/index.ts`.
-- **MVP-OD-15 (revaluation):** a valued receipt onto a balance holding unvalued quantity values
+- **MVP-OD-16 (revaluation):** a valued receipt onto a balance holding unvalued quantity values
   neither the movement nor the balance. The alternatives all invent a number.
-- **MVP-OD-16 (low-stock threshold):** no configuration key exists for it, so `maxQty` is an input to
+- **MVP-OD-17 (low-stock threshold):** no configuration key exists for it, so `maxQty` is an input to
   `listStockBalances` and the caller supplies the value.
-- **MVP-OD-18 (reason vocabulary):** the demo plan's four plain names are not in Appendix F.3; the
+- **MVP-OD-19 (reason vocabulary):** the demo plan's four plain names are not in Appendix F.3; the
   registered codes are used, each carrying the label those names describe. F.3's "mandatory note" for
   `…_OTHER` has no field to write into.
 - **INV-006 approval workflow:** `adjustStock` applies immediately as if already POSTED; the

@@ -28,7 +28,7 @@ export interface StockBalanceListItem {
   uom: string;
   qtyOnHand: string;
   qtyReserved: string;
-  /** `null` when the balance has never been valued (MVP-OD-15). */
+  /** `null` when the balance has never been valued (MVP-OD-16). */
   avgUnitCost: string | null;
   /**
    * `qtyOnHand × avgUnitCost`, in the database, and `null` when the balance is unvalued.
@@ -49,6 +49,8 @@ export interface StockBalancePage {
   hasMore: boolean;
   /** Σ stock value across the whole filtered set, not just this page. `null` if any balance is unvalued. */
   totalValue: string | null;
+  /** How many balances in that set carry no value yet, so a blank total can say why. */
+  unvaluedCount: number;
 }
 
 const SORT_COLUMNS = { product: 'product_id', qtyOnHand: 'qty_on_hand', value: 'stock_value' } as const;
@@ -89,7 +91,7 @@ export async function listStockBalances(
   const where = conditions.join(' AND ');
   const value = `CASE WHEN avg_unit_cost IS NULL THEN NULL ELSE round(qty_on_hand * avg_unit_cost, 2) END`;
 
-  const summary = await runner.query<{ total: string; total_value: string | null; unvalued: string }>(
+  const summary = await runner.query<{ total: string; total_value: string | null; unvalued: number }>(
     `SELECT count(*) AS total,
             CASE WHEN count(*) FILTER (WHERE avg_unit_cost IS NULL) > 0 THEN NULL
                  ELSE sum(round(qty_on_hand * avg_unit_cost, 2))::text END AS total_value,
@@ -127,5 +129,7 @@ export async function listStockBalances(
     total,
     hasMore: offset + rows.rows.length < total,
     totalValue,
+    // `count(*)` comes back as a bigint string; the contract says a number, so it is converted here.
+    unvaluedCount: Number(summary.rows[0]?.unvalued ?? 0),
   };
 }

@@ -65,6 +65,9 @@ importers:
       '@pss/identity':
         specifier: workspace:*
         version: link:../../domains/identity
+      '@pss/inventory':
+        specifier: workspace:*
+        version: link:../../domains/inventory
       '@pss/master-data':
         specifier: workspace:*
         version: link:../../domains/master-data

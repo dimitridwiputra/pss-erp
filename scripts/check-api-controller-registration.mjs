@@ -7,6 +7,11 @@ const approvedControllers = new Set([
   'IdentityAdminController',
   'ApprovalController',
   'WmsController',
+  // Back office (MVP §6.3). Each is a thin boundary over its own domain: caller from the session,
+  // the permission at the record's own scope, a required Idempotency-Key on every mutation.
+  'BackofficeProductController',
+  'BackofficePriceListController',
+  'BackofficeStockController',
 ]);
 
 /**

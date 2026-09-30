@@ -13,7 +13,7 @@ export interface AdjustmentReason {
  * cannot submit a reason the command will reject.
  *
  * No organization parameter, because `inventory.stock_adjustment_reason` has no `organization_id`: the
- * vocabulary is platform-level (MVP-OD-14). That is a consequence of the open decision, not an
+ * vocabulary is platform-level (MVP-OD-15). That is a consequence of the open decision, not an
  * oversight — if principals may add their own reason codes, this query takes a scope and the reference
  * table grows one.
  */

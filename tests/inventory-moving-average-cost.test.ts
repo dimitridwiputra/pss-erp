@@ -61,7 +61,7 @@ describe('moving-average costing (INV-003)', () => {
       expect(result.balanceAvgUnitCost).toBeNull();
     });
 
-    it('refuses to value the receipt when unvalued quantity is already on hand (MVP-OD-15)', () => {
+    it('refuses to value the receipt when unvalued quantity is already on hand (MVP-OD-16)', () => {
       // Valuing that quantity is a revaluation, which the MVP does not have. Inventing a value here
       // would post a made-up amount to the GL, so both stay unvalued and finance sees the exception.
       const result = applyMovingAverage({
