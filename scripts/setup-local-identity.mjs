@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
 
 const fetch = globalThis.fetch;
@@ -10,8 +12,17 @@ const issuer = 'http://127.0.0.1:8080/realms/pss-local';
 const adminBase = 'http://127.0.0.1:8080/admin/realms/pss-local';
 const root = new URL('../', import.meta.url);
 const webEnvironmentPath = new URL('apps/web/.env.local', root);
-const loginPath = new URL('.local/pss-demo-login.txt', root);
-const mvpDemoLoginPath = new URL('.local/pss-mvp-demo-logins.txt', root);
+/**
+ * Keycloak is one container shared by every checkout, so its passwords must be recorded in one
+ * place too. In a git worktree `.local/` resolves to the main checkout's; otherwise a second
+ * worktree would find no file, reset the passwords, and lock the first checkout out.
+ */
+const credentialsRoot = pathToFileURL(`${dirname(resolve(fileURLToPath(root), execFileSync('git', ['rev-parse', '--git-common-dir'], {
+  cwd: fileURLToPath(root), encoding: 'utf8',
+}).trim()))}/`);
+const localDirectory = new URL('.local/', credentialsRoot);
+const loginPath = new URL('pss-demo-login.txt', localDirectory);
+const mvpDemoLoginPath = new URL('pss-mvp-demo-logins.txt', localDirectory);
 const mvpDemoSeedPath = new URL('infrastructure/keycloak/pss-demo-users.json', root);
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required to create the synthetic local account.');
@@ -132,7 +143,7 @@ async function ensureDemoUser(token) {
       body: JSON.stringify({ type: 'password', value: password, temporary: false }),
     });
     if (reset.status !== 204) throw new Error(`Local demo password setup returned HTTP ${reset.status}.`);
-    await mkdir(new URL('.local/', root), { recursive: true });
+    await mkdir(localDirectory, { recursive: true });
     await writeFile(loginPath, `Synthetic local development account only\nUsername: ${username}\nPassword: ${password}\n`, { mode: 0o600 });
   }
   return subject;
@@ -176,6 +187,11 @@ async function ensurePssMapping(subject) {
  */
 async function ensureMvpDemoUsers(token) {
   const seed = JSON.parse(await readFile(mvpDemoSeedPath, 'utf8'));
+  // Appendix D marks some roles `mfaRequired`, and approval decisions call `requireRecentMfa`. The
+  // demo meets that control rather than skipping it: such a user must enrol an authenticator app
+  // on first login, after which the default browser flow's conditional OTP puts `otp` in `amr`.
+  const { registryCatalog } = createRequire(import.meta.url)('../packages/contracts/dist/index.js');
+  const mfaRoles = new Set(registryCatalog.roles.filter((role) => role.mfaRequired).map((role) => role.code));
   const scopeIds = { ORGANIZATION: seed.organization.id, BRANCH: seed.branch.id, WAREHOUSE: seed.warehouse.id };
   const recorded = await readFile(mvpDemoLoginPath, 'utf8').catch(() => '');
   const newLogins = [];
@@ -198,6 +214,17 @@ async function ensureMvpDemoUsers(token) {
       }
       const subject = users[0]?.id;
       if (!subject) throw new Error(`Demo user ${user.username} has no subject.`);
+      if (user.roles.some((role) => mfaRoles.has(role.roleCode))) {
+        const credentials = await (await keycloakRequest(`/users/${subject}/credentials`, token)).json();
+        const hasOtp = credentials.some((credential) => credential.type === 'otp');
+        if (!hasOtp && !users[0].requiredActions?.includes('CONFIGURE_TOTP')) {
+          const updated = await keycloakRequest(`/users/${subject}`, token, {
+            method: 'PUT',
+            body: JSON.stringify({ ...users[0], requiredActions: [...(users[0].requiredActions ?? []), 'CONFIGURE_TOTP'] }),
+          });
+          if (!updated.ok) throw new Error(`Demo MFA enrolment for ${user.username} returned HTTP ${updated.status}.`);
+        }
+      }
       if (!new RegExp(`^Username: ${user.username.replaceAll('.', '\\.')}$`, 'm').test(recorded)) {
         const password = randomBytes(18).toString('base64url');
         const reset = await keycloakRequest(`/users/${subject}/reset-password`, token, {
@@ -224,7 +251,7 @@ async function ensureMvpDemoUsers(token) {
     await pool.end();
   }
   if (newLogins.length) {
-    await mkdir(new URL('.local/', root), { recursive: true });
+    await mkdir(localDirectory, { recursive: true });
     const header = recorded ? '' : 'Synthetic local MVP demo accounts only (docs/mvp/MVP_PLAN.md §7)\n\n';
     await writeFile(mvpDemoLoginPath, `${recorded}${header}${newLogins.join('\n')}`, { mode: 0o600 });
   }

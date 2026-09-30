@@ -78,6 +78,10 @@ const groupPermissions: Readonly<Record<string, readonly string[]>> = {
   'CST-VIEW-TEAM': ['reporting.control_station.view'],
   'FLT-SUPERVISE': ['fleet.shipment.view'],
   'MDM-MERGE-REQUEST': ['master_data.merge.request'],
+  // D.2 gives MDM-MANAGE only as `master_data.*.manage`. Identity never expands a wildcard, so each
+  // resource is transcribed by decision: MVP-OD-8 (demo default, product owner to confirm) adds the
+  // product resource alone. Customer, principal and other master data stay ungranted until decided.
+  'MDM-MANAGE': ['master_data.product.manage'],
   'DQ-WORK': ['platform.exception.work'],
   // `configuration.*.manage` from Appendix D.3 is deliberately NOT transcribed as a wildcard.
   // The owner decided SYSTEM_ADMIN may manage TECHNICAL configuration and that business

@@ -43,7 +43,7 @@ const mustGrant: Record<string, string[]> = {
     'pos.receipt.reprint', 'payments.cash_handover.declare',
   ],
   'gudang.demo': ['fulfillment.pickup.handover', 'procurement.receipt.post'],
-  'admin.demo': ['commercial.price_list.manage', 'inventory.adjustment.request'],
+  'admin.demo': ['master_data.product.manage', 'commercial.price_list.manage', 'inventory.adjustment.request'],
   'keuangan.demo': ['payments.cash_custody.verify', 'finance.journal.create', 'finance.journal.submit'],
   'kepala.keuangan.demo': ['finance.journal.approve', 'finance.close.manage'],
 };
@@ -89,6 +89,13 @@ describe('MVP demo roles (MVP_PLAN §7)', () => {
       expect({ user: user.username, violations: [...checkSystemAdministratorSod(views), ...checkForbiddenRoleCombinations(views)] })
         .toEqual({ user: user.username, violations: [] });
     }
+  });
+
+  it('expands MDM-MANAGE to the product resource only (MVP-OD-8)', () => {
+    const permissions = resolveRolePermissions('MASTER_DATA_STEWARD').permissions;
+    expect(permissions.filter((permission) => permission.endsWith('.manage') && permission.startsWith('master_data.'))).toEqual(['master_data.product.manage']);
+    expect(resolveRolePermissions('MASTER_DATA_STEWARD').unresolvedGroups).not.toContain('MDM-MANAGE');
+    expect(can('kasir.demo', 'master_data.product.manage')).toBe(false);
   });
 
   it('transcribes POS-EXEC without the pos.credit_sale feature flag', () => {
