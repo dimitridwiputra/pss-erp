@@ -188,10 +188,14 @@ restore, and every other outcome leaves it in place with a recorded reason.
 
 ## Residual risk, stated plainly
 
-- **No database roles exist.** `audit.drop_month_partition` is not restricted to a maintenance role,
-  because this repository's migrations create no roles at all. An application connection that can
-  `DROP TABLE` can drop a partition without going through the gate. Closing this needs role
-  separation, tracked as its own deliverable (RBAC / PLT-001) rather than bolted on here.
+- **Role separation is in place but is not yet *deployed*.** Migration 0008 makes
+  `audit.drop_month_partition` `SECURITY DEFINER` and grants it only to `pss_maintenance`, so the
+  privilege is a grant rather than a side effect of table ownership. That only delivers the invariant
+  once the application actually connects as `pss_app` instead of as the migration role. Until that
+  deployment change lands — a Terraform and secret change, not a migration — an application
+  connection using migration credentials still owns the audit tables and can still drop a partition
+  without going through the gate. **Check which role the application uses before enabling
+  rotation.**
 - **The registered archive client is a local directory.** See "Before you run rotation in production".
 - **The database provides no once-per-version protection after the partition swap.** The partitioned
   `UNIQUE (occurred_at, request_id, ...)` constraint is inert, because `occurred_at` defaults to
