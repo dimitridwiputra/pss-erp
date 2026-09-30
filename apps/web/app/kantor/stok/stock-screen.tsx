@@ -1,16 +1,17 @@
 'use client';
 
 import type { StockBalanceListResponse, StockMovementListResponse } from '@pss/contracts';
-import { EmptyState, LoadingState } from '@pss/ui';
+import { EmptyState, PageHeader, Panel, StatusPill } from '@pss/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { BackofficeFrame, BackofficeProblem } from '../../kasir/components/backoffice-frame';
+import { BackofficeFrame } from '../../kasir/components/backoffice-frame';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaDateTime } from '../../kasir/lib/labels';
 import { quantity, rupiah } from '../../kasir/lib/money';
 import { movementTypeLabel, NO_COST, NO_VALUE } from '../lib/labels';
+import { KantorProblem } from '../lib/problem';
 import { WarehouseGate } from '../lib/warehouse-gate';
+import { WarehousePicker } from '../lib/warehouse-picker';
 
 const PAGE_SIZE = 25;
 
@@ -28,15 +29,13 @@ const PAGE_SIZE = 25;
 export function StockScreen() {
   return (
     <BackofficeFrame title="Stok">
-      <div className="pos-page-heading">
-        <div>
-          <h1>Stok</h1>
-          <p>Saldo barang di gudang terpilih beserta nilainya.</p>
-        </div>
-      </div>
-      <section className="pos-card">
-        <WarehouseGate>{(warehouseId) => <StockBody warehouseId={warehouseId} />}</WarehouseGate>
-      </section>
+      <PageHeader
+        eyebrow="Persediaan"
+        title="Stok"
+        description="Saldo barang di gudang terpilih beserta nilainya, dan riwayat pergerakan di gudang."
+        actions={<WarehousePicker />}
+      />
+      <WarehouseGate>{(warehouseId) => <StockBody warehouseId={warehouseId} />}</WarehouseGate>
     </BackofficeFrame>
   );
 }
@@ -57,58 +56,53 @@ function StockBody({ warehouseId }: { warehouseId: string }) {
 
   return (
     <>
-      <div className="pos-toolbar" style={{ marginTop: 0 }}>
-        <button
-          type="button"
-          className={view === 'saldo' ? 'pos-primary' : 'pos-outline'}
-          onClick={() => { setView('saldo'); setPage(1); }}
-        >
-          Saldo
-        </button>
-        <button
-          type="button"
-          className={view === 'perubahan' ? 'pos-primary' : 'pos-outline'}
-          onClick={() => { setView('perubahan'); setPage(1); }}
-        >
-          Riwayat
-        </button>
+      <div className="pss-segmented" role="group" aria-label="Tampilan stok" style={{ marginBottom: 16 }}>
+        <button type="button" aria-pressed={view === 'saldo'} className={view === 'saldo' ? 'active' : undefined}
+          onClick={() => { setView('saldo'); setPage(1); }}>Saldo</button>
+        <button type="button" aria-pressed={view === 'perubahan'} className={view === 'perubahan' ? 'active' : undefined}
+          onClick={() => { setView('perubahan'); setPage(1); }}>Riwayat</button>
       </div>
 
-      <form className="pos-toolbar pos-filter-row" onSubmit={search} role="search">
-        <label className="pos-search">
-          <Search size={17} aria-hidden="true" />
-          <input
-            value={typed}
-            onChange={(event) => setTyped(event.target.value)}
-            placeholder={view === 'saldo' ? 'Cari SKU atau nama barang…' : 'Cari barang di riwayat…'}
-            aria-label={view === 'saldo' ? 'Cari SKU atau nama barang' : 'Cari barang di riwayat'}
-          />
-        </label>
-        {view === 'saldo' ? (
-          <>
-            <span className="pos-filter-label">
-              <select value={maxQty} onChange={(event) => { setMaxQty(event.target.value); setPage(1); }} aria-label="Saring stok menipis">
-                <option value="">Semua jumlah</option>
-                <option value="10">10 atau kurang</option>
-                <option value="5">5 atau kurang</option>
-                <option value="0">Habis</option>
-              </select>
-            </span>
-            <SortSelect value={sort} onChange={(next) => { setSort(next); setPage(1); }} />
-          </>
-        ) : (
-          <span className="pos-filter-label">
-            <select value="occurredAt" onChange={() => setPage(1)} aria-label="Urutkan riwayat">
-              <option value="occurredAt">Terbaru lebih dulu</option>
-            </select>
-          </span>
-        )}
-        <button type="submit" className="pos-outline">Cari</button>
-      </form>
+      <Panel flush>
+        <form className="pss-filter-bar" onSubmit={search} role="search">
+          <label className="pss-form-field" style={{ margin: 0, flex: 1, minWidth: 220 }}>
+            <span className="pss-visually-hidden">{view === 'saldo' ? 'Cari SKU atau nama barang' : 'Cari barang di riwayat'}</span>
+            <input
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+              placeholder={view === 'saldo' ? 'Cari SKU atau nama barang…' : 'Cari barang di riwayat…'}
+            />
+          </label>
+          {view === 'saldo' ? (
+            <>
+              <div className="pss-segmented" role="group" aria-label="Saring stok menipis">
+                {[
+                  { value: '', label: 'Semua jumlah' },
+                  { value: '10', label: '10 atau kurang' },
+                  { value: '5', label: '5 atau kurang' },
+                  { value: '0', label: 'Habis' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={maxQty === option.value}
+                    className={maxQty === option.value ? 'active' : undefined}
+                    onClick={() => { setMaxQty(option.value); setPage(1); }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <SortSelect value={sort} onChange={(next) => { setSort(next); setPage(1); }} />
+            </>
+          ) : null}
+          <button type="submit" className="pss-button pss-button-secondary">Cari</button>
+        </form>
 
-      {view === 'saldo'
-        ? <Balances warehouseId={warehouseId} query={query} maxQty={maxQty} sort={sort} page={page} onPage={setPage} />
-        : <Ledger warehouseId={warehouseId} query={query} page={page} onPage={setPage} />}
+        {view === 'saldo'
+          ? <Balances warehouseId={warehouseId} query={query} maxQty={maxQty} sort={sort} page={page} onPage={setPage} />
+          : <Ledger warehouseId={warehouseId} query={query} page={page} onPage={setPage} />}
+      </Panel>
     </>
   );
 }
@@ -116,18 +110,18 @@ function StockBody({ warehouseId }: { warehouseId: string }) {
 /**
  * The order is chosen and named, because the ledger cannot sort by name.
  *
- * `core.product` is `master-data`'s table, so this side can only order by what it stores — the
- * product id, which means nothing to a person. Rather than leave the rows in an arbitrary order and
- * say nothing, the screen offers the two orders that do mean something and shows which one is on.
+ * `core.product` is `master-data`'s table, so this side can only order by what it stores — the product
+ * id, which means nothing to a person. Rather than leave the rows in an arbitrary order and say
+ * nothing, the screen offers the two orders that do mean something and shows which one is on.
  */
 function SortSelect({ value, onChange }: { value: 'qtyOnHand' | 'value'; onChange: (next: 'qtyOnHand' | 'value') => void }) {
   return (
-    <span className="pos-filter-label">
-      <select value={value} onChange={(event) => onChange(event.target.value as 'qtyOnHand' | 'value')} aria-label="Urutkan saldo">
-        <option value="qtyOnHand">Stok terbanyak</option>
-        <option value="value">Nilai terbesar</option>
-      </select>
-    </span>
+    <div className="pss-segmented" role="group" aria-label="Urutkan saldo">
+      <button type="button" aria-pressed={value === 'qtyOnHand'} className={value === 'qtyOnHand' ? 'active' : undefined}
+        onClick={() => onChange('qtyOnHand')}>Stok terbanyak</button>
+      <button type="button" aria-pressed={value === 'value'} className={value === 'value' ? 'active' : undefined}
+        onClick={() => onChange('value')}>Nilai terbesar</button>
+    </div>
   );
 }
 
@@ -153,59 +147,65 @@ function Balances({ warehouseId, query, maxQty, sort, page, onPage }: {
 
   return (
     <>
-      {balances.isPending && <LoadingState label="Memuat saldo stok" />}
-      {balances.isError && <BackofficeProblem error={balances.error} onRetry={() => void balances.refetch()} />}
+      {balances.isPending && <span className="pss-skeleton-row" aria-label="Memuat saldo stok" />}
+      {balances.isError && <ProblemFor error={balances.error} onRetry={() => void balances.refetch()} />}
       {balances.data && (
         <>
-          <p className="pos-muted" style={{ marginTop: 0 }}>
-            {balances.data.total} jenis barang
-            {balances.data.unvaluedCount > 0 && ` · ${balances.data.unvaluedCount} belum ada harga pokok`}
-            {balances.data.totalValue !== null && ` · total nilai ${rupiah(balances.data.totalValue)}`}
-            {balances.data.totalValue === null && ' · total nilai belum dapat dihitung'}
+          <p className="pss-muted" style={{ whiteSpace: 'normal', padding: '12px 24px 0', margin: 0 }}>
+            {[
+              `${balances.data.total} jenis barang`,
+              balances.data.unvaluedCount > 0 ? `${balances.data.unvaluedCount} belum ada harga pokok` : null,
+              balances.data.totalValue !== null
+                ? `total nilai ${rupiah(balances.data.totalValue)}`
+                : 'total nilai belum dapat dihitung',
+            ].filter(Boolean).join(' · ')}
           </p>
 
           {balances.data.items.length === 0
             ? <EmptyState title="Tidak ada saldo" description="Belum ada barang yang tercatat di gudang ini, atau tidak ada yang cocok dengan saringan." />
             : (
-              <div className="pos-table-wrap">
-                <table className="pos-table">
-                  <thead>
-                    <tr>
-                      <th>SKU</th><th>Barang</th><th>Satuan</th>
-                      <th className="pos-number">Stok</th><th className="pos-number">Dipesan</th>
-                      <th className="pos-number">Harga pokok</th><th className="pos-number">Nilai</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {balances.data.items.map((item) => (
-                      <tr key={item.productId}>
-                        <td>{item.product?.sku ?? '—'}</td>
-                        <td><strong>{item.product?.name ?? 'Barang yang sudah dihapus'}</strong></td>
-                        <td>{item.uom}</td>
-                        <td className="pos-number">{quantity(item.qtyOnHand)}</td>
-                        <td className="pos-number">{quantity(item.qtyReserved)}</td>
-                        <td className="pos-number">
-                          {item.avgUnitCost === null
-                            ? <span className="pos-muted">{NO_COST}</span>
-                            : rupiah(item.avgUnitCost)}
-                        </td>
-                        <td className="pos-number">
-                          {item.stockValue === null
-                            ? <span className="pos-muted">{NO_VALUE}</span>
-                            : rupiah(item.stockValue)}
-                        </td>
+              <>
+                <div className="pss-table-scroll">
+                  <table className="pss-data-table">
+                    <thead>
+                      <tr>
+                        <th>SKU</th><th>Barang</th><th>Satuan</th>
+                        <th className="pss-number">Stok</th><th className="pss-number">Dipesan</th>
+                        <th className="pss-number">Harga pokok</th><th className="pss-number">Nilai</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {balances.data.items.map((item) => (
+                        <tr key={item.productId}>
+                          <td>{item.product?.sku ?? '—'}</td>
+                          <td>{item.product?.name ?? 'Barang yang sudah dihapus'}</td>
+                          <td>{item.uom}</td>
+                          <td className="pss-number">{quantity(item.qtyOnHand)}</td>
+                          <td className="pss-number">{quantity(item.qtyReserved)}</td>
+                          <td className="pss-number">
+                            {item.avgUnitCost === null
+                              ? <span className="pss-muted" style={{ whiteSpace: 'normal' }}>{NO_COST}</span>
+                              : rupiah(item.avgUnitCost)}
+                          </td>
+                          <td className="pss-number">
+                            {item.stockValue === null
+                              ? <span className="pss-muted" style={{ whiteSpace: 'normal' }}>{NO_VALUE}</span>
+                              : rupiah(item.stockValue)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="pss-pagination">
+                  <span>Halaman {page} dari {pages}</span>
+                  <div>
+                    <button type="button" className="pss-button pss-button-secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>Sebelumnya</button>
+                    <button type="button" className="pss-button pss-button-secondary" disabled={page >= pages} onClick={() => onPage(page + 1)}>Berikutnya</button>
+                  </div>
+                </div>
+              </>
             )}
-
-          <div className="pos-pagination">
-            <button type="button" className="pos-outline" disabled={page <= 1} onClick={() => onPage(page - 1)}>Sebelumnya</button>
-            <span className="pos-muted">Halaman {page} dari {pages}</span>
-            <button type="button" className="pos-outline" disabled={page >= pages} onClick={() => onPage(page + 1)}>Berikutnya</button>
-          </div>
         </>
       )}
     </>
@@ -229,55 +229,58 @@ function Ledger({ warehouseId, query, page, onPage }: {
 
   return (
     <>
-      {movements.isPending && <LoadingState label="Memuat riwayat stok" />}
-      {movements.isError && <BackofficeProblem error={movements.error} onRetry={() => void movements.refetch()} />}
-      {movements.data && (
-        <>
-          {movements.data.items.length === 0
-            ? <EmptyState title="Belum ada pergerakan" description="Belum ada penerimaan, pengeluaran, atau penyesuaian stok di gudang ini." />
-            : (
-              <div className="pos-table-wrap">
-                <table className="pos-table">
-                  <thead>
-                    <tr>
-                      <th>Waktu</th><th>Jenis</th><th>Barang</th>
-                      <th className="pos-number">Jumlah</th><th className="pos-number">Harga pokok</th>
-                      <th className="pos-number">Nilai</th><th>Alasan</th><th>Sumber</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {movements.data.items.map((item) => {
-                      const kind = movementTypeLabel[item.movementType];
-                      return (
-                        <tr key={item.movementId}>
-                          <td>{jakartaDateTime(item.occurredAt)}</td>
-                          <td><span className={`pos-status pos-status-${kind.tone}`}>{kind.label}</span></td>
-                          <td><strong>{item.product?.name ?? 'Barang yang sudah dihapus'}</strong><small>{item.product?.sku ?? '—'}</small></td>
-                          <td className="pos-number">{quantity(item.qty)} {item.uom}</td>
-                          <td className="pos-number">
-                            {item.unitCost === null ? <span className="pos-muted">{NO_COST}</span> : rupiah(item.unitCost)}
-                          </td>
-                          <td className="pos-number">
-                            {item.totalCost === null ? <span className="pos-muted">{NO_VALUE}</span> : rupiah(item.totalCost)}
-                          </td>
-                          <td>{item.reasonLabel ?? <span className="pos-muted">—</span>}</td>
-                          <td>{item.referenceType}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+      {movements.isPending && <span className="pss-skeleton-row" aria-label="Memuat riwayat stok" />}
+      {movements.isError && <ProblemFor error={movements.error} onRetry={() => void movements.refetch()} />}
+      {movements.data && (movements.data.items.length === 0
+        ? <EmptyState title="Belum ada pergerakan" description="Belum ada penerimaan, pengeluaran, atau penyesuaian stok di gudang ini." />
+        : (
+          <>
+            <div className="pss-table-scroll">
+              <table className="pss-data-table">
+                <thead>
+                  <tr>
+                    <th>Waktu</th><th>Jenis</th><th>Barang</th>
+                    <th className="pss-number">Jumlah</th><th className="pss-number">Harga pokok</th>
+                    <th className="pss-number">Nilai</th><th>Alasan</th><th>Sumber</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movements.data.items.map((item) => {
+                    const kind = movementTypeLabel[item.movementType];
+                    return (
+                      <tr key={item.movementId}>
+                        <td>{jakartaDateTime(item.occurredAt)}</td>
+                        <td><StatusPill tone={kind.tone} label={kind.label} /></td>
+                        <td>{item.product?.name ?? 'Barang yang sudah dihapus'}<small>{item.product?.sku ?? '—'}</small></td>
+                        <td className="pss-number">{quantity(item.qty)} {item.uom}</td>
+                        <td className="pss-number">
+                          {item.unitCost === null ? <span className="pss-muted" style={{ whiteSpace: 'normal' }}>{NO_COST}</span> : rupiah(item.unitCost)}
+                        </td>
+                        <td className="pss-number">
+                          {item.totalCost === null ? <span className="pss-muted" style={{ whiteSpace: 'normal' }}>{NO_VALUE}</span> : rupiah(item.totalCost)}
+                        </td>
+                        <td>{item.reasonLabel ?? <span className="pss-muted">—</span>}</td>
+                        <td>{item.referenceType}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="pss-pagination">
+              <span>{movements.data.total} baris · halaman {page} dari {pages}</span>
+              <div>
+                <button type="button" className="pss-button pss-button-secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>Sebelumnya</button>
+                <button type="button" className="pss-button pss-button-secondary" disabled={page >= pages} onClick={() => onPage(page + 1)}>Berikutnya</button>
               </div>
-            )}
-
-          <div className="pos-pagination">
-            <span className="pos-muted">{movements.data.total} baris</span>
-            <button type="button" className="pos-outline" disabled={page <= 1} onClick={() => onPage(page - 1)}>Sebelumnya</button>
-            <span className="pos-muted">Halaman {page} dari {pages}</span>
-            <button type="button" className="pos-outline" disabled={page >= pages} onClick={() => onPage(page + 1)}>Berikutnya</button>
-          </div>
-        </>
-      )}
+            </div>
+          </>
+        ))}
     </>
   );
+}
+
+/** A refusal on a read, with a way to try again. */
+function ProblemFor({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  return <KantorProblem error={error} action={<button type="button" className="pss-button pss-button-secondary" onClick={onRetry}>Coba Lagi</button>} />;
 }

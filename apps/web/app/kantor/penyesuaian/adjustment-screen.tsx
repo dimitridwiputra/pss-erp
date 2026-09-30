@@ -3,17 +3,18 @@
 import type {
   ProductDetail, ProductListResponse, StockAdjustmentReasonListResponse, StockAdjustmentRequest, StockAdjustmentResponse,
 } from '@pss/contracts';
-import { EmptyState, LoadingState } from '@pss/ui';
+import { EmptyState, PageHeader, Panel } from '@pss/ui';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeftRight, Search, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { BackofficeFrame, BackofficeProblem } from '../../kasir/components/backoffice-frame';
+import { BackofficeFrame } from '../../kasir/components/backoffice-frame';
 import { KantorProblem } from '../lib/problem';
 import { useCommand } from '../../kasir/hooks/use-command';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaToday } from '../../kasir/lib/labels';
 import { threeDecimals } from '../lib/quantity';
 import { WarehouseGate } from '../lib/warehouse-gate';
+import { WarehousePicker } from '../lib/warehouse-picker';
 
 interface AdjustmentLine {
   key: string;
@@ -45,15 +46,13 @@ interface AdjustmentLine {
 export function AdjustmentScreen() {
   return (
     <BackofficeFrame title="Penyesuaian Stok">
-      <div className="pos-page-heading">
-        <div>
-          <h1>Penyesuaian Stok</h1>
-          <p>Koreksi saldo barang yang tidak sesuai dengan isi rak.</p>
-        </div>
-      </div>
-      <section className="pos-card">
-        <WarehouseGate>{(warehouseId) => <AdjustmentBody warehouseId={warehouseId} />}</WarehouseGate>
-      </section>
+      <PageHeader
+        eyebrow="Persediaan"
+        title="Penyesuaian Stok"
+        description="Koreksi saldo barang yang tidak sesuai dengan isi rak. Setiap koreksi perlu alasan."
+        actions={<WarehousePicker />}
+      />
+      <WarehouseGate>{(warehouseId) => <AdjustmentBody warehouseId={warehouseId} />}</WarehouseGate>
     </BackofficeFrame>
   );
 }
@@ -87,43 +86,44 @@ function AdjustmentBody({ warehouseId }: { warehouseId: string }) {
     || payload.some((line) => Number(line.qtyDelta) === 0 || line.reasonCode === '');
 
   return (
-    <>
+    <div className="pss-side-stack">
       {done && (
-        <p className="pos-inline-success" role="status">
+        <p className="pss-notice-success" role="status">
           {done.movementIds.length} koreksi tersimpan dan sudah tercatat di riwayat stok.
         </p>
       )}
       {adjust.isError && <KantorProblem error={adjust.error} />}
 
-      <ProductPicker
+      <Panel flush title="Daftar koreksi" description={lines.length === 0 ? 'Belum ada barang.' : `${lines.length} baris siap disimpan.`}>
+        <ProductPicker
           disabled={reasons.isPending || reasons.isError}
           onPick={(line) => setLines((current) => [...current, { ...line, reasonCode: '' }])}
         />
 
-        {reasons.isPending && <LoadingState label="Memuat alasan penyesuaian" />}
-        {reasons.isError && <BackofficeProblem error={reasons.error} onRetry={() => void reasons.refetch()} />}
+        {reasons.isPending && <span className="pss-skeleton-row" aria-label="Memuat alasan penyesuaian" />}
+        {reasons.isError && <KantorProblem error={reasons.error} action={<button type="button" className="pss-button pss-button-secondary" onClick={() => void reasons.refetch()}>Coba Lagi</button>} />}
 
         {lines.length === 0
           ? <EmptyState title="Belum ada barang untuk dikoreksi" description="Cari barang di atas, lalu pilih untuk menambahkan koreksinya." />
           : (
             <>
-              <div className="pos-table-wrap">
-                <table className="pos-table">
+              <div className="pss-table-scroll">
+                <table className="pss-data-table">
                   <thead>
                     <tr><th>Barang</th><th>Satuan</th><th>Selisih</th><th>Alasan</th><th /></tr>
                   </thead>
                   <tbody>
                     {lines.map((line, index) => (
                       <tr key={line.key}>
-                        <td><strong>{line.name}</strong><small>{line.sku}</small></td>
+                        <td>{line.name}<small>{line.sku}</small></td>
                         <td>
-                          <label className="pos-visually-hidden" htmlFor={`adj-uom-${line.key}`}>Satuan untuk {line.name}</label>
+                          <label className="pss-visually-hidden" htmlFor={`adj-uom-${line.key}`}>Satuan untuk {line.name}</label>
                           <select id={`adj-uom-${line.key}`} value={line.uom} onChange={(event) => patch(lines, setLines, index, { uom: event.target.value })}>
                             {line.units.map((uom) => <option key={uom} value={uom}>{uom}</option>)}
                           </select>
                         </td>
                         <td>
-                          <label className="pos-visually-hidden" htmlFor={`adj-delta-${line.key}`}>Selisih {line.name}</label>
+                          <label className="pss-visually-hidden" htmlFor={`adj-delta-${line.key}`}>Selisih {line.name}</label>
                           <input
                             id={`adj-delta-${line.key}`}
                             inputMode="decimal"
@@ -138,7 +138,7 @@ function AdjustmentBody({ warehouseId }: { warehouseId: string }) {
                           </small>
                         </td>
                         <td>
-                          <label className="pos-visually-hidden" htmlFor={`adj-reason-${line.key}`}>Alasan untuk {line.name}</label>
+                          <label className="pss-visually-hidden" htmlFor={`adj-reason-${line.key}`}>Alasan untuk {line.name}</label>
                           <select
                             id={`adj-reason-${line.key}`}
                             value={line.reasonCode}
@@ -153,7 +153,7 @@ function AdjustmentBody({ warehouseId }: { warehouseId: string }) {
                         <td>
                           <button
                             type="button"
-                            className="pos-danger-link"
+                            className="pss-button pss-button-danger"
                             onClick={() => setLines((current) => current.filter((_, at) => at !== index))}
                             aria-label={`Hapus ${line.name} dari daftar koreksi`}
                           >
@@ -165,32 +165,34 @@ function AdjustmentBody({ warehouseId }: { warehouseId: string }) {
                   </tbody>
                 </table>
               </div>
-
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (incomplete) return;
-                  adjust.mutate({
-                    lines: payload,
-                    ...(businessDate ? { businessDate } : {}),
-                  });
-                }}
-              >
-                <label className="pos-field">Tanggal koreksi
-                  <input type="date" value={businessDate} max={jakartaToday()} onChange={(event) => setBusinessDate(event.target.value)} />
-                  <small>Kosongkan untuk memakai hari ini.</small>
-                </label>
-                <p className="pos-muted">
-                  Koreksi yang tersimpan langsung berlaku. Untuk demonstrasi ini tidak ada tahap persetujuan
-                  berikutnya, jadi periksa jumlah dan alasannya sebelum menyimpan.
-                </p>
-                <button type="submit" className="pos-primary" disabled={adjust.isPending || incomplete}>
-                  <ArrowLeftRight size={17} aria-hidden="true" /> {adjust.isPending ? 'Menyimpan…' : `Simpan ${lines.length} Koreksi`}
-                </button>
-              </form>
             </>
           )}
-    </>
+      </Panel>
+
+      {lines.length > 0 && (
+        <Panel title="Simpan koreksi">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (incomplete) return;
+              adjust.mutate({ lines: payload, ...(businessDate ? { businessDate } : {}) });
+            }}
+          >
+            <label className="pss-form-field">Tanggal koreksi
+              <input type="date" className="pss-date" value={businessDate} max={jakartaToday()} onChange={(event) => setBusinessDate(event.target.value)} />
+              <small className="pss-muted" style={{ whiteSpace: 'normal' }}>Kosongkan untuk memakai hari ini.</small>
+            </label>
+            <p className="pss-muted" style={{ whiteSpace: 'normal' }}>
+              Koreksi yang tersimpan langsung berlaku. Untuk demonstrasi ini tidak ada tahap persetujuan
+              berikutnya, jadi periksa jumlah dan alasannya sebelum menyimpan.
+            </p>
+            <button type="submit" className="pss-button pss-button-primary" disabled={adjust.isPending || incomplete}>
+              <ArrowLeftRight size={16} aria-hidden="true" /> {adjust.isPending ? 'Menyimpan…' : `Simpan ${lines.length} Koreksi`}
+            </button>
+          </form>
+        </Panel>
+      )}
+    </div>
   );
 }
 
@@ -235,36 +237,31 @@ function ProductPicker({ onPick, disabled }: { onPick: (line: Omit<AdjustmentLin
   return (
     <div>
       <form
-        className="pos-toolbar pos-filter-row"
+        className="pss-filter-bar"
         role="search"
         onSubmit={(event: FormEvent) => { event.preventDefault(); setQuery(typed.trim()); }}
       >
-        <label className="pos-search">
-          <Search size={17} aria-hidden="true" />
-          <input
-            value={typed}
-            onChange={(event) => setTyped(event.target.value)}
-            placeholder="Cari SKU atau nama barang…"
-            aria-label="Cari barang yang akan dikoreksi"
-          />
+        <label className="pss-form-field" style={{ margin: 0, flex: 1, minWidth: 220 }}>
+          <span className="pss-visually-hidden">Cari barang yang akan dikoreksi</span>
+          <input value={typed} onChange={(event) => setTyped(event.target.value)} placeholder="Cari SKU atau nama barang…" />
         </label>
-        <button type="submit" className="pos-outline" disabled={typed.trim() === '' || disabled}>Cari</button>
+        <button type="submit" className="pss-button pss-button-secondary" disabled={typed.trim() === '' || disabled}>Cari</button>
       </form>
 
-      {search.isError && <BackofficeProblem error={search.error} onRetry={() => void search.refetch()} />}
+      {search.isError && <KantorProblem error={search.error} action={<button type="button" className="pss-button pss-button-secondary" onClick={() => void search.refetch()}>Coba Lagi</button>} />}
       {search.data && query !== '' && (search.data.items.length === 0
-        ? <p className="pos-muted">Tidak ada barang yang cocok dengan "{query}".</p>
+        ? <p className="pss-muted" style={{ padding: '0 24px 12px' }}>Tidak ada barang yang cocok dengan "{query}".</p>
         : (
-          <ul className="pos-katalog-list">
+          <ul className="pss-pick-list">
             {search.data.items.map((item) => (
               <li key={item.productId}>
                 <button
                   type="button"
-                  className="pos-linkish"
+                  className="pss-link-quiet"
                   disabled={busy}
                   onClick={() => { void add(item.productId, item.sku, item.name); }}
                 >
-                  <strong>{item.name}</strong>
+                  {item.name}
                   <small>{item.sku} · satuan dasar {item.baseUom}</small>
                 </button>
               </li>

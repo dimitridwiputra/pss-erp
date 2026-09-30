@@ -37,6 +37,19 @@ export const workScreens: readonly WorkScreen[] = [
   { key: 'serah-barang', label: 'Serah Barang', description: 'Serahkan barang yang sudah dibayar di konter.', href: '/kasir', permission: 'fulfillment.pickup.handover', section: 'penjualan', icon: 'serah-barang' },
   { key: 'penjualan', label: 'Penjualan Konter', description: 'Lihat transaksi kasir dan fakturnya.', href: '/kantor/penjualan', permission: 'pos.report.view', section: 'penjualan', icon: 'penjualan' },
   { key: 'setoran-kas', label: 'Setoran Kas', description: 'Hitung dan terima uang dari kasir.', href: '/kantor/setoran-kas', permission: 'payments.cash_custody.verify', section: 'kas', icon: 'setoran-kas' },
+
+  // The back office (MVP_PLAN §4, this stream). One entry per screen, each carrying the permission
+  // that screen's own API enforces: `pos.report.view` for the dashboard (it reads the POS summary),
+  // `master_data.product.manage` and `commercial.price_list.manage` for the masters, and the three
+  // warehouse codes — `inventory.stock_card.view` to read the card, `procurement.receipt.post` to
+  // receive goods, `inventory.adjustment.request` to correct a balance. Codes, never roles (RBAC-001.R02).
+  { key: 'dasbor', label: 'Dasbor Harian', description: 'Penjualan, kas, dan kondisi gudang untuk hari ini.', href: '/kantor', permission: 'pos.report.view', section: 'hari-ini', icon: 'dasbor' },
+  { key: 'barang', label: 'Barang', description: 'Master barang, barcode, dan satuan jualnya.', href: '/kantor/barang', permission: 'master_data.product.manage', section: 'data-utama', icon: 'barang' },
+  { key: 'harga', label: 'Harga Jual', description: 'Harga per satuan, per versi daftar harga.', href: '/kantor/harga', permission: 'commercial.price_list.manage', section: 'data-utama', icon: 'harga' },
+  { key: 'pelanggan', label: 'Pelanggan', description: 'Daftar pelanggan terdaftar. Layar ini hanya untuk melihat.', href: '/kantor/pelanggan', permission: 'master_data.product.manage', section: 'data-utama', icon: 'pelanggan' },
+  { key: 'stok', label: 'Stok', description: 'Saldo barang di gudang beserta nilainya.', href: '/kantor/stok', permission: 'inventory.stock_card.view', section: 'persediaan', icon: 'stok' },
+  { key: 'terima', label: 'Terima Barang', description: 'Catat barang yang masuk beserta harga pokoknya.', href: '/kantor/terima', permission: 'procurement.receipt.post', section: 'persediaan', icon: 'terima' },
+  { key: 'penyesuaian', label: 'Penyesuaian Stok', description: 'Koreksi saldo barang yang tidak sesuai dengan isi rak.', href: '/kantor/penyesuaian', permission: 'inventory.adjustment.request', section: 'persediaan', icon: 'penyesuaian' },
 ];
 
 /** The screens a viewer holding `permissions` may open, in registry order. */

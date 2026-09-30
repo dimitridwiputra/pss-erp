@@ -8,6 +8,9 @@ import { ProblemNotice } from '../../kasir/components/problem-notice';
 /**
  * The refusal notice for a /kantor form.
  *
+ * The counter's own callout, which the shell keeps available inside `BackofficeFrame`
+ * (`app/kantor/kantor.css`), so a refusal reads the same on the counter and in the back office.
+ *
  * **A field's own sentence is the headline when there is one.** The registry's copy for a code is
  * written for the area that code belongs to, and the area can be the wrong one: `DUPLICATE_CODE`'s
  * registered explanation is "Pilih kode cabang lain", because the PRD wrote it for a duplicate branch

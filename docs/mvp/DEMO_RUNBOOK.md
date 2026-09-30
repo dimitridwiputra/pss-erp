@@ -72,7 +72,9 @@ Each role signs in at `http://localhost:3000/masuk`. **Switching user needs two 
 
 ### 4.1 Back office sets up (admin.demo)
 
-Sign in as `admin.demo` and open **Kantor** on `/beranda`. Every screen below is in the left sidebar, and the **Gudang** box above it says which warehouse the stock screens act on. With no warehouse in scope the stock screens say so instead of showing a number.
+Sign in as `admin.demo` and open **Kantor** from the sidebar on `/beranda`. Every screen below is in that sidebar, grouped by work: *Hari Ini* (Beranda, Persetujuan, Dasbor Harian), *Penjualan*, *Persediaan* (Stok, Terima Barang, Penyesuaian Stok) and *Data Utama* (Barang, Harga Jual, Pelanggan). **Cari menu…** (Ctrl/⌘ K) jumps to any of them.
+
+The three stock screens carry a **Gudang** control in their own heading, not in the frame, because a product or a price has no warehouse. It lists only the warehouses the signed-in user may act on, and with none in scope the screen says so instead of showing a number. The sidebar itself is the one frame shared with POS and Finance (`docs/mvp/UI_SHELL.md`), so nothing here draws its own.
 
 **Barang — a product, its units, its barcodes (MDM-001..003).**
 
@@ -146,7 +148,7 @@ Manual journal (maker), approval and posting (checker, a different user), Neraca
 
 ### 4.8 Dashboard (admin.demo)
 
-Open **Dasbor Harian** — the first item in the sidebar, and a tile on `/beranda`. Five tiles, and the point of the screen is that **each one answers for itself**: a tile that cannot be read says *Belum tersedia* and why, and the other four keep their numbers. Nothing is ever shown as Rp 0 to cover a failed read.
+Open **Dasbor Harian** — under *Hari Ini* in the sidebar, and a tile on `/beranda`. Five tiles, and the point of the screen is that **each one answers for itself**: a tile that cannot be read says so in words under a dash, and the other four keep their numbers. Nothing is ever shown as Rp 0 to cover a failed read.
 
 | Tile | What it says | Where it comes from |
 |---|---|---|
@@ -157,6 +159,8 @@ Open **Dasbor Harian** — the first item in the sidebar, and a tile on `/berand
 | Stok menipis | How many goods are below the threshold, with the five lowest listed | the same read, filtered by `maxQty` |
 
 Below the tiles, **Perlu diisi ulang** lists the low-stock goods with their remaining quantity and a link to **Terima Barang**, so the dashboard ends in an action rather than a number.
+
+`/beranda` itself carries a **Gudang** widget for a viewer who may open the stock screen: the warehouse's value, the count of goods running out, and the same five rows — so the operator does not have to enter the back office to know the shelf is short before the day starts.
 
 The threshold is not a constant: the BFF supplies `PSS_DASHBOARD_LOW_STOCK_MIN_QTY` (default 10) as an input to the query, and the tile shows the threshold it used (MVP-OD-17). The warehouse comes from the signed-in user's own WAREHOUSE-scoped grants, not from configuration — nobody sees another branch's stock.
 

@@ -36,43 +36,45 @@ test('admin.demo sets up a new product, prices it, and receives it with a cost',
   // The /kantor shell is one sidebar for every back-office screen, including the two that were written
   // before it existed and used to draw their own frame.
   await page.goto('/kantor');
-  await expect(page.getByRole('heading', { name: 'Dasbor Harian' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dasbor Harian' })).toBeVisible({ timeout: 20_000 });
   await page.getByRole('link', { name: 'Barang', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Barang' })).toBeVisible();
+  // Generous, because this is the first request for this route and the dev server compiles it on
+  // demand. The screen itself answers in well under a second once compiled.
+  await expect(page.getByRole('heading', { name: 'Barang' })).toBeVisible({ timeout: 20_000 });
 
   await page.getByRole('button', { name: 'Barang Baru' }).click();
-  await page.getByLabel('SKU').fill(sku);
-  await page.getByLabel('Nama barang').fill('Kopi Susu Gula Aren 250ml');
-  await page.getByLabel('Satuan dasar').fill('BTL');
-  await page.getByLabel('Keadaan').selectOption('ACTIVE');
+  await page.getByRole('textbox', { name: 'SKU' }).fill(sku);
+  await page.getByRole('textbox', { name: 'Nama barang' }).fill('Kopi Susu Gula Aren 250ml');
+  await page.getByRole('textbox', { name: 'Satuan dasar' }).fill('BTL');
+  await page.getByRole('combobox', { name: 'Keadaan' }).selectOption('ACTIVE');
   await page.getByRole('button', { name: 'Simpan Barang' }).click();
   // The list is paged, so the new product is found by its SKU rather than by being on page one.
-  await page.getByLabel('Cari SKU atau nama barang').fill(sku);
-  await page.getByRole('button', { name: 'Cari' }).click();
+  await page.getByRole('textbox', { name: 'Cari SKU atau nama barang' }).fill(sku);
+  await page.getByRole('button', { name: 'Cari', exact: true }).click();
   await expect(page.getByRole('row', { name: new RegExp(sku) })).toBeVisible();
 
   await page.getByRole('button', { name: 'Kopi Susu Gula Aren 250ml' }).click();
-  await expect(page.getByRole('heading', { name: 'Kopi Susu Gula Aren 250ml' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Kopi Susu Gula Aren 250ml' })).toBeVisible({ timeout: 20_000 });
 
   // A case unit, then a barcode on that unit: a case label is not a piece label (MDM-003).
-  await page.getByLabel('Satuan', { exact: true }).fill('KARTON');
-  await page.getByLabel('Isi per BTL').fill('24');
+  await page.getByRole('textbox', { name: 'Satuan', exact: true }).fill('KARTON');
+  await page.getByRole('textbox', { name: /Isi per BTL/ }).fill('24');
   await page.getByRole('button', { name: 'Tambah Satuan' }).click();
-  await expect(page.getByRole('status')).toContainText('Satuan baru ditambahkan');
-  await page.getByLabel('Untuk satuan').selectOption('KARTON');
-  await page.getByLabel('Kode barcode').fill(barcode);
+  await expect(page.getByText('Satuan baru ditambahkan.')).toBeVisible();
+  await page.getByRole('combobox', { name: /Untuk satuan/ }).selectOption('KARTON');
+  await page.getByRole('textbox', { name: 'Kode barcode' }).fill(barcode);
   await page.getByRole('button', { name: 'Tambah Barcode' }).click();
-  await expect(page.getByRole('status')).toContainText('Barcode ditambahkan');
+  await expect(page.getByText('Barcode ditambahkan.')).toBeVisible();
   await expect(page.getByRole('cell', { name: barcode })).toBeVisible();
 
   // The exception this step is also there to prove: the same barcode on another product is refused
   // with the server's own words, and the first product keeps the code.
   await page.getByRole('button', { name: 'Kembali ke daftar' }).click();
   await page.getByLabel('Cari SKU atau nama barang').fill('DEMO-001');
-  await page.getByRole('button', { name: 'Cari' }).click();
+  await page.getByRole('button', { name: 'Cari', exact: true }).click();
   await page.getByRole('button', { name: 'Mi Goreng 80g' }).click();
-  await page.getByLabel('Untuk satuan').selectOption('KARTON');
-  await page.getByLabel('Kode barcode').fill(barcode);
+  await page.getByRole('combobox', { name: /Untuk satuan/ }).selectOption('KARTON');
+  await page.getByRole('textbox', { name: 'Kode barcode' }).fill(barcode);
   await page.getByRole('button', { name: 'Tambah Barcode' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Kode sudah dipakai' })).toContainText('sudah dipakai barang lain');
   await expect(page.getByRole('cell', { name: '8990001000012' })).toBeVisible();
@@ -80,14 +82,15 @@ test('admin.demo sets up a new product, prices it, and receives it with a cost',
 
   // A price is a new version of the list, never an edit: prepare a draft, price the new goods, activate.
   await page.getByRole('link', { name: 'Harga Jual' }).click();
-  await expect(page.getByRole('heading', { name: 'Harga Jual' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Harga Jual' })).toBeVisible({ timeout: 20_000 });
   // The button is disabled until the live list has loaded, so a draft always starts as its copy.
   await expect(page.getByRole('button', { name: 'Siapkan Versi Baru' })).toBeEnabled();
   await page.getByRole('button', { name: 'Siapkan Versi Baru' }).click();
   await expect(page.getByRole('button', { name: 'Aktifkan Harga Ini' })).toBeVisible();
   await page.getByRole('button', { name: 'Tambah Harga Barang' }).click();
-  await page.getByLabel('Cari barang yang akan diberi harga').fill(sku);
-  await page.getByRole('button', { name: 'Cari' }).last().click();
+  const pricePicker = page.getByRole('region', { name: 'Tambah harga barang' });
+  await pricePicker.getByRole('textbox').fill(sku);
+  await pricePicker.getByRole('button', { name: 'Cari', exact: true }).click();
   await page.getByRole('button', { name: /Kopi Susu Gula Aren/ }).click();
   // Priced in KARTON, because that is the unit whose barcode was just printed. A price in the base unit
   // would leave the counter with a label it cannot price, and the sale would be refused at checkout.
@@ -95,27 +98,30 @@ test('admin.demo sets up a new product, prices it, and receives it with a cost',
   await page.getByLabel(/Harga jual/).fill('96000');
   await page.getByRole('button', { name: 'Simpan Harga' }).click();
   await expect(page.getByRole('row', { name: new RegExp(sku) })).toContainText('96.000');
-  await page.getByRole('button', { name: 'Aktifkan Harga Ini' }).click();
-  await expect(page.getByRole('status')).toContainText('sudah berlaku');
+  const activate = page.getByRole('button', { name: 'Aktifkan Harga Ini' });
+  await expect(activate).toBeEnabled();
+  await activate.click();
+  await expect(page.getByText(/sudah berlaku di konter/)).toBeVisible();
 
   // The receipt, with a cost: the shelf is worth something and the first sale has a margin to measure.
   await page.getByRole('link', { name: 'Terima Barang' }).click();
-  await expect(page.getByRole('heading', { name: 'Terima Barang' })).toBeVisible();
-  await page.getByLabel('Cari barang yang akan diterima').fill(sku);
-  await page.getByRole('button', { name: 'Cari' }).click();
+  await expect(page.getByRole('heading', { name: 'Terima Barang' })).toBeVisible({ timeout: 20_000 });
+  const receivePicker = page.getByRole('region', { name: 'Daftar terima' });
+  await receivePicker.getByRole('textbox').fill(sku);
+  await receivePicker.getByRole('button', { name: 'Cari', exact: true }).click();
   await page.getByRole('button', { name: /Kopi Susu Gula Aren/ }).click();
   // Received in the case unit, not the base one: the unit on a receipt is the operator's choice, and
   // the balance then carries that unit — which is what makes the demo's "one product, two units" real.
-  await page.getByLabel(/Satuan untuk/).selectOption('KARTON');
-  await page.getByLabel(/Jumlah Kopi Susu/).fill('12');
-  await page.getByLabel(/Harga pokok Kopi Susu/).fill('82000');
+  await page.getByRole('combobox', { name: /Satuan untuk/ }).selectOption('KARTON');
+  await page.getByRole('textbox', { name: /Jumlah Kopi Susu/ }).fill('12');
+  await page.getByRole('textbox', { name: /Harga pokok Kopi Susu/ }).fill('82000');
   await page.getByRole('button', { name: /Terima 1 Baris/ }).click();
-  await expect(page.getByRole('status')).toContainText('sudah masuk ke stok gudang');
+  await expect(page.getByText(/sudah masuk ke stok gudang/)).toBeVisible();
   // A costed receipt is complete, so the screen must not warn that a line is unvalued.
-  await expect(page.getByRole('status')).not.toContainText('tanpa harga pokok');
+  await expect(page.getByText(/tanpa harga pokok/)).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Stok', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Stok' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Stok' })).toBeVisible({ timeout: 20_000 });
   const row = page.getByRole('row', { name: new RegExp(sku) });
   await expect(row).toContainText('KARTON');
   await expect(row).toContainText('12');
@@ -125,17 +131,18 @@ test('admin.demo sets up a new product, prices it, and receives it with a cost',
   // The dashboard: the tiles that have a source carry numbers, and the one that does not yet says so
   // in words rather than showing a zero (MVP-OD-23).
   await page.getByRole('link', { name: 'Dasbor Harian' }).click();
-  const tile = (label: string) => page.locator('.pos-kpi', { has: page.getByText(label, { exact: true }) });
-  await expect(tile('Penjualan hari ini')).toContainText('Rp');
-  await expect(tile('Kas konter belum dihitung')).toContainText('Rp');
-  await expect(tile('Nilai stok gudang')).toContainText('Rp');
-  // The threshold is shown beside the count, so the number is never a mystery (MVP-OD-17).
-  await expect(tile('Stok menipis')).toContainText('di bawah 10 per satuan');
+  const card = (label: string) => page.locator('.pss-kpi-card').filter({ hasText: label });
+  await expect(card('Penjualan hari ini')).toContainText('Rp', { timeout: 20_000 });
+  await expect(card('Kas konter belum dihitung')).toContainText('Rp');
+  await expect(card('Nilai stok gudang')).toContainText('Rp');
   // The gross-profit tile has no source yet and says so in words. It must never render Rp 0, which
-  // would read as "no profit" (MVP-OD-23).
-  await expect(tile('Laba kotor hari ini')).toContainText('Belum tersedia');
-  await expect(tile('Laba kotor hari ini')).toContainText('Keuangan');
-  await expect(tile('Laba kotor hari ini')).not.toContainText('Rp');
+  // would read as "no profit" (MVP-OD-23). Which words it uses depends on whether the accounting
+  // service is running at all, so the step asserts the property, not the wording: a reason, and no
+  // rupiah amount.
+  await expect(card('Laba kotor hari ini')).not.toContainText('Rp');
+  await expect(card('Laba kotor hari ini')).toContainText(/belum tersedia|Keuangan/);
+  // The threshold travels with the low-stock count, so the number is never a mystery (MVP-OD-17).
+  await expect(page.getByRole('region', { name: 'Perlu diisi ulang' })).toContainText('di bawah 10 per satuan');
 
   await page.context().close();
 });

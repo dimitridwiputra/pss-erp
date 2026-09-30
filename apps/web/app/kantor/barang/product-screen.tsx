@@ -3,17 +3,17 @@
 import type {
   AddProductBarcodeRequest, CreateProductRequest, ProductDetail, ProductListResponse, UpdateProductRequest,
 } from '@pss/contracts';
-import { EmptyState, LoadingState } from '@pss/ui';
+import { EmptyState, PageHeader, Panel, StatusPill } from '@pss/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Barcode, Check, Plus, Save, Search } from 'lucide-react';
+import { ArrowLeft, Barcode, Plus, Save } from 'lucide-react';
 import { useState } from 'react';
-import { BackofficeFrame, BackofficeProblem } from '../../kasir/components/backoffice-frame';
-import { KantorProblem } from '../lib/problem';
+import { BackofficeFrame } from '../../kasir/components/backoffice-frame';
 import { useCommand } from '../../kasir/hooks/use-command';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaDateTime } from '../../kasir/lib/labels';
 import { quantity } from '../../kasir/lib/money';
 import { orderCaptureLabel, productStatusLabel } from '../lib/labels';
+import { KantorProblem } from '../lib/problem';
 import { useKantorSession } from '../warehouse-context';
 
 const PAGE_SIZE = 25;
@@ -57,68 +57,70 @@ export function ProductScreen() {
 
   return (
     <BackofficeFrame title="Barang">
-      <div className="pos-page-heading">
-        <div>
-          <h1>Barang</h1>
-          <p>Master barang, barcode, dan satuan jualnya.</p>
-        </div>
-        {canManage && (
-          <button type="button" className="pos-primary" onClick={() => setCreating(true)}>
-            <Plus size={17} aria-hidden="true" /> Barang Baru
-          </button>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Data Utama"
+        title="Barang"
+        description="Master barang, barcode, dan satuan jualnya. Harga diisi di layar Harga, stok di Terima Barang."
+        {...(canManage ? { actions: <button type="button" className="pss-button pss-button-primary" onClick={() => setCreating(true)}><Plus size={16} aria-hidden="true" /> Barang Baru</button> } : {})}
+      />
 
-      <section className="pos-card">
+      <Panel flush>
         <form
-          className="pos-toolbar pos-filter-row"
-          onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(typed.trim()); }}
+          className="pss-filter-bar"
           role="search"
+          onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(typed.trim()); }}
         >
-          <label className="pos-search">
-            <Search size={17} aria-hidden="true" />
+          <label className="pss-form-field" style={{ flex: 1, minWidth: 220, margin: 0 }}>
+            <span className="pss-visually-hidden">Cari SKU atau nama barang</span>
             <input
               value={typed}
               onChange={(event) => setTyped(event.target.value)}
               placeholder="Cari SKU atau nama barang…"
-              aria-label="Cari SKU atau nama barang"
             />
           </label>
-          <span className="pos-filter-label">
-            <select
-              value={status}
-              onChange={(event) => { setStatus(event.target.value); setPage(1); }}
-              aria-label="Saring keadaan barang"
-            >
-              <option value="">Semua keadaan</option>
-              <option value="ACTIVE">Aktif</option>
-              <option value="DRAFT">Belum diaktifkan</option>
-              <option value="INACTIVE">Nonaktif</option>
-            </select>
-          </span>
-          <button type="submit" className="pos-outline">Cari</button>
+          <div className="pss-segmented" role="group" aria-label="Saring keadaan barang">
+            {[
+              { value: '', label: 'Semua' },
+              { value: 'ACTIVE', label: productStatusLabel.ACTIVE.label },
+              { value: 'DRAFT', label: productStatusLabel.DRAFT.label },
+              { value: 'INACTIVE', label: productStatusLabel.INACTIVE.label },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={status === option.value}
+                className={status === option.value ? 'active' : undefined}
+                onClick={() => { setStatus(option.value); setPage(1); }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <button type="submit" className="pss-button pss-button-secondary">Cari</button>
         </form>
 
-        {list.isPending && <LoadingState label="Memuat daftar barang" />}
-        {list.isError && <BackofficeProblem error={list.error} onRetry={() => void list.refetch()} />}
+        {list.isPending && <span className="pss-skeleton-row" aria-label="Memuat daftar barang" />}
+        {list.isError && <ProblemFor error={list.error} onRetry={() => void list.refetch()} />}
         {list.data && (list.data.items.length === 0
           ? (
-            <EmptyState
-              title={query ? 'Barang tidak ditemukan' : 'Belum ada barang'}
-              description={query
-                ? `Tidak ada barang yang cocok dengan "${query}".`
-                : 'Buat barang pertama, lalu berilah harga di layar Harga dan terima stoknya di Terima Barang.'}
-              {...(canManage && !query ? { action: <button type="button" className="pos-primary" onClick={() => setCreating(true)}>Buat barang pertama</button> } : {})}
-            />
+            <>
+              <EmptyState
+                title={query ? 'Barang tidak ditemukan' : 'Belum ada barang'}
+                description={query
+                  ? `Tidak ada barang yang cocok dengan "${query}".`
+                  : 'Buat barang pertama, lalu berilah harga di layar Harga dan terima stoknya di Terima Barang.'}
+                {...(canManage && !query ? { action: <button type="button" className="pss-button pss-button-primary" onClick={() => setCreating(true)}>Buat barang pertama</button> } : {})}
+              />
+            </>
           )
           : (
             <>
-              <div className="pos-table-wrap">
-                <table className="pos-table">
+              <div className="pss-table-scroll">
+                <table className="pss-data-table">
                   <thead>
                     <tr>
                       <th>SKU</th><th>Nama barang</th><th>Satuan dasar</th>
-                      <th className="pos-number">Satuan jual</th><th>Keadaan</th><th>Dibuat</th>
+                      <th className="pss-number">Satuan jual</th><th>Keadaan</th><th>Dibuat</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -128,14 +130,12 @@ export function ProductScreen() {
                         <tr key={item.productId}>
                           <td>{item.sku}</td>
                           <td>
-                            <button type="button" className="pos-linkish" onClick={() => setOpenId(item.productId)}>
-                              <strong>{item.name}</strong>
-                            </button>
+                            <button type="button" className="pss-link-quiet" onClick={() => setOpenId(item.productId)}>{item.name}</button>
                             {!item.hasBarcode && <small>Belum ada barcode</small>}
                           </td>
                           <td>{item.baseUom}</td>
-                          <td className="pos-number">{item.unitCount}</td>
-                          <td><span className={`pos-status pos-status-${state.tone}`}>{state.label}</span></td>
+                          <td className="pss-number">{item.unitCount}</td>
+                          <td><StatusPill tone={state.tone} label={state.label} /></td>
                           <td>{jakartaDateTime(item.createdAt)}</td>
                         </tr>
                       );
@@ -143,15 +143,16 @@ export function ProductScreen() {
                   </tbody>
                 </table>
               </div>
-              <div className="pos-pagination">
-                <span className="pos-muted">{list.data.total} barang</span>
-                <button type="button" className="pos-outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Sebelumnya</button>
-                <span className="pos-muted">Halaman {page} dari {pages}</span>
-                <button type="button" className="pos-outline" disabled={page >= pages} onClick={() => setPage(page + 1)}>Berikutnya</button>
+              <div className="pss-pagination">
+                <span>{list.data.total} barang</span>
+                <div>
+                  <button type="button" className="pss-button pss-button-secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Sebelumnya</button>
+                  <button type="button" className="pss-button pss-button-secondary" disabled={page >= pages} onClick={() => setPage(page + 1)}>Berikutnya</button>
+                </div>
               </div>
             </>
           ))}
-      </section>
+      </Panel>
     </BackofficeFrame>
   );
 }
@@ -178,57 +179,56 @@ function NewProduct({ onDone }: { onDone: () => void }) {
   );
 
   return (
-    <>
-      <div className="pos-page-heading">
-        <div>
-          <h1>Barang Baru</h1>
-          <p>Buat master barang. Harga dan stoknya diisi di layar masing-masing.</p>
-        </div>
-        <button type="button" className="pos-outline" onClick={onDone}>Batal</button>
-      </div>
+    <BackofficeFrame title="Barang">
+      <PageHeader
+        eyebrow="Data Utama"
+        title="Barang Baru"
+        description="Buat master barang. Harga dan stoknya diisi di layar masing-masing."
+        actions={<button type="button" className="pss-button pss-button-secondary" onClick={onDone}>Batal</button>}
+      />
 
-      <section className="pos-card">
+      <Panel>
         <form
           onSubmit={(event) => { event.preventDefault(); create.mutate({ sku: sku.trim(), name: name.trim(), baseUom: baseUom.trim(), orderCapture, status }); }}
           noValidate
         >
           {create.isError && <KantorProblem error={create.error} />}
 
-          <label className="pos-field">SKU
+          <label className="pss-form-field">SKU
             <input value={sku} onChange={(event) => setSku(event.target.value)} required maxLength={64} autoComplete="off" placeholder="BRG-001" />
-            <small>Kode unik barang. Tidak dapat diubah setelah barang dibuat.</small>
+            <small className="pss-muted" style={{ whiteSpace: 'normal' }}>Kode unik barang. Tidak dapat diubah setelah barang dibuat.</small>
           </label>
 
-          <label className="pos-field">Nama barang
+          <label className="pss-form-field">Nama barang
             <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={200} autoComplete="off" placeholder="Mi Instan Goreng 80g" />
           </label>
 
-          <label className="pos-field">Satuan dasar
+          <label className="pss-form-field">Satuan dasar
             <input value={baseUom} onChange={(event) => setBaseUom(event.target.value)} required maxLength={16} autoComplete="off" placeholder="PCS" />
-            <small>Satuan terkecil, misalnya PCS, BTL, atau BKS. Satuan lain ditambahkan setelah barang dibuat.</small>
+            <small className="pss-muted" style={{ whiteSpace: 'normal' }}>Satuan terkecil, misalnya PCS, BTL, atau BKS. Satuan lain ditambahkan setelah barang dibuat.</small>
           </label>
 
-          <label className="pos-field">Dicatat di
+          <label className="pss-form-field">Dicatat di
             <select value={orderCapture} onChange={(event) => setOrderCapture(event.target.value as 'PSS' | 'EXTERNAL')}>
               <option value="PSS">{orderCaptureLabel.PSS}</option>
               <option value="EXTERNAL">{orderCaptureLabel.EXTERNAL}</option>
             </select>
           </label>
 
-          <label className="pos-field">Keadaan
+          <label className="pss-form-field">Keadaan
             <select value={status} onChange={(event) => setStatus(event.target.value as 'DRAFT' | 'ACTIVE')}>
               <option value="DRAFT">{productStatusLabel.DRAFT.label}</option>
               <option value="ACTIVE">{productStatusLabel.ACTIVE.label}</option>
             </select>
-            <small>Pilih "Belum diaktifkan" bila barang ini belum siap dijual di konter.</small>
+            <small className="pss-muted" style={{ whiteSpace: 'normal' }}>Pilih "Belum diaktifkan" bila barang ini belum siap dijual di konter.</small>
           </label>
 
-          <button type="submit" className="pos-primary" disabled={create.isPending}>
-            <Check size={17} aria-hidden="true" /> {create.isPending ? 'Menyimpan…' : 'Simpan Barang'}
+          <button type="submit" className="pss-button pss-button-primary" disabled={create.isPending}>
+            <Save size={16} aria-hidden="true" /> {create.isPending ? 'Menyimpan…' : 'Simpan Barang'}
           </button>
         </form>
-      </section>
-    </>
+      </Panel>
+    </BackofficeFrame>
   );
 }
 
@@ -249,32 +249,29 @@ function ProductPage({ productId, onBack }: { productId: string; onBack: () => v
   };
 
   return (
-    <>
-      <div className="pos-page-heading">
-        <div>
-          <h1>{detail.data?.name ?? 'Barang'}</h1>
-          <p>{detail.data?.sku}</p>
-        </div>
-        <button type="button" className="pos-outline" onClick={onBack}>
-          <ArrowLeft size={17} aria-hidden="true" /> Kembali ke daftar
-        </button>
-      </div>
+    <BackofficeFrame title="Barang">
+      <PageHeader
+        eyebrow="Data Utama"
+        title={detail.data?.name ?? 'Barang'}
+        description={detail.data?.sku}
+        actions={<button type="button" className="pss-button pss-button-secondary" onClick={onBack}><ArrowLeft size={16} aria-hidden="true" /> Kembali ke daftar</button>}
+      />
 
-      {detail.isPending && <LoadingState label="Memuat barang" />}
-      {detail.isError && <BackofficeProblem error={detail.error} onRetry={() => void detail.refetch()} />}
+      {detail.isPending && <span className="pss-skeleton-row" aria-label="Memuat barang" />}
+      {detail.isError && <ProblemFor error={detail.error} onRetry={() => void detail.refetch()} />}
 
       {detail.data && (
         <>
-          {notice && <p className="pos-inline-success" role="status">{notice}</p>}
+          {notice && <p className="pss-notice-success" role="status">{notice}</p>}
           {/* Keyed on the version: a save that bumps it remounts the forms, so a field never keeps a
               value the server has already replaced. */}
-          <div className="pos-dashboard-grid" key={detail.data.version}>
+          <div className="pss-detail-grid" key={detail.data.version}>
             <ProductFacts detail={detail.data} onSaved={reload} />
             <UnitsAndBarcodes detail={detail.data} onSaved={reload} />
           </div>
         </>
       )}
-    </>
+    </BackofficeFrame>
   );
 }
 
@@ -293,8 +290,7 @@ function ProductFacts({ detail, onSaved }: { detail: ProductDetail; onSaved: (me
   );
 
   return (
-    <section className="pos-card">
-      <div className="pos-card-title"><h2>Keterangan barang</h2></div>
+    <Panel title="Keterangan barang">
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -306,27 +302,27 @@ function ProductFacts({ detail, onSaved }: { detail: ProductDetail; onSaved: (me
       >
         {save.isError && <KantorProblem error={save.error} />}
 
-        <label className="pos-field">SKU
+        <label className="pss-form-field">SKU
           <input value={detail.sku} readOnly />
-          <small>SKU tidak dapat diubah.</small>
+          <small className="pss-muted" style={{ whiteSpace: 'normal' }}>SKU tidak dapat diubah.</small>
         </label>
 
-        <label className="pos-field">Nama barang
+        <label className="pss-form-field">Nama barang
           <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={200} />
         </label>
 
-        <label className="pos-field">Satuan dasar
+        <label className="pss-form-field">Satuan dasar
           <input value={baseUom} onChange={(event) => setBaseUom(event.target.value)} required maxLength={16} />
         </label>
 
-        <label className="pos-field">Dicatat di
+        <label className="pss-form-field">Dicatat di
           <select value={orderCapture} onChange={(event) => setOrderCapture(event.target.value as 'PSS' | 'EXTERNAL')}>
             <option value="PSS">{orderCaptureLabel.PSS}</option>
             <option value="EXTERNAL">{orderCaptureLabel.EXTERNAL}</option>
           </select>
         </label>
 
-        <label className="pos-field">Keadaan
+        <label className="pss-form-field">Keadaan
           <select value={status} onChange={(event) => setStatus(event.target.value as 'DRAFT' | 'ACTIVE' | 'INACTIVE')}>
             <option value="DRAFT">{productStatusLabel.DRAFT.label}</option>
             <option value="ACTIVE">{productStatusLabel.ACTIVE.label}</option>
@@ -334,11 +330,11 @@ function ProductFacts({ detail, onSaved }: { detail: ProductDetail; onSaved: (me
           </select>
         </label>
 
-        <button type="submit" className="pos-primary" disabled={save.isPending}>
-          <Save size={17} aria-hidden="true" /> {save.isPending ? 'Menyimpan…' : 'Simpan Perubahan'}
+        <button type="submit" className="pss-button pss-button-primary" disabled={save.isPending}>
+          <Save size={16} aria-hidden="true" /> {save.isPending ? 'Menyimpan…' : 'Simpan Perubahan'}
         </button>
       </form>
-    </section>
+    </Panel>
   );
 }
 
@@ -364,73 +360,75 @@ function UnitsAndBarcodes({ detail, onSaved }: { detail: ProductDetail; onSaved:
   );
 
   return (
-    <section className="pos-card">
-      <div className="pos-card-title"><h2>Satuan dan barcode</h2></div>
+    <div className="pss-side-stack">
+      <Panel title="Satuan" flush description={`Satu barcode per satuan. Isi per ${detail.baseUom} ditulis sekali.`}>
+        <div className="pss-table-scroll">
+          <table className="pss-data-table">
+            <thead><tr><th>Satuan</th><th className="pss-number">Isi per {detail.baseUom}</th><th>Barcode</th></tr></thead>
+            <tbody>
+              {detail.units.map((unit) => (
+                <tr key={unit.uom}>
+                  <td>{unit.uom}{unit.isBase && <small>Satuan dasar</small>}</td>
+                  <td className="pss-number">{quantity(unit.conversionFactor)}</td>
+                  <td>
+                    {unit.barcode
+                      ? <span style={{ fontVariantNumeric: 'tabular-nums' }}>{unit.barcode}</span>
+                      : <span className="pss-muted">Belum ada</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
 
-      <div className="pos-table-wrap">
-        <table className="pos-table">
-          <thead><tr><th>Satuan</th><th className="pos-number">Isi per {detail.baseUom}</th><th>Barcode</th></tr></thead>
-          <tbody>
-            {detail.units.map((unit) => (
-              <tr key={unit.uom}>
-                <td><strong>{unit.uom}</strong>{unit.isBase && <small>Satuan dasar</small>}</td>
-                <td className="pos-number">{quantity(unit.conversionFactor)}</td>
-                <td>
-                  {unit.barcode
-                    ? <span style={{ fontVariantNumeric: 'tabular-nums' }}>{unit.barcode}</span>
-                    : <span className="pos-muted">Belum ada</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Panel title="Tambah satuan">
+        <form
+          onSubmit={(event) => { event.preventDefault(); addUom.mutate({ uom: uom.trim().toUpperCase(), conversionFactor: factor.trim() }); }}
+          noValidate
+        >
+          {addUom.isError && <KantorProblem error={addUom.error} />}
+          <label className="pss-form-field">Satuan
+            <input value={uom} onChange={(event) => setUom(event.target.value)} required maxLength={16} placeholder="KARTON" autoComplete="off" />
+          </label>
+          <label className="pss-form-field">Isi per {detail.baseUom}
+            <input value={factor} onChange={(event) => setFactor(event.target.value)} required inputMode="decimal" placeholder="40" autoComplete="off" />
+          </label>
+          <button type="submit" className="pss-button pss-button-secondary" disabled={addUom.isPending}>
+            <Plus size={16} aria-hidden="true" /> {addUom.isPending ? 'Menyimpan…' : 'Tambah Satuan'}
+          </button>
+        </form>
+      </Panel>
 
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          const nextUom = uom.trim().toUpperCase();
-          addUom.mutate({ uom: nextUom, conversionFactor: factor.trim() });
-        }}
-        noValidate
-      >
-        <h3>Tambah satuan</h3>
-        {addUom.isError && <KantorProblem error={addUom.error} />}
-        <label className="pos-field">Satuan
-          <input value={uom} onChange={(event) => setUom(event.target.value)} required maxLength={16} placeholder="KARTON" autoComplete="off" />
-        </label>
-        <label className="pos-field">Isi per {detail.baseUom}
-          <input value={factor} onChange={(event) => setFactor(event.target.value)} required inputMode="decimal" placeholder="40" autoComplete="off" />
-          <small>
-            Berapa {detail.baseUom} di dalam satu {uom.trim().toUpperCase() || 'satuan ini'}. Angka ini ditulis sekali dan tidak dapat diubah.
+      <Panel title="Tambah barcode">
+        <form
+          onSubmit={(event) => { event.preventDefault(); addBarcode.mutate({ uom: barcodeUom, barcode: barcode.trim() }); }}
+          noValidate
+        >
+          {addBarcode.isError && <KantorProblem error={addBarcode.error} />}
+          <label className="pss-form-field">Untuk satuan
+            <select value={barcodeUom} onChange={(event) => setBarcodeUom(event.target.value)} required>
+              <option value="">Pilih satuan…</option>
+              {detail.units.map((unit) => <option key={unit.uom} value={unit.uom}>{unit.uom}</option>)}
+            </select>
+          </label>
+          <label className="pss-form-field">Kode barcode
+            <input value={barcode} onChange={(event) => setBarcode(event.target.value)} required minLength={6} maxLength={64} autoComplete="off" placeholder="8990002000018" />
+          </label>
+          <small className="pss-muted" style={{ display: 'block', marginBottom: 12 }}>
+            Barcode karton bukan barcode pcs: kasir memindai satuan yang diberi label ini, dan satuan itulah yang diberi harga.
           </small>
-        </label>
-        <button type="submit" className="pos-outline" disabled={addUom.isPending}>
-          <Plus size={16} aria-hidden="true" /> {addUom.isPending ? 'Menyimpan…' : 'Tambah Satuan'}
-        </button>
-      </form>
-
-      <form
-        onSubmit={(event) => { event.preventDefault(); addBarcode.mutate({ uom: barcodeUom, barcode: barcode.trim() }); }}
-        noValidate
-      >
-        <h3>Tambah barcode</h3>
-        {addBarcode.isError && <KantorProblem error={addBarcode.error} />}
-        <label className="pos-field">Untuk satuan
-          <select value={barcodeUom} onChange={(event) => setBarcodeUom(event.target.value)} required>
-            <option value="">Pilih satuan…</option>
-            {detail.units.map((unit) => <option key={unit.uom} value={unit.uom}>{unit.uom}</option>)}
-          </select>
-          <small>Barcode karton bukan barcode pcs. Kasir memindai satuan yang diberi label ini.</small>
-        </label>
-        <label className="pos-field">Kode barcode
-          <input value={barcode} onChange={(event) => setBarcode(event.target.value)} required minLength={6} maxLength={64} autoComplete="off" placeholder="8990002000018" />
-          <small>Satu barcode untuk satu satuan. Barcode yang sama tidak dapat dipakai barang lain.</small>
-        </label>
-        <button type="submit" className="pos-outline" disabled={addBarcode.isPending}>
-          <Barcode size={16} aria-hidden="true" /> {addBarcode.isPending ? 'Menyimpan…' : 'Tambah Barcode'}
-        </button>
-      </form>
-    </section>
+          <button type="submit" className="pss-button pss-button-secondary" disabled={addBarcode.isPending}>
+            <Barcode size={16} aria-hidden="true" /> {addBarcode.isPending ? 'Menyimpan…' : 'Tambah Barcode'}
+          </button>
+        </form>
+      </Panel>
+    </div>
   );
 }
+
+/** A refusal on a read, with the shell's own empty state rather than a form's callout. */
+function ProblemFor({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  return <KantorProblem error={error} action={<button type="button" className="pss-button pss-button-secondary" onClick={onRetry}>Coba Lagi</button>} />;
+}
+

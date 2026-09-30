@@ -1,14 +1,14 @@
 'use client';
 
 import type { CustomerListResponse } from '@pss/contracts';
-import { EmptyState, LoadingState } from '@pss/ui';
+import { EmptyState, PageHeader, Panel, StatusPill } from '@pss/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { BackofficeFrame, BackofficeProblem } from '../../kasir/components/backoffice-frame';
+import { BackofficeFrame } from '../../kasir/components/backoffice-frame';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaDateTime } from '../../kasir/lib/labels';
 import { customerStatusLabel } from '../lib/labels';
+import { KantorProblem } from '../lib/problem';
 
 const PAGE_SIZE = 25;
 
@@ -46,51 +46,60 @@ export function CustomerScreen() {
 
   return (
     <BackofficeFrame title="Pelanggan">
-      <div className="pos-page-heading">
-        <div>
-          <h1>Pelanggan</h1>
-          <p>Daftar pelanggan yang sudah terdaftar. Layar ini hanya untuk melihat.</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Data Utama"
+        title="Pelanggan"
+        description="Daftar pelanggan yang sudah terdaftar. Layar ini hanya untuk melihat, bukan untuk mengubah."
+      />
 
-      <section className="pos-card">
+      <Panel flush>
         <form
-          className="pos-toolbar pos-filter-row"
+          className="pss-filter-bar"
           role="search"
           onSubmit={(event: FormEvent) => { event.preventDefault(); setPage(1); setQuery(typed.trim()); }}
         >
-          <label className="pos-search">
-            <Search size={17} aria-hidden="true" />
+          <label className="pss-form-field" style={{ margin: 0, flex: 1, minWidth: 220 }}>
+            <span className="pss-visually-hidden">Cari kode atau nama pelanggan</span>
             <input
               value={typed}
               onChange={(event) => setTyped(event.target.value)}
               placeholder="Cari kode atau nama pelanggan…"
-              aria-label="Cari kode atau nama pelanggan"
             />
           </label>
-          <span className="pos-filter-label">
-            <select
-              value={status}
-              onChange={(event) => { setStatus(event.target.value); setPage(1); }}
-              aria-label="Saring keadaan pelanggan"
-            >
-              <option value="">Semua keadaan</option>
-              <option value="ACTIVE">Aktif</option>
-              <option value="PENDING_REVIEW">Menunggu pemeriksaan</option>
-              <option value="INACTIVE">Nonaktif</option>
-            </select>
-          </span>
-          <button type="submit" className="pos-outline">Cari</button>
+          <div className="pss-segmented" role="group" aria-label="Saring keadaan pelanggan">
+            {[
+              { value: '', label: 'Semua' },
+              { value: 'ACTIVE', label: customerStatusLabel.ACTIVE.label },
+              { value: 'PENDING_REVIEW', label: customerStatusLabel.PENDING_REVIEW.label },
+              { value: 'INACTIVE', label: customerStatusLabel.INACTIVE.label },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={status === option.value}
+                className={status === option.value ? 'active' : undefined}
+                onClick={() => { setStatus(option.value); setPage(1); }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <button type="submit" className="pss-button pss-button-secondary">Cari</button>
         </form>
 
-        {list.isPending && <LoadingState label="Memuat daftar pelanggan" />}
-        {list.isError && <BackofficeProblem error={list.error} onRetry={() => void list.refetch()} />}
+        {list.isPending && <span className="pss-skeleton-row" aria-label="Memuat daftar pelanggan" />}
+        {list.isError && (
+          <KantorProblem
+            error={list.error}
+            action={<button type="button" className="pss-button pss-button-secondary" onClick={() => void list.refetch()}>Coba Lagi</button>}
+          />
+        )}
         {list.data && (list.data.items.length === 0
           ? <EmptyState title="Pelanggan tidak ditemukan" description={query ? `Tidak ada pelanggan yang cocok dengan "${query}".` : 'Belum ada pelanggan terdaftar.'} />
           : (
             <>
-              <div className="pos-table-wrap">
-                <table className="pos-table">
+              <div className="pss-table-scroll">
+                <table className="pss-data-table">
                   <thead>
                     <tr><th>Kode</th><th>Nama</th><th>Telepon</th><th>Segmen</th><th>Keadaan</th><th>Dibuat</th></tr>
                   </thead>
@@ -103,10 +112,10 @@ export function CustomerScreen() {
                             {item.code}
                             {item.isWalkIn && <small>Pelanggan sistem cabang</small>}
                           </td>
-                          <td><strong>{item.name}</strong></td>
-                          <td>{item.phone ?? <span className="pos-muted">Tidak ada</span>}</td>
-                          <td>{item.segment ?? <span className="pos-muted">—</span>}</td>
-                          <td><span className={`pos-status pos-status-${state.tone}`}>{state.label}</span></td>
+                          <td>{item.name}</td>
+                          <td>{item.phone ?? <span className="pss-muted">Tidak ada</span>}</td>
+                          <td>{item.segment ?? <span className="pss-muted">—</span>}</td>
+                          <td><StatusPill tone={state.tone} label={state.label} /></td>
                           <td>{jakartaDateTime(item.createdAt)}</td>
                         </tr>
                       );
@@ -114,15 +123,16 @@ export function CustomerScreen() {
                   </tbody>
                 </table>
               </div>
-              <div className="pos-pagination">
-                <span className="pos-muted">{list.data.total} pelanggan</span>
-                <button type="button" className="pos-outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Sebelumnya</button>
-                <span className="pos-muted">Halaman {page} dari {pages}</span>
-                <button type="button" className="pos-outline" disabled={page >= pages} onClick={() => setPage(page + 1)}>Berikutnya</button>
+              <div className="pss-pagination">
+                <span>{list.data.total} pelanggan</span>
+                <div>
+                  <button type="button" className="pss-button pss-button-secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Sebelumnya</button>
+                  <button type="button" className="pss-button pss-button-secondary" disabled={page >= pages} onClick={() => setPage(page + 1)}>Berikutnya</button>
+                </div>
               </div>
             </>
           ))}
-      </section>
+      </Panel>
     </BackofficeFrame>
   );
 }

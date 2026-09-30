@@ -18,11 +18,16 @@ type CustomerStatus = z.infer<typeof CustomerListItemSchema>['status'];
  * DRAFT from the contract's own note that it is "belum aktif".
  */
 
-export type Tone = 'green' | 'blue' | 'yellow' | 'red' | 'neutral';
+/**
+ * The design system's tone names, the same ones `StatusPill` takes, so a state and its pill cannot
+ * drift apart. The counter's own vocabulary (`green`/`blue`/`yellow`/`red`) is a different set and is
+ * not mixed in here.
+ */
+export type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
 export const productStatusLabel: Record<ProductStatus, { label: string; tone: Tone }> = {
-  DRAFT: { label: 'Belum diaktifkan', tone: 'yellow' },
-  ACTIVE: { label: 'Aktif', tone: 'green' },
+  DRAFT: { label: 'Belum diaktifkan', tone: 'warning' },
+  ACTIVE: { label: 'Aktif', tone: 'success' },
   INACTIVE: { label: 'Nonaktif', tone: 'neutral' },
 };
 
@@ -32,23 +37,23 @@ export const orderCaptureLabel: Record<'PSS' | 'EXTERNAL', string> = {
 };
 
 export const priceListStatusLabel: Record<PriceListStatus, { label: string; tone: Tone }> = {
-  DRAFT: { label: 'Belum aktif', tone: 'yellow' },
-  PENDING_APPROVAL: { label: 'Menunggu persetujuan', tone: 'yellow' },
-  SCHEDULED: { label: 'Terjadwal', tone: 'blue' },
-  ACTIVE: { label: 'Harga aktif', tone: 'green' },
+  DRAFT: { label: 'Belum aktif', tone: 'warning' },
+  PENDING_APPROVAL: { label: 'Menunggu persetujuan', tone: 'warning' },
+  SCHEDULED: { label: 'Terjadwal', tone: 'info' },
+  ACTIVE: { label: 'Harga aktif', tone: 'success' },
   EXPIRED: { label: 'Kedaluwarsa', tone: 'neutral' },
 };
 
 export const movementTypeLabel: Record<StockMovementType, { label: string; tone: Tone }> = {
-  RECEIVE: { label: 'Penerimaan', tone: 'green' },
-  ISSUE: { label: 'Pengeluaran', tone: 'blue' },
-  ADJUSTMENT: { label: 'Penyesuaian', tone: 'yellow' },
+  RECEIVE: { label: 'Penerimaan', tone: 'success' },
+  ISSUE: { label: 'Pengeluaran', tone: 'info' },
+  ADJUSTMENT: { label: 'Penyesuaian', tone: 'warning' },
 };
 
 export const customerStatusLabel: Record<CustomerStatus, { label: string; tone: Tone }> = {
   DRAFT: { label: 'Draf', tone: 'neutral' },
-  PENDING_REVIEW: { label: 'Menunggu pemeriksaan', tone: 'yellow' },
-  ACTIVE: { label: 'Aktif', tone: 'green' },
+  PENDING_REVIEW: { label: 'Menunggu pemeriksaan', tone: 'warning' },
+  ACTIVE: { label: 'Aktif', tone: 'success' },
   INACTIVE: { label: 'Nonaktif', tone: 'neutral' },
   MERGED: { label: 'Digabung', tone: 'neutral' },
 };

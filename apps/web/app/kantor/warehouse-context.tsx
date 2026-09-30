@@ -6,14 +6,20 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { kasirFetch } from '../kasir/lib/api-client';
 
 /**
- * The session facts every /kantor screen needs: which permission codes it holds, and which
- * warehouses it may act on. One read of `/me/permissions` answers both, and every screen shares the
- * same TanStack Query key, so the shell, the navigation and the stock screens cost one round trip.
+ * The warehouse the warehouse screens act on, and the permission codes the viewer holds.
+ *
+ * The navigation itself is the app shell's (`lib/navigation/work-screens.ts`, served by
+ * `/api/experience/shell`); this is the back office's own half: the screens need a `warehouseId` to
+ * ask for a balance, and that is not something configuration can supply.
  *
  * **The warehouse list is derived, never configured.** `GET /me/permissions` returns each grant with
- * its scope, so the warehouses a user may post to are the `scopeId`s of their WAREHOUSE-scoped
+ * its scope, so the warehouses a user may act on are the `scopeId`s of their WAREHOUSE-scoped
  * grants. Nothing here reads an environment variable or a lookup table to guess a warehouse, which
- * is what would have made a demo screen show the wrong stock.
+ * is what would have made a screen show the wrong stock — and a value is scoped per warehouse
+ * (MVP-OD-4), so there is no single right answer to guess.
+ *
+ * `can()` is here for the screens' own affordances — the "Barang Baru" button, the warehouse picker.
+ * It is not the security boundary: every route checks its own permission again on the server.
  */
 
 const STORAGE_KEY = 'pss-kantor-warehouse';
@@ -99,8 +105,21 @@ export function KantorSessionProvider({ children }: { children: ReactNode }) {
   return <KantorSessionContext.Provider value={value}>{children}</KantorSessionContext.Provider>;
 }
 
+/**
+ * The session, or `null` when this component is outside `/kantor`.
+ *
+ * The provider lives in `app/kantor/layout.tsx`, so a component rendered elsewhere — the Beranda
+ * stock widget, which summarises a screen the viewer may open — has no provider above it. That is a
+ * normal case, not a mistake, so it is answered with `null` rather than an exception that takes the
+ * whole page down.
+ */
+export function useOptionalKantorSession(): KantorSession | null {
+  return useContext(KantorSessionContext);
+}
+
+/** The session, for a screen that is inside `/kantor` and is broken without it. */
 export function useKantorSession(): KantorSession {
-  const session = useContext(KantorSessionContext);
-  if (!session) throw new Error('useKantorSession must be used inside KantorSessionProvider.');
+  const session = useOptionalKantorSession();
+  if (!session) throw new Error('useKantorSession must be used inside /kantor, which provides KantorSessionProvider.');
   return session;
 }
