@@ -82,8 +82,18 @@ export async function consumeEconomicEvent(pool: Pool, rawEvent: unknown) {
 async function processEconomicEvent(client: PoolClient, event: PublishableEvent) {
     if (!ECONOMIC_EVENT_TYPES.some((name) => name === event.eventType)) throw new Error(`Not an economic finance event: ${event.eventType}`);
     return runAuditedWork(client, async ({ appendAuditEntry }) => {
-      const existing = await client.query('SELECT id FROM finance.journal WHERE source_event_id = $1', [event.eventId]);
-      if (existing.rowCount) return { status: 'DUPLICATE_JOURNAL' as const };
+      const existing = await client.query<{ id: string }>('SELECT id FROM finance.journal WHERE source_event_id = $1', [event.eventId]);
+      if (existing.rowCount) {
+        await appendAuditEntry({
+          organizationId: event.organizationId, actor: { serviceIdentity: FINANCE_CONSUMER, roles: [] },
+          action: 'FINANCE_DUPLICATE_EVENT_IGNORED',
+          entity: { domain: 'finance', type: 'Journal', id: existing.rows[0]!.id, version: 1 },
+          changes: [{ path: 'sourceEventId', classification: 'INTERNAL', after: event.eventId }],
+          requestId: event.correlationId, correlationId: event.correlationId,
+          causationId: event.eventId, source: 'SYSTEM', retentionClass: 'FINANCIAL',
+        });
+        return { status: 'DUPLICATE_JOURNAL' as const };
+      }
 
       await recordSubledger(client, event);
       const periodCode = businessDate(event).slice(0, 7);

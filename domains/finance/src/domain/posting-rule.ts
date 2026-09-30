@@ -93,7 +93,8 @@ export function buildJournalFromEvent(rawRule: unknown, event: PostingEvent): Bu
     const counted = new Decimal(parsed.data.countedAmount);
     const declared = new Decimal(parsed.data.declaredAmount);
     const variance = new Decimal(parsed.data.varianceAmount);
-    if (counted.isNegative() || declared.isNegative() || !variance.equals(counted.minus(declared)) || declared.isZero()) {
+    if (counted.isNegative() || declared.isNegative() || !variance.equals(counted.minus(declared)) ||
+      (declared.isZero() && counted.isZero())) {
       return { ok: false, code: 'INVALID_AMOUNT' };
     }
     lines = [line('1-1100','DEBIT',counted), line('1-1110','CREDIT',declared)];

@@ -34,7 +34,7 @@ export class FinanceController {
 
   @Get('journals/:id')
   async journal(@Req() request: Request, @Param('id') id: string) {
-    const user = await this.auth.require(request.headers.authorization, readPermissions);
+    const user = await this.auth.require(request.headers.authorization, 'finance.journal.lines.view');
     if (!z.uuid().safeParse(id).success) throw new DomainError('VALIDATION_FAILED');
     const result = await getJournal(this.pool, user.organizationId, id);
     if (!result) throw new DomainError('NOT_FOUND');

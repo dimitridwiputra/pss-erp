@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { redirect } from 'next/navigation';
+import { getPssServerAccessToken } from '../../auth';
 import './finance.css';
 
 const navigation = [
@@ -9,7 +11,8 @@ const navigation = [
   ['Pengecualian Posting', '/keuangan/pengecualian-posting'], ['Periode', '/keuangan/periode'],
 ] as const;
 
-export default function FinanceLayout({ children }: { children: ReactNode }) {
+export default async function FinanceLayout({ children }: { children: ReactNode }) {
+  if (!await getPssServerAccessToken()) redirect('/masuk');
   return <div className="finance-shell">
     <aside className="finance-sidebar">
       <p className="finance-brand">PSS <span>KEUANGAN</span></p>
