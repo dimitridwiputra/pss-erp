@@ -35,7 +35,10 @@ Record tendered payments as PENDING_VERIFICATION facts and, for cash specificall
 
 ## Queries
 
-None implemented. Reading a payment or custody record for a UI is deferred to the consuming domain's own read model / a future query in this domain.
+- `listCashCustodyRecords` (by status, scoped to branch ids in SQL, paginated) and `getCashCustodyRecord` back Setoran Kas. Each returns declared, counted and variance amounts, the reason and the payment count.
+- `getUndepositedPosCash` gives the dashboard's "kas belum disetor": POS TUNAI payments still `PENDING_VERIFICATION`, for the given branches.
+
+A payment and a custody record store `branch_id`, set from the caller (migration `0003_cash_custody_branch.sql`), so these reads are scoped without joining another domain's tables.
 
 ## Events produced and consumed
 

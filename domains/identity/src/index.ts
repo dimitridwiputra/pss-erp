@@ -1,6 +1,7 @@
 export { resolveActiveUser } from './application/resolve-active-user';
 export type { ActiveUser } from './application/resolve-active-user';
-export { checkAccess, requireAccess, loadActiveRoleAssignments } from './application/access-policy';
+export { getUserDisplayNames } from './application/user-display-names';
+export { checkAccess, requireAccess, loadActiveRoleAssignments, scopeIdsFor } from './application/access-policy';
 export type { AccessRequest, RoleAssignment, ScopeType, ScopedResource } from './application/access-policy';
 export { resolveRolePermissions, isRegisteredRole } from './domain/role-permissions';
 export { assertSessionActive, revokeUserSessions } from './application/session-revocation';

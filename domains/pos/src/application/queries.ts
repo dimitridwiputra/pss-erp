@@ -56,6 +56,37 @@ export async function getPosSaleScope(executor: Queryable, saleId: string): Prom
   } : null;
 }
 
+export interface PosShiftSummary {
+  id: string; organizationId: string; branchId: string; terminalName: string; cashierUserId: string;
+  openingFloat: string; countedCash: string | null; variance: string | null;
+}
+
+/** Close figures for a set of shifts (Setoran Kas shows them beside each handover). Foreign ids are ignored by the caller's organization check. */
+export async function getPosShiftSummaries(executor: Queryable, shiftIds: readonly string[]): Promise<Map<string, PosShiftSummary>> {
+  if (shiftIds.length === 0) return new Map();
+  const result = await executor.query<{
+    id: string; organization_id: string; branch_id: string; name: string; cashier_user_id: string;
+    opening_float: string; counted_cash: string | null; variance: string | null;
+  }>(
+    `SELECT s.id, s.organization_id, t.branch_id, t.name, s.cashier_user_id, s.opening_float::text, s.counted_cash::text, s.variance::text
+     FROM pos.pos_shift s JOIN pos.pos_terminal t ON t.id = s.terminal_id WHERE s.id = ANY($1::uuid[])`, [[...new Set(shiftIds)]],
+  );
+  return new Map(result.rows.map((row) => [row.id, {
+    id: row.id, organizationId: row.organization_id, branchId: row.branch_id, terminalName: row.name, cashierUserId: row.cashier_user_id,
+    openingFloat: row.opening_float, countedCash: row.counted_cash, variance: row.variance,
+  }]));
+}
+
+/** Branch of each terminal-bearing warehouse, for scoping a branch-level figure to a warehouse-scoped viewer. */
+export async function getBranchesOfWarehouses(executor: Queryable, organizationId: string, warehouseIds: readonly string[]): Promise<string[]> {
+  if (warehouseIds.length === 0) return [];
+  const result = await executor.query<{ branch_id: string }>(
+    'SELECT DISTINCT branch_id FROM pos.pos_terminal WHERE organization_id = $1 AND warehouse_id = ANY($2::uuid[])',
+    [organizationId, [...warehouseIds]],
+  );
+  return result.rows.map((row) => row.branch_id);
+}
+
 export interface PosTerminalOption extends PosTerminalScope { inUse: boolean }
 
 /** Active terminals of an organization, with whether each already has an OPEN shift. The caller filters by scope. */

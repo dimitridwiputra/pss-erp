@@ -9,6 +9,10 @@ export const ExperienceHomeViewSchema = z.strictObject({
   viewer: z.strictObject({ displayName: z.string().min(1) }),
   products: z.array(z.strictObject({ key: z.string().min(1), label: z.string().min(1) })).nullable(),
   primaryAction: z.strictObject({ label: z.string().min(1), href: z.string().startsWith('/') }).nullable(),
+  /** The work screens this person may open, decided server-side from their grants (RBAC-003). */
+  workTiles: z.array(z.strictObject({
+    key: z.string().min(1), label: z.string().min(1), description: z.string().min(1), href: z.string().startsWith('/'),
+  })),
   sources: z.array(ExperienceSourceReportSchema).min(1),
   incomplete: z.boolean(),
   generatedAt: UtcTimestampSchema,

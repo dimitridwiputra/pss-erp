@@ -54,12 +54,12 @@ async function insertPayment(transaction: AuditedTransaction, input: ParsedRecor
   await transaction.client.query(
     `INSERT INTO payments.payment (
        id, organization_id, channel, method, amount, status, reference_type, reference_id, accepted_by,
-       customer_id, invoice_id, cash_location_type, cash_location_id, business_date
-     ) VALUES ($1, $2, $3, $4, $5, 'PENDING_VERIFICATION', $6, $7, $8, $9, $10, $11, $12, $13)`,
+       customer_id, invoice_id, cash_location_type, cash_location_id, business_date, branch_id
+     ) VALUES ($1, $2, $3, $4, $5, 'PENDING_VERIFICATION', $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
     [
       paymentId, input.organizationId, input.channel, input.method, input.amount, input.referenceType, input.referenceId,
       input.acceptedBy, input.customerId ?? null, input.invoiceId ?? null, input.cashLocation?.type ?? null,
-      input.cashLocation?.id ?? null, input.businessDate ?? null,
+      input.cashLocation?.id ?? null, input.businessDate ?? null, input.branchId ?? null,
     ],
   );
   await transaction.appendAuditEntry({

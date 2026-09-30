@@ -11,6 +11,8 @@ export * from './pos-offline';
 export * from './pos-kasir-bff';
 export * from './pos-receipt';
 export * from './pos-pickup';
+export * from './pos-sales-report';
+export * from './pos-cash-handover';
 export * from './experience-approval-inbox';
 export * from './experience-home';
 export * from './wms-location';

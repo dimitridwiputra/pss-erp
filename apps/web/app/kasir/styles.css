@@ -41,6 +41,18 @@
 .pos-kasir .pos-money-input input { border: 0; flex: 1; outline: 0 !important; }
 .pos-count { display: inline-flex; margin-left: 8px; min-width: 28px; justify-content: center; border-radius: 999px; padding: 2px 8px; background: var(--info-100); color: var(--info-700); font-size: 15px; }
 .pos-kasir-narrow { max-width: 620px; margin: 0 auto; }
+.pos-kasir-narrow > .pos-outline:first-child { margin-bottom: 12px; }
+.pos-filter-row { flex-wrap: wrap; align-items: flex-end; }
+.pos-filter-row .pos-field { margin: 0; min-width: 180px; }
+.pos-kasir .pos-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.pos-kasir .pos-chips button { min-height: 48px; padding: 0 14px; border: 1px solid var(--gray-300); border-radius: 999px; background: var(--pss-white); color: var(--pss-navy-950); display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
+.pos-kasir .pos-chips button.selected { background: var(--pss-navy-900); border-color: var(--pss-navy-900); color: var(--pss-white); }
+.pos-kasir .pos-table td, .pos-kasir .pos-table th { padding: 12px 10px; font-size: 15px; }
+.pos-number { text-align: right; font-variant-numeric: tabular-nums; }
+.pos-kasir .pos-status { font-size: 14px; padding: 6px 12px; }
+.pos-kasir .pos-linkish { border: 0; background: none; color: var(--info-700); font: inherit; min-height: 48px; padding: 0; text-decoration: underline; cursor: pointer; text-align: left; }
+.pos-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; }
+.pos-kasir .pos-action-row:disabled { opacity: 1; cursor: default; }
 .pos-kasir-narrow .pos-primary { width: 100%; margin-top: 8px; }
 .pos-kasir .pos-footer-actions .pos-primary { width: auto; margin-top: 0; }
 .pos-instruction { font-size: 18px; line-height: 1.5; margin: 12px 0 16px; }

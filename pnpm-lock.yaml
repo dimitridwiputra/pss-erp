@@ -71,6 +71,9 @@ importers:
       '@pss/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@pss/payments':
+        specifier: workspace:*
+        version: link:../../domains/payments
       '@pss/platform':
         specifier: workspace:*
         version: link:../../domains/platform

@@ -8,6 +8,8 @@ import { parseOrThrow, RequestMetaShape } from './support/command-input';
 
 const PrintPosReceiptSchema = z.strictObject({
   saleId: z.uuid(), printedBy: z.uuid(), reprintReason: z.string().trim().min(1).max(200).optional(),
+  // A back-office print is always a copy: it refuses rather than becoming the original ticket.
+  copyOnly: z.boolean().default(false),
   ...RequestMetaShape,
 });
 export type PrintPosReceiptInput = z.input<typeof PrintPosReceiptSchema>;
@@ -30,6 +32,7 @@ export async function printPosReceipt(pool: Pool, client: PoolClient | undefined
     if (!row) throw new DomainError('NOT_FOUND');
     if (row.status !== 'PAID' && row.status !== 'CREDIT_APPROVED' && row.status !== 'HANDED_OVER') throw new DomainError('POS_NOT_PAID');
 
+    if (input.copyOnly && row.prior === 0) throw new DomainError('INVALID_STATE_TRANSITION');
     const copyNumber = row.prior + 1;
     if (copyNumber > 1 && !input.reprintReason) {
       throw new DomainError('VALIDATION_FAILED', [], [{ path: 'reprintReason', code: 'required', message: 'Alasan diperlukan untuk cetak ulang.' }]);

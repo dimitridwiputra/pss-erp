@@ -20,6 +20,7 @@
     "@pss/identity": "workspace:*",
     "@pss/master-data": "workspace:*",
     "@pss/observability": "workspace:*",
+    "@pss/payments": "workspace:*",
     "@pss/platform": "workspace:*",
     "@pss/pos": "workspace:*",
     "@pss/wms": "workspace:*",

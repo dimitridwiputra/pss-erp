@@ -16,6 +16,7 @@ const approvedControllers = new Set([
  */
 export const guardedControllers = {
   PosController: { file: 'apps/api/src/pos.controller.ts', guard: 'DemoPosFeatureGuard' },
+  CounterBackofficeController: { file: 'apps/api/src/counter-backoffice.controller.ts', guard: 'DemoPosFeatureGuard' },
 };
 
 export function hasClassLevelGuard(source, className, guard) {

@@ -30,9 +30,11 @@ export type { DeclarePosCashHandoverInput, DeclaredPosCashHandover } from './app
 
 export {
   getPosSale, getPosReceipt, getShiftSaya, getPosTerminalScope, getPosShiftScope, getPosSaleScope,
-  listPosTerminals, listPickupsAwaitingHandover,
+  listPosTerminals, listPickupsAwaitingHandover, getPosShiftSummaries, getBranchesOfWarehouses,
 } from './application/queries';
+export { listPosSales, getPosSalesListItem, getPosSalesSummary } from './application/sales-report-queries';
+export type { PosSalesListFilter, PosSalesListItem } from './application/sales-report-queries';
 export type {
   PosSaleRow, PosSaleLineRow, PosSaleDetail, PosReceipt, ShiftSaya, PosTerminalScope, PosShiftScope, PosSaleScope,
-  PosTerminalOption, PickupAwaitingHandover,
+  PosTerminalOption, PickupAwaitingHandover, PosShiftSummary,
 } from './application/queries';

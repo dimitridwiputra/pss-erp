@@ -99,9 +99,9 @@ export async function declareCashHandover(pool: Pool, client: PoolClient | undef
     const cashCustodyRecordId = randomUUID();
     await client.query(
       `INSERT INTO payments.cash_custody_record (
-         id, organization_id, source, source_id, collector_id, declared_amount, status
-       ) VALUES ($1, $2, $3, $4, $5, $6, 'DECLARED')`,
-      [cashCustodyRecordId, input.organizationId, input.source, input.sourceId ?? null, input.collectorId, summary.declared_amount],
+         id, organization_id, branch_id, source, source_id, collector_id, declared_amount, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'DECLARED')`,
+      [cashCustodyRecordId, input.organizationId, input.branchId ?? null, input.source, input.sourceId ?? null, input.collectorId, summary.declared_amount],
     );
     for (const paymentId of input.paymentIds) {
       await client.query(

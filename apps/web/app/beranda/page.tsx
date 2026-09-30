@@ -62,6 +62,16 @@ export default async function SignedInHome() {
           ) : (
             <EmptyState title="Belum ada pekerjaan yang siap dibuka" description="Pekerjaan baru akan muncul di sini ketika alur untuk akun Anda sudah tersedia." />
           )}
+          {outcome.view.workTiles.length > 0 && (
+            <section className="home-work" aria-labelledby="home-work-title">
+              <h2 id="home-work-title">Pekerjaan Anda</h2>
+              <ul>
+                {outcome.view.workTiles.map((tile) => (
+                  <li key={tile.key}><Link className="home-work-tile" href={tile.href}><strong>{tile.label}</strong><span>{tile.description}</span></Link></li>
+                ))}
+              </ul>
+            </section>
+          )}
           {outcome.view.products === null ? (
             <ErrorState
               problem={{ title: 'Daftar aplikasi belum terbaca', message: 'Muat ulang halaman ini untuk melihat akses aplikasi Anda.' }}

@@ -10,12 +10,10 @@ import {
   type CreatePosSaleRequest, type CurrentUserResponse, type OpenPosShiftRequest, type PrintPosReceiptRequest,
   type UpdatePosSaleLineRequest,
 } from '@pss/contracts';
-import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
-import { checkAccess, loadActiveRoleAssignments, requireAccess, resolveRolePermissions, type RoleAssignment } from '@pss/identity';
+import { readIdempotencyKey, ZodValidationPipe } from '@pss/http';
 import { findProductByBarcode, searchProducts } from '@pss/master-data';
 import { resolvePrice } from '@pss/commercial';
-import { requestContextFrom, type ObservedRequest } from '@pss/observability';
-import { IdempotencyError, runCommand } from '@pss/platform';
+import type { ObservedRequest } from '@pss/observability';
 import {
   acceptPosTender, addPosSaleLine, checkoutPosSale, closePosShift, confirmPosPickupHandover, createPosSale,
   declarePosCashHandover, getPosSale, getPosSaleScope, getPosShiftScope, getPosTerminalScope, getShiftSaya,
@@ -24,6 +22,10 @@ import {
 } from '@pss/pos';
 import { Pool, type PoolClient } from 'pg';
 import { z } from 'zod';
+import {
+  authorizeAt, canAt, commandContext, commandMeta, inOrganization, requireHeldPermission, runApiCommand, uuidParam,
+  type CommandContext, type Scoped,
+} from './api-command';
 import { DemoPosFeatureGuard } from './demo-pos-guard';
 import { IdentityService } from './identity.controller';
 
@@ -31,22 +33,6 @@ type ApiRequest = ObservedRequest;
 
 /** Price list scope is a config value (PLT-009) not yet wired; a single default is used until then. */
 const DEFAULT_PRICE_LIST_SCOPE = 'KONTER';
-
-interface CommandContext {
-  user: CurrentUserResponse;
-  assignments: RoleAssignment[];
-  requestId: string;
-  correlationId: string;
-}
-
-interface Scoped { organizationId: string; branchId: string; warehouseId: string }
-
-function uuidParam(value: string, path: string): string {
-  if (!z.uuid().safeParse(value).success) {
-    throw new DomainError('VALIDATION_FAILED', [], [{ path, code: 'invalid_format', message: 'Periksa nilai ini.' }]);
-  }
-  return value;
-}
 
 /**
  * Every POS rule lives in `@pss/pos` and the domains it calls. This service is the API boundary
@@ -70,44 +56,14 @@ export class PosService implements OnModuleDestroy {
   }
 
   async context(user: CurrentUserResponse, request: ApiRequest): Promise<CommandContext> {
-    const { requestId, correlationId } = requestContextFrom(request);
-    return { user, assignments: await loadActiveRoleAssignments(this.requirePool(), user.id), requestId, correlationId };
+    return commandContext(this.requirePool(), user, request);
   }
 
-  private actor(context: CommandContext) {
-    return { userId: context.user.id, roles: [...new Set(context.assignments.map((assignment) => assignment.roleCode))] };
-  }
-
-  private meta(context: CommandContext) {
-    return { actor: this.actor(context), requestId: context.requestId, correlationId: context.correlationId, source: 'WEB' as const };
-  }
-
-  /** A record outside the caller's organization is reported as absent, never as forbidden. */
-  private inOrganization<T extends { organizationId: string }>(context: CommandContext, record: T | null): T {
-    if (!record || record.organizationId !== context.user.organizationId) throw new DomainError('NOT_FOUND');
-    return record;
-  }
-
-  private authorize(context: CommandContext, permission: string, scope: Scoped, isRead = false): void {
-    requireAccess({
-      actorId: context.user.id, organizationId: context.user.organizationId, assignments: context.assignments, permission,
-      resource: { organizationId: scope.organizationId, branchId: scope.branchId, warehouseId: scope.warehouseId },
-    }, isRead);
-  }
-
-  private canAt(context: CommandContext, permission: string, scope: Scoped): boolean {
-    return checkAccess({
-      actorId: context.user.id, organizationId: context.user.organizationId, assignments: context.assignments, permission,
-      resource: { organizationId: scope.organizationId, branchId: scope.branchId, warehouseId: scope.warehouseId },
-    });
-  }
-
-  /** For reads with no single record to scope yet (the caller's own shift, product lookup). */
-  private requireHeldPermission(context: CommandContext, permission: string): void {
-    if (!context.assignments.some((assignment) => resolveRolePermissions(assignment.roleCode).permissions.includes(permission))) {
-      throw new DomainError('PERMISSION_DENIED');
-    }
-  }
+  private meta(context: CommandContext) { return commandMeta(context); }
+  private inOrganization<T extends { organizationId: string }>(context: CommandContext, record: T | null): T { return inOrganization(context, record); }
+  private authorize(context: CommandContext, permission: string, scope: Scoped, isRead = false): void { authorizeAt(context, permission, scope, isRead); }
+  private canAt(context: CommandContext, permission: string, scope: Scoped): boolean { return canAt(context, permission, scope); }
+  private requireHeldPermission(context: CommandContext, permission: string): void { requireHeldPermission(context, permission); }
 
   private async shiftScope(context: CommandContext, shiftId: string): Promise<PosShiftScope> {
     return this.inOrganization(context, await getPosShiftScope(this.requirePool(), uuidParam(shiftId, 'shiftId')));
@@ -126,20 +82,7 @@ export class PosService implements OnModuleDestroy {
     context: CommandContext, commandName: string, idempotencyKey: string, requestBody: unknown,
     execute: (client: PoolClient) => Promise<T>,
   ): Promise<T> {
-    try {
-      const result = await runCommand(
-        this.requirePool(),
-        {
-          organizationId: context.user.organizationId, identityId: context.user.id, commandName,
-          key: idempotencyKey, requestHash: hashRequestBody(requestBody),
-        },
-        async ({ client }) => ({ code: 200, body: await execute(client) }),
-      );
-      return result.body as T;
-    } catch (error) {
-      if (error instanceof IdempotencyError) throw new DomainError(error.code);
-      throw error;
-    }
+    return runApiCommand(this.requirePool(), context, commandName, idempotencyKey, requestBody, execute);
   }
 
   async terminals(context: CommandContext) {

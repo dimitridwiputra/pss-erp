@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { checkAccess, type RoleAssignment, type ScopeType } from '../src/application/access-policy';
+import { checkAccess, scopeIdsFor, type RoleAssignment, type ScopeType } from '../src/application/access-policy';
 import { checkForbiddenRoleCombinations, checkSystemAdministratorSod } from '../src/domain/segregation-of-duties';
 import { resolveRolePermissions } from '../src/domain/role-permissions';
 
@@ -43,7 +43,10 @@ const mustGrant: Record<string, string[]> = {
     'pos.receipt.reprint', 'payments.cash_handover.declare',
   ],
   'gudang.demo': ['fulfillment.pickup.handover', 'procurement.receipt.post'],
-  'admin.demo': ['master_data.product.manage', 'commercial.price_list.manage', 'inventory.adjustment.request'],
+  'admin.demo': [
+    'master_data.product.manage', 'commercial.price_list.manage', 'inventory.adjustment.request',
+    'pos.report.view', 'invoicing.invoice.print',
+  ],
   'keuangan.demo': ['payments.cash_custody.verify', 'finance.journal.create', 'finance.journal.submit'],
   'kepala.keuangan.demo': ['finance.journal.approve', 'finance.close.manage'],
 };
@@ -52,7 +55,7 @@ const mustGrant: Record<string, string[]> = {
 const mustDeny: Record<string, string[]> = {
   'kasir.demo': ['payments.cash_custody.verify', 'fulfillment.pickup.handover', 'finance.journal.create'],
   'gudang.demo': ['pos.tender.accept', 'payments.cash_custody.verify'],
-  'admin.demo': ['pos.tender.accept', 'payments.cash_custody.verify', 'finance.journal.approve'],
+  'admin.demo': ['pos.tender.accept', 'pos.receipt.reprint', 'payments.cash_custody.verify', 'finance.journal.approve'],
   'keuangan.demo': ['finance.journal.approve', 'pos.tender.accept', 'payments.cash_handover.declare'],
   'kepala.keuangan.demo': ['payments.cash_custody.verify', 'pos.tender.accept'],
 };
@@ -96,6 +99,20 @@ describe('MVP demo roles (MVP_PLAN §7)', () => {
     expect(permissions.filter((permission) => permission.endsWith('.manage') && permission.startsWith('master_data.'))).toEqual(['master_data.product.manage']);
     expect(resolveRolePermissions('MASTER_DATA_STEWARD').unresolvedGroups).not.toContain('MDM-MANAGE');
     expect(can('kasir.demo', 'master_data.product.manage')).toBe(false);
+  });
+
+  it('scopes a list query to exactly the ids checkAccess would allow', () => {
+    expect(scopeIdsFor(assignmentsOf('keuangan.demo'), seed.organization.id, 'payments.cash_custody.verify', 'BRANCH'))
+      .toEqual({ all: false, ids: [seed.branch.id] });
+    expect(scopeIdsFor(assignmentsOf('admin.demo'), seed.organization.id, 'pos.report.view', 'WAREHOUSE'))
+      .toEqual({ all: false, ids: [seed.warehouse.id] });
+    expect(scopeIdsFor(assignmentsOf('kepala.keuangan.demo'), seed.organization.id, 'finance.journal.approve', 'BRANCH'))
+      .toEqual({ all: true, ids: [] });
+    expect(scopeIdsFor(assignmentsOf('kasir.demo'), seed.organization.id, 'pos.report.view', 'WAREHOUSE'))
+      .toEqual({ all: false, ids: [] });
+    // An organization assignment for another organization grants nothing here.
+    expect(scopeIdsFor(assignmentsOf('kepala.keuangan.demo'), '0199a000-0000-7000-8000-00000000e999', 'finance.journal.approve', 'BRANCH'))
+      .toEqual({ all: false, ids: [] });
   });
 
   it('transcribes POS-EXEC without the pos.credit_sale feature flag', () => {

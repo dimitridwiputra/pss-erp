@@ -54,7 +54,11 @@ Every command has the signature `(pool, client | undefined, input)` and runs thr
 - `getShiftSaya`: the cashier's OPEN shift, or else a closed one not yet handed over, with cash-sales total and paid count, plus unfinished sales.
 - `listPickupsAwaitingHandover`: PAID sales, oldest first.
 
+- For the back office: `listPosSales` (checked-out sales, filtered by Jakarta business date, shift and cashier, scoped to warehouse ids in SQL, paginated), `getPosSalesListItem`, `getPosSalesSummary` (sales paid on a business date, for the dashboard), `getPosShiftSummaries` (close figures shown beside a cash handover) and `getBranchesOfWarehouses`.
+
 All of these read only `pos` tables and accept a pool or an open client.
+
+`printPosReceipt` takes `copyOnly` for a back-office invoice copy. A copy must follow an original print, and a sale never printed at the counter is refused (`INVALID_STATE_TRANSITION`) rather than given a "copy 1".
 
 ## API (apps/api `PosController`, behind `DemoPosFeatureGuard`)
 
@@ -73,6 +77,15 @@ Each route resolves the caller, resolves every supplied id through a scope query
 | `POST pos/sales/:id/tenders` | `pos.tender.accept`, own shift |
 | `POST pos/sales/:id/receipt-prints` | `pos.tender.accept` for copy 1; `pos.receipt.reprint` for a copy |
 | `GET pos/pickups`, `POST pos/sales/:id/pickup-handover` | `fulfillment.pickup.handover` at the warehouse |
+
+Back office (`CounterBackofficeController`, also behind the switch). Lists are scoped in SQL through `scopeIdsFor`, so every page is full:
+
+| Route | Permission |
+|---|---|
+| `GET pos/reports/sales?from&to&shiftId&cashierUserId&page&pageSize`, `GET pos/reports/sales/:id` | `pos.report.view` at the sale's warehouse (POS-015) |
+| `POST pos/reports/sales/:id/copies` | `invoicing.invoice.print` at the sale's branch (BIL-001); always a SALINAN with a reason |
+| `GET pos/reports/summary?date` | `pos.report.view`; the cash figure covers the branches of the viewer's warehouses |
+| `GET payments/cash-handovers?status&page&pageSize`, `GET …/:id`, `POST …/:id/verify` | `payments.cash_custody.verify` at the handover's branch; SOD-06 and the reason rule (MVP-OD-9) in `payments` |
 
 ## Events produced and consumed
 

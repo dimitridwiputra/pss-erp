@@ -51,6 +51,39 @@ describe('PLT-008 / RBAC-003 F0 home', () => {
     expect(JSON.stringify(view)).not.toContain('finance.journal.approve');
   });
 
+  it('shows a work tile only for a permission the person holds (MVP counter screens)', async () => {
+    const counterGrants = { userId: USER_ID, grants: [
+      { permission: 'pos.shift.open', scopeType: 'WAREHOUSE', scopeId: BRANCH_ID },
+      { permission: 'payments.cash_custody.verify', scopeType: 'BRANCH', scopeId: BRANCH_ID },
+    ] };
+    const outcome = await resolveHome({ ...context, transport: transportOf({
+      [IDENTITY_SELF_PATH]: Response.json(self),
+      [IDENTITY_NAVIGATION_PATH]: Response.json(navigation),
+      [IDENTITY_GRANTS_PATH]: Response.json(counterGrants),
+    }, []) });
+    if (outcome.kind !== 'VIEW') throw new Error('expected a view');
+    expect(ExperienceHomeViewSchema.parse(outcome.view).workTiles.map((tile) => [tile.key, tile.href])).toEqual([
+      ['kasir', '/kasir'], ['setoran-kas', '/kantor/setoran-kas'],
+    ]);
+    const approver = await resolveHome({ ...context, transport: transportOf({
+      [IDENTITY_SELF_PATH]: Response.json(self),
+      [IDENTITY_NAVIGATION_PATH]: Response.json(navigation),
+      [IDENTITY_GRANTS_PATH]: Response.json(grants),
+    }, []) });
+    if (approver.kind !== 'VIEW') throw new Error('expected a view');
+    expect(approver.view.workTiles).toEqual([]);
+  });
+
+  it('shows no work tile when grants cannot be read', async () => {
+    const outcome = await resolveHome({ ...context, transport: transportOf({
+      [IDENTITY_SELF_PATH]: Response.json(self),
+      [IDENTITY_NAVIGATION_PATH]: Response.json(navigation),
+      [IDENTITY_GRANTS_PATH]: new Response('unavailable', { status: 503 }),
+    }, []) });
+    if (outcome.kind !== 'VIEW') throw new Error('expected a view');
+    expect(outcome.view.workTiles).toEqual([]);
+  });
+
   it('marks failed navigation as unknown, never as an empty entitlement', async () => {
     const outcome = await resolveHome({ ...context, transport: transportOf({
       [IDENTITY_SELF_PATH]: Response.json(self),

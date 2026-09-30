@@ -10,9 +10,10 @@ import { ProblemExceptionFilter } from '@pss/http';
 import { registerPosTerminal } from '@pss/pos';
 import { IdentityService } from '../src/identity.controller';
 import { PosController, PosService } from '../src/pos.controller';
+import { CounterBackofficeController, CounterBackofficeService } from '../src/counter-backoffice.controller';
 import { applyAuditMigrations, applyMigrations } from '../../../scripts/apply-migrations.mjs';
 
-@Module({ controllers: [PosController], providers: [IdentityService, PosService] })
+@Module({ controllers: [PosController, CounterBackofficeController], providers: [IdentityService, PosService, CounterBackofficeService] })
 class PosTestModule {}
 
 const databaseName = `pss_pos_api_test_${randomUUID().replaceAll('-', '')}`;
@@ -36,6 +37,9 @@ const users = {
   gudangA: { id: randomUUID(), org: organizationId, role: 'WAREHOUSE_ADMIN', scopeType: 'WAREHOUSE', scopeId: warehouseA },
   gudangB: { id: randomUUID(), org: organizationId, role: 'WAREHOUSE_ADMIN', scopeType: 'WAREHOUSE', scopeId: warehouseB },
   keuangan: { id: randomUUID(), org: organizationId, role: 'CASHIER', scopeType: 'BRANCH', scopeId: branchA },
+  keuanganB: { id: randomUUID(), org: organizationId, role: 'CASHIER', scopeType: 'BRANCH', scopeId: branchB },
+  adminA: { id: randomUUID(), org: organizationId, role: 'POS_SUPERVISOR', scopeType: 'WAREHOUSE', scopeId: warehouseA },
+  supervisorB: { id: randomUUID(), org: organizationId, role: 'POS_SUPERVISOR', scopeType: 'WAREHOUSE', scopeId: warehouseB },
   noRole: { id: randomUUID(), org: organizationId, role: null, scopeType: null, scopeId: null },
   foreign: { id: randomUUID(), org: otherOrganizationId, role: 'POS_CASHIER', scopeType: 'WAREHOUSE', scopeId: warehouseX },
 } as const;
@@ -115,6 +119,12 @@ beforeAll(async () => {
       );
     }
   }
+
+  // MVP_PLAN ยง7: the back-office admin also prints invoice copies (BIL-001, SALES_ADMIN at the branch).
+  await pool.query(
+    'INSERT INTO identity.role_assignment (id, user_id, role_code, scope_type, scope_id) VALUES ($1, $2, $3, $4, $5)',
+    [randomUUID(), users.adminA.id, 'SALES_ADMIN', 'BRANCH', branchA],
+  );
 
   // A sellable product with a barcode, a KONTER price, and stock in warehouse A only.
   const productId = randomUUID();
@@ -361,5 +371,87 @@ describe('POS API: negative paths (RBAC-002, PLT-006, NEXT_IMPLEMENTATION_PLAN ย
       const response = await call('POST', '/pos/shifts', { as: 'cashierA', body: { terminalId: terminalA, openingFloat } });
       expect({ openingFloat, status: response.status }).toEqual({ openingFloat, status: 400 });
     }
+  });
+});
+
+describe('Counter back office: Penjualan, dashboard, Setoran Kas', () => {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const salesPath = `/pos/reports/sales?from=${today}&to=${today}`;
+
+  it('lists sales only to pos.report.view, scoped to the viewer warehouse and paginated', async () => {
+    const list = await call('GET', `${salesPath}&pageSize=2`, { as: 'adminA' });
+    expect(list.status, JSON.stringify(list.body)).toBe(200);
+    expect(list.body).toMatchObject({ page: 1, pageSize: 2 });
+    expect((list.body.items as unknown[]).length).toBeLessThanOrEqual(2);
+    expect(list.body.total as number).toBeGreaterThanOrEqual(2);
+    const first = (list.body.items as { terminalCode: string }[])[0];
+    expect(first?.terminalCode).toMatch(/^KSR-A/);
+
+    expect((await call('GET', salesPath, { as: 'supervisorB' })).body).toMatchObject({ total: 0, items: [] });
+    for (const as of ['cashierA', 'keuangan', 'gudangA', 'foreign'] as const) {
+      expect({ as, code: (await call('GET', salesPath, { as })).body.code }).toEqual({ as, code: 'PERMISSION_DENIED' });
+    }
+    expect((await call('GET', `/pos/reports/sales?from=${today}&to=2000-01-01`, { as: 'adminA' })).body.code).toBe('VALIDATION_FAILED');
+    expect((await call('GET', `${salesPath}&status=PAID`, { as: 'adminA' })).body.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('shows a sale in scope and hides one outside it; copies are always SALINAN', async () => {
+    const items = (await call('GET', salesPath, { as: 'adminA' })).body.items as { saleId: string; status: string }[];
+    const detail = await call('GET', `/pos/reports/sales/${items[0]!.saleId}`, { as: 'adminA' });
+    expect(detail.body).toMatchObject({ sale: { id: items[0]!.saleId }, terminalName: expect.stringMatching(/^Konter A/) });
+    expect((await call('GET', `/pos/reports/sales/${items[0]!.saleId}`, { as: 'supervisorB' })).body.code).toBe('NOT_FOUND');
+
+    const printed = await pool.query<{ sale_id: string }>('SELECT DISTINCT sale_id FROM pos.pos_receipt_print');
+    const paid = items.find((item) => printed.rows.some((row) => row.sale_id === item.saleId))!;
+    const copy = await call('POST', `/pos/reports/sales/${paid.saleId}/copies`, { as: 'adminA', body: { reason: 'Diminta pelanggan' } });
+    expect(copy.body, JSON.stringify(copy.body)).toMatchObject({ isCopy: true });
+    // A copy follows an original: a paid sale never printed at the counter cannot get a "copy 1".
+    const unprinted = items.find((item) => item.status === 'PAID' && !printed.rows.some((row) => row.sale_id === item.saleId));
+    if (unprinted) {
+      expect((await call('POST', `/pos/reports/sales/${unprinted.saleId}/copies`, { as: 'adminA', body: { reason: 'x' } })).body.code)
+        .toBe('INVALID_STATE_TRANSITION');
+    }
+    expect((await call('POST', `/pos/reports/sales/${paid.saleId}/copies`, { as: 'adminA', body: {} })).status).toBe(400);
+    expect((await call('POST', `/pos/reports/sales/${paid.saleId}/copies`, { as: 'supervisorB', body: { reason: 'x' } })).body.code).toBe('PERMISSION_DENIED');
+  });
+
+  it('summarises today for the dashboard: sales paid today and cash not yet counted', async () => {
+    const summary = await call('GET', '/pos/reports/summary', { as: 'adminA' });
+    expect(summary.body).toMatchObject({ businessDate: today });
+    expect(summary.body.saleCount as number).toBeGreaterThanOrEqual(1);
+    expect(summary.body.salesTotal).toMatch(/^\d+\.\d{2}$/);
+    expect(summary.body.undepositedCash).toMatch(/^\d+\.\d{2}$/);
+    expect((await call('GET', '/pos/reports/summary', { as: 'supervisorB' })).body).toMatchObject({ saleCount: 0, salesTotal: '0.00', undepositedCash: '0.00' });
+    expect((await call('GET', '/pos/reports/summary', { as: 'cashierA' })).body.code).toBe('PERMISSION_DENIED');
+  });
+
+  it('lets the branch finance cashier verify a handover, with a reason for a short count', async () => {
+    const pending = await call('GET', '/payments/cash-handovers?status=DECLARED', { as: 'keuangan' });
+    expect(pending.status, JSON.stringify(pending.body)).toBe(200);
+    const handover = (pending.body.items as { id: string; collectorName: string; shift: { terminalName: string } | null }[])[0]!;
+    expect(handover).toMatchObject({ collectorName: 'cashierA', shift: { terminalName: 'Konter A1' } });
+
+    expect((await call('GET', '/payments/cash-handovers?status=DECLARED', { as: 'keuanganB' })).body).toMatchObject({ total: 0 });
+    expect((await call('GET', `/payments/cash-handovers/${handover.id}`, { as: 'keuanganB' })).body.code).toBe('NOT_FOUND');
+    for (const [as, code] of [['cashierA', 'PERMISSION_DENIED'], ['adminA', 'PERMISSION_DENIED'], ['foreign', 'NOT_FOUND']] as const) {
+      expect({ as, code: (await call('POST', `/payments/cash-handovers/${handover.id}/verify`, { as, body: { countedAmount: '1' } })).body.code })
+        .toEqual({ as, code });
+    }
+    expect((await call('POST', `/payments/cash-handovers/${handover.id}/verify`, { as: 'keuangan', body: { countedAmount: '1000', reasonCode: 'NOT-A-CODE' } })).body.code)
+      .toBe('VALIDATION_FAILED');
+
+    const key = randomUUID();
+    const verify = { countedAmount: '235000', reasonCode: 'RC-CSH-COUNT_SHORT' };
+    const verified = await call('POST', `/payments/cash-handovers/${handover.id}/verify`, { as: 'keuangan', body: verify, key });
+    expect(verified.body, JSON.stringify(verified.body)).toMatchObject({
+      status: 'VERIFIED', countedAmount: '235000.00', varianceAmount: '-1000.00', reasonCode: 'RC-CSH-COUNT_SHORT', verifierName: 'keuangan',
+    });
+    expect((await call('POST', `/payments/cash-handovers/${handover.id}/verify`, { as: 'keuangan', body: verify, key })).body).toEqual(verified.body);
+    expect((await call('POST', `/payments/cash-handovers/${handover.id}/verify`, { as: 'keuangan', body: verify })).body.code).toBe('CUSTODY_ALREADY_VERIFIED');
+
+    const events = await pool.query<{ payload: { varianceAmount: string } }>(
+      "SELECT envelope->'payload' AS payload FROM platform.outbox_event WHERE event_type = 'CASH_CUSTODY_VERIFIED' AND aggregate_id = $1", [handover.id],
+    );
+    expect(events.rows.map((row) => row.payload.varianceAmount)).toEqual(['-1000.00']);
   });
 });

@@ -7,6 +7,7 @@ import { IdentityAdminController, IdentityController, IdentityService } from './
 import { ApprovalController, ApprovalService } from './approval.controller';
 import { WmsController, WmsService } from './wms.controller';
 import { PosController, PosService } from './pos.controller';
+import { CounterBackofficeController, CounterBackofficeService } from './counter-backoffice.controller';
 
 @Controller('health')
 class HealthController {
@@ -18,8 +19,8 @@ class HealthController {
 }
 
 @Module({
-  controllers: [HealthController, IdentityController, IdentityAdminController, ApprovalController, WmsController, PosController],
-  providers: [IdentityService, ApprovalService, WmsService, PosService],
+  controllers: [HealthController, IdentityController, IdentityAdminController, ApprovalController, WmsController, PosController, CounterBackofficeController],
+  providers: [IdentityService, ApprovalService, WmsService, PosService, CounterBackofficeService],
 })
 class AppModule {}
 

@@ -105,6 +105,7 @@ const groupPermissions: Readonly<Record<string, readonly string[]>> = {
  *     cash handover. The D.1 row for POS_CASHIER lists only POS-EXEC (MVP_PLAN §10, MVP-OD-7).
  *   - Appendix D additions §46A and POS-010 "RBAC / SCOPE": `fulfillment.pickup.handover`
  *     (WAREHOUSE_ADMIN, WAREHOUSE_OPERATOR).
+ *   - Appendix D additions §34 and BIL-001 "RBAC / SCOPE": `invoicing.invoice.print` (SALES_ADMIN).
  */
 const roleAdditionalGroups: Readonly<Record<string, readonly string[]>> = {
   POS_CASHIER: ['CSH-DECLARE'],
@@ -112,6 +113,7 @@ const roleAdditionalGroups: Readonly<Record<string, readonly string[]>> = {
 const roleAdditionalPermissions: Readonly<Record<string, readonly string[]>> = {
   WAREHOUSE_ADMIN: ['fulfillment.pickup.handover'],
   WAREHOUSE_OPERATOR: ['fulfillment.pickup.handover'],
+  SALES_ADMIN: ['invoicing.invoice.print'],
 };
 
 export interface RolePermissions {

@@ -23,7 +23,9 @@
       "roles": [
         { "roleCode": "MASTER_DATA_STEWARD", "scopeType": "ORGANIZATION" },
         { "roleCode": "COMMERCIAL_ADMIN", "scopeType": "ORGANIZATION" },
-        { "roleCode": "WAREHOUSE_ADMIN", "scopeType": "WAREHOUSE" }
+        { "roleCode": "WAREHOUSE_ADMIN", "scopeType": "WAREHOUSE" },
+        { "roleCode": "POS_SUPERVISOR", "scopeType": "WAREHOUSE" },
+        { "roleCode": "SALES_ADMIN", "scopeType": "BRANCH" }
       ]
     },
     {
