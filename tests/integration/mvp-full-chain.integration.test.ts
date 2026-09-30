@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { receiveStock } from '../../domains/inventory/src/index';
@@ -9,6 +8,7 @@ import {
   declarePosCashHandover, openPosShift, printPosReceipt, registerPosTerminal,
 } from '../../domains/pos/src/index';
 import { parseEventForPublication } from '../../packages/contracts/src/events';
+import { consumeEconomicEvent, demoPostingRules, ECONOMIC_EVENT_TYPES, trialBalance } from '../../domains/finance/src/index';
 import { applyAuditMigrations, applyMigrations } from '../../scripts/apply-migrations.mjs';
 
 /**
@@ -22,9 +22,7 @@ import { applyAuditMigrations, applyMigrations } from '../../scripts/apply-migra
  * that passes `parseEventForPublication`, and the amounts agree across the domains that own them
  * (invoice = payment = declaration; counted − declared = variance; stock moves by what was sold).
  *
- * What waits for the other streams, and is skipped here by name rather than left out:
- *   - the unit cost on the goods receipt and INVENTORY_RECEIVED / INVENTORY_ISSUED (OpenCode, §6.3);
- *   - journals and the trial balance (Codex, §6.2), once `domains/finance` has migrations.
+ * Costed inventory movements join the accounting assertion when OpenCode's receipt command lands.
  */
 const databaseName = `pss_mvp_chain_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -41,9 +39,6 @@ const barcode = `BC-${randomUUID().slice(0, 8)}`;
 const correlationId = `chain-${randomUUID()}`;
 const meta = (userId: string) => ({ actor: { userId, roles: [] }, requestId: randomUUID(), correlationId, source: 'API' as const });
 
-const financeReady = existsSync(new URL('../../domains/finance/infrastructure/database/migrations/', import.meta.url))
-  && existsSync(new URL('../../domains/finance/src/index.ts', import.meta.url));
-
 beforeAll(async () => {
   const baseUrl = process.env.PSS_TEST_DATABASE_URL;
   if (!baseUrl) throw new Error('PSS_TEST_DATABASE_URL is required for PostgreSQL integration tests.');
@@ -55,8 +50,24 @@ beforeAll(async () => {
   pool = new pg.Pool({ connectionString: testUrl.toString(), max: 10 });
 
   await applyAuditMigrations(pool);
-  for (const domain of ['platform', 'master-data', 'commercial', 'inventory', 'orders', 'fulfillment', 'invoicing', 'payments', 'pos']) {
+  for (const domain of ['platform', 'master-data', 'commercial', 'inventory', 'orders', 'fulfillment', 'invoicing', 'payments', 'pos', 'finance']) {
     await applyMigrations(pool, domain);
+  }
+
+  for (const [code, name, type, normal] of [
+    ['1-1100', 'Kas Kantor', 'ASSET', 'DEBIT'], ['1-1110', 'Kas Konter', 'ASSET', 'DEBIT'],
+    ['1-1300', 'Piutang Usaha', 'ASSET', 'DEBIT'], ['1-1400', 'Persediaan', 'ASSET', 'DEBIT'],
+    ['2-1150', 'Barang Diterima Belum Ditagih', 'LIABILITY', 'CREDIT'],
+    ['2-1300', 'PPN Keluaran', 'LIABILITY', 'CREDIT'], ['4-1000', 'Penjualan', 'REVENUE', 'CREDIT'],
+    ['5-1000', 'Harga Pokok Penjualan', 'EXPENSE', 'DEBIT'],
+    ['6-2100', 'Selisih Persediaan', 'EXPENSE', 'DEBIT'], ['6-2200', 'Selisih Kas', 'EXPENSE', 'DEBIT'],
+  ]) {
+    await pool.query('INSERT INTO finance.account (code, name, type, normal_balance) VALUES ($1,$2,$3,$4)',
+      [code, name, type, normal]);
+  }
+  for (const rule of demoPostingRules) {
+    await pool.query(`INSERT INTO finance.posting_rule (event_type, version, effective_from, line_template)
+      VALUES ($1,$2,'2026-01-01',$3::jsonb)`, [rule.eventType, rule.version, JSON.stringify(rule.template)]);
   }
 
   // Synthetic demo product (MVP-OD-6). Product and price creation have no command yet (OpenCode, §6.3).
@@ -151,10 +162,46 @@ describe('MVP full chain: receipt → sale → handover → close → verify', (
 
   it.todo('values the goods receipt and publishes INVENTORY_RECEIVED / INVENTORY_ISSUED with cost (waits for OpenCode costing, MVP_PLAN §6.3)');
 
-  it.skipIf(!financeReady)('posts balanced journals for every event and a trial balance that ties (waits for Codex finance, MVP_PLAN §6.2)', () => {
-    // Filled in when domains/finance exports its consumer: dispatch the outbox above through it, then
-    // assert every journal has SUM(debit) = SUM(credit) and the trial balance nets to zero, with
-    // Selisih Kas carrying the Rp1.000 shortage (§8 CASH_CUSTODY_VERIFIED rule).
-    expect(financeReady).toBe(true);
+  it('posts each valued economic event once, balances every journal and ties the trial balance', async () => {
+    const events = (await published()).filter((event) =>
+      ECONOMIC_EVENT_TYPES.some((type) => type === event.event_type));
+    expect(events.map((event) => event.event_type)).toEqual([
+      'PAYMENT_RECEIVED', 'INVOICE_ISSUED', 'CASH_CUSTODY_VERIFIED',
+    ]);
+    const periods = [...new Set(events.map((event) =>
+      (event.envelope as { businessDate: string }).businessDate.slice(0, 7)))];
+    for (const code of periods) {
+      await pool.query(`INSERT INTO finance.accounting_period (organization_id, code, status)
+        VALUES ($1,$2,'OPEN') ON CONFLICT DO NOTHING`, [organizationId, code]);
+    }
+    for (const event of events) {
+      expect(await consumeEconomicEvent(pool, event.envelope)).toMatchObject({
+        status: 'PROCESSED', value: { status: 'POSTED' },
+      });
+      expect(await consumeEconomicEvent(pool, event.envelope)).toMatchObject({ status: 'DUPLICATE' });
+    }
+    const journals = (await pool.query<{ source_event_id: string; debit: string; credit: string }>(
+      `SELECT j.source_event_id, sum(l.debit)::text AS debit, sum(l.credit)::text AS credit
+       FROM finance.journal j JOIN finance.journal_line l ON l.journal_id = j.id
+       WHERE j.organization_id = $1 AND j.status = 'POSTED'
+       GROUP BY j.id, j.source_event_id`, [organizationId],
+    )).rows;
+    expect(journals).toHaveLength(events.length);
+    for (const journal of journals) {
+      expect(journal.debit).toBe(journal.credit);
+      expect(journals.filter((entry) => entry.source_event_id === journal.source_event_id)).toHaveLength(1);
+    }
+    const shortage = (await pool.query<{ debit: string; credit: string }>(
+      `SELECT l.debit::text AS debit, l.credit::text AS credit
+       FROM finance.journal_line l JOIN finance.journal j ON j.id = l.journal_id
+       WHERE j.organization_id = $1 AND j.source_type = 'CASH_CUSTODY_VERIFIED'
+         AND l.account_code = '6-2200'`, [organizationId],
+    )).rows;
+    expect(shortage).toEqual([{ debit: '1000.00', credit: '0.00' }]);
+    const through = events.map((event) =>
+      (event.envelope as { businessDate: string }).businessDate).sort().at(-1)!;
+    const balance = await trialBalance(pool, organizationId, through);
+    expect(balance).toMatchObject({ balanced: true });
+    expect(balance.totalDebit).toBe(balance.totalCredit);
   });
 });

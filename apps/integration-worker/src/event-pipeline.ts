@@ -155,6 +155,9 @@ export class EventPipelineService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     if (!process.env.DATABASE_URL || !process.env.REDIS_URL) return;
     this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    this.pool.on('error', (error: Error) => {
+      process.stderr.write(`Worker idle database connection closed: ${error.message}\n`);
+    });
     this.pipeline = startEventPipeline(this.pool, redisConnectionFromUrl(process.env.REDIS_URL));
     await this.pipeline.ready();
     this.timer = setInterval(() => {

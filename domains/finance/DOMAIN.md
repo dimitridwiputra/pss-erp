@@ -83,6 +83,7 @@ Forward-only migrations: `0001_finance.sql` through `0005_rejected_reversal.sql`
 
 - MVP-OD-1…4: Finance sign-off on COA, posting rules, PPN, and costing before production use.
 - MVP-OD-7…10 are DECIDED in ADR-0015 and `docs/mvp/MVP_PLAN.md` §10.
+- MVP-OD-30: the five-user demo has no separate `finance.close.approve` actor. The Controller can soft-close and request final close; the period remains pending until an authorized approver is provisioned. The root demo fixture routes `journal` approvals to the existing CONTROLLER/`finance.journal.approve` grant, without changing Platform's approval engine or the period-close policy.
 - Source producers must attach authoritative branch attribution to revenue and COGS events before the Branch Manager card can be complete. The current inventory issue v1 envelope permits an absent branch; Finance fails the branch query closed in that case.
 - The Payments owner has not yet implemented emission of `PAYMENT_REVERSED`; the Finance consumer and contract are ready.
 - The local Playwright maker → approver → Neraca Saldo path requires two Finance test identities and a recent approver OTP; the self-contained CI browser gate does not provision those identities.
@@ -96,3 +97,4 @@ Forward-only migrations: `0001_finance.sql` through `0005_rejected_reversal.sql`
 - `domains/finance/tests/finance-approval.integration.test.ts`: control-account rejection, atomic approval request/outbox rollback, duplicate/stale decision, manual reversal dates, SYSTEM reversal denial, close/reopen approval.
 - `domains/finance/tests/gross-profit-summary.integration.test.ts` and `apps/finance-api/tests/gross-profit-scope.test.ts`: posted branch aggregation and scope denial.
 - `apps/web/tests/e2e/finance-manual-journal.spec.ts`: maker → checker → Neraca Saldo using two local Finance accounts. Run from the repository root with `PSS_FINANCE_E2E_MAKER_USER`, `PSS_FINANCE_E2E_MAKER_PASSWORD`, `PSS_FINANCE_E2E_APPROVER_USER`, `PSS_FINANCE_E2E_APPROVER_PASSWORD`, and a fresh `PSS_FINANCE_E2E_APPROVER_OTP`: `pnpm --filter @pss/web exec playwright test -c playwright.e2e.config.ts tests/e2e/finance-manual-journal.spec.ts`. It skips without those credentials.
+- `tests/integration/mvp-full-chain.integration.test.ts` dispatches the POS economic outbox to Finance, replays each event, checks journal and trial-balance balance, and verifies the Rp1.000 cash shortage. `apps/web/tests/e2e/mvp-demo-path.spec.ts` adds the real-stack maker → Controller approval → posted trial balance → period-close request path.

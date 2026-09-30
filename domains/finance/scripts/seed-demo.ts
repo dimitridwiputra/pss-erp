@@ -2,10 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { CompensationTemplateSchema, PostingTemplateSchema, demoCompensationRules, demoPostingRules } from '../src/domain/posting-rule';
 
-if (!process.env.DATABASE_URL || !process.env.DEMO_ORGANIZATION_ID) {
-  throw new Error('DATABASE_URL and DEMO_ORGANIZATION_ID are required.');
-}
-
 const accounts = [
   ['1-1100', 'Kas Kantor', 'ASSET', 'DEBIT'],
   ['1-1110', 'Kas Konter', 'ASSET', 'DEBIT'],
@@ -22,9 +18,15 @@ const accounts = [
   ['6-9000', 'Beban Lain-lain', 'EXPENSE', 'DEBIT'],
 ] as const;
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const client = await pool.connect();
-try {
+async function main() {
+  if (!process.env.DATABASE_URL || !process.env.DEMO_ORGANIZATION_ID) {
+    throw new Error('DATABASE_URL and DEMO_ORGANIZATION_ID are required.');
+  }
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const current = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit' }).format(new Date());
+  const effectiveFrom = `${current}-01`;
+  const client = await pool.connect();
+  try {
   await client.query('BEGIN');
   for (const [code, name, type, normalBalance] of accounts) {
     await client.query(
@@ -38,39 +40,41 @@ try {
   ]) {
     await client.query(
       `INSERT INTO finance.account_role_mapping (role_code, account_code, effective_from)
-       VALUES ($1,$2,'2026-10-01') ON CONFLICT (role_code, account_code, effective_from) DO NOTHING`,
-      [roleCode, accountCode],
+       VALUES ($1,$2,$3) ON CONFLICT (role_code, account_code, effective_from) DO NOTHING`,
+      [roleCode, accountCode, effectiveFrom],
     );
   }
   for (const rule of demoPostingRules) {
     const template = PostingTemplateSchema.parse(rule.template);
     await client.query(
       `INSERT INTO finance.posting_rule (id, event_type, version, effective_from, line_template)
-       VALUES ($1,$2,$3,'2026-10-01',$4::jsonb)
+       VALUES ($1,$2,$3,$4,$5::jsonb)
        ON CONFLICT (event_type, version) DO NOTHING`,
-      [randomUUID(), rule.eventType, rule.version, JSON.stringify(template)],
+      [randomUUID(), rule.eventType, rule.version, effectiveFrom, JSON.stringify(template)],
     );
   }
   for (const rule of demoCompensationRules) {
     const template = CompensationTemplateSchema.parse(rule.template);
     await client.query(
       `INSERT INTO finance.posting_rule (id, event_type, version, effective_from, line_template)
-       VALUES ($1,$2,$3,'2026-10-01',$4::jsonb)
+       VALUES ($1,$2,$3,$4,$5::jsonb)
        ON CONFLICT (event_type, version) DO NOTHING`,
-      [randomUUID(), rule.eventType, rule.version, JSON.stringify(template)],
+      [randomUUID(), rule.eventType, rule.version, effectiveFrom, JSON.stringify(template)],
     );
   }
-  const current = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit' }).format(new Date());
   await client.query(
     `INSERT INTO finance.accounting_period (organization_id, code, status) VALUES ($1,$2,'OPEN')
      ON CONFLICT (organization_id, code) DO NOTHING`, [process.env.DEMO_ORGANIZATION_ID, current],
   );
   await client.query('COMMIT');
   process.stdout.write(`Seeded demo COA, v1 posting rules, and period ${current}. Finance sign-off remains pending.\n`);
-} catch (error) {
-  await client.query('ROLLBACK');
-  throw error;
-} finally {
-  client.release();
-  await pool.end();
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
+
+void main();
