@@ -12,6 +12,15 @@ const ListStockBalancesInputSchema = z.strictObject({
   query: z.string().trim().max(100).optional(),
   /** One product exactly — the Stok screen's per-product view, where an `ILIKE` would be ambiguous. */
   productId: z.uuid().optional(),
+  /**
+   * Restrict to these products, ANDed with every other filter.
+   *
+   * This is how a **search by name** reaches the ledger. `core.product` is `master-data`'s table, so
+   * this domain cannot match a name or a SKU (AGENTS.md §3.1); the API layer asks `master-data` for
+   * the ids that match and passes them here. An **empty array matches nothing**, which is the point:
+   * a search that finds no product must return an empty page, never the unfiltered warehouse.
+   */
+  productIds: z.array(z.uuid()).optional(),
   /** Only balances at or below this quantity — the dashboard's "stok menipis" tile. */
   maxQty: z.string().regex(/^\d+(\.\d{1,3})?$/).optional(),
   /** Only balances that have never been valued, which the exception queue needs to see. */
@@ -78,6 +87,15 @@ export async function listStockBalances(
   if (input.productId) {
     values.push(input.productId);
     conditions.push(`product_id = $${values.length}`);
+  }
+  if (input.productIds) {
+    if (input.productIds.length === 0) {
+      // An id set that resolved to nothing. Short-circuited rather than skipped, because skipping
+      // the filter would answer with the whole warehouse for a search that matched nothing.
+      return { items: [], page, pageSize, total: 0, hasMore: false, totalValue: '0.00', unvaluedCount: 0 };
+    }
+    values.push(input.productIds);
+    conditions.push(`product_id = ANY($${values.length}::uuid[])`);
   }
   if (input.query) {
     values.push(`%${input.query.replace(/[\\%_]/g, (char) => `\\${char}`)}%`);

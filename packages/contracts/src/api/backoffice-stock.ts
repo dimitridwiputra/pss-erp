@@ -28,7 +28,13 @@ const UnitCost4Schema = z.string().regex(/^\d+(\.\d{1,4})?$/, 'Harga pokok harus
 /** GET /inventory/stock-balances — MVP-OD-4 scopes the average and the value per warehouse. */
 export const StockBalanceListQuerySchema = z.strictObject({
   warehouseId: z.uuid(),
-  /** Matches the product id. The product's name and SKU are `master-data`'s facts, joined by the API. */
+  /**
+   * Matches the product's SKU or name.
+   *
+   * Resolved through `master-data`'s own read, because `core.product` is that domain's table and
+   * `stock_balance` cannot match a name itself (AGENTS.md §3.1). A term that matches no product
+   * returns an empty page, never the whole warehouse's stock.
+   */
   q: z.string().trim().min(1).max(100).optional(),
   productId: z.uuid().optional(),
   /** The "stok menipis" filter. The caller supplies the threshold (MVP-OD-17). */
@@ -75,6 +81,14 @@ export type StockBalanceListResponse = z.infer<typeof StockBalanceListResponseSc
 /** GET /inventory/stock-movements — the ledger, newest first. */
 export const StockMovementListQuerySchema = z.strictObject({
   warehouseId: z.uuid(),
+  /**
+   * Matches the product's SKU or name.
+   *
+   * Resolved through `master-data`'s own read, because `core.product` is that domain's table and the
+   * ledger cannot match a name itself (AGENTS.md §3.1). A term that matches no product returns an
+   * empty page, never the whole warehouse's movements.
+   */
+  q: z.string().trim().min(1).max(100).optional(),
   productId: z.uuid().optional(),
   movementType: StockMovementTypeSchema.optional(),
   /** A code from `inventory.stock_adjustment_reason`; only an adjustment has one. */
@@ -120,6 +134,7 @@ export const StockAdjustmentReasonSchema = z.strictObject({ code: z.string(), la
 export const StockAdjustmentReasonListResponseSchema = z.strictObject({
   items: z.array(StockAdjustmentReasonSchema),
 });
+export type StockAdjustmentReasonListResponse = z.infer<typeof StockAdjustmentReasonListResponseSchema>;
 
 /** POST /inventory/warehouses/{warehouseId}/goods-receipts — WMS-003 without a PO, with a cost. */
 

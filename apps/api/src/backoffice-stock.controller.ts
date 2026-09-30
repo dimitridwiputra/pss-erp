@@ -9,6 +9,7 @@ import {
 import { readIdempotencyKey, ZodValidationPipe } from '@pss/http';
 import { getProductsByIds } from '@pss/master-data';
 import { adjustStock, listAdjustmentReasons, listStockBalances, listStockMovements, receiveStock } from '@pss/inventory';
+import { listProducts } from '@pss/master-data';
 import type { ObservedRequest } from '@pss/observability';
 import { Pool } from 'pg';
 import {
@@ -34,6 +35,8 @@ type ApiRequest = ObservedRequest;
  * permission the PRD names. What is *not* done is pretending a different permission is the right one.
  */
 const STOCK_MANAGE = 'inventory.adjustment.request';
+/** How many products a name search may resolve to before the id set is truncated. */
+const PRODUCT_SEARCH_LIMIT = 200;
 const RECEIPT_POST = 'procurement.receipt.post';
 
 /**
@@ -84,7 +87,7 @@ export class BackofficeStockService implements OnModuleDestroy {
 
     const page = await listStockBalances(this.requirePool(), undefined, {
       organizationId: context.user.organizationId, warehouseId: warehouse,
-      ...(query.q ? { query: query.q } : {}),
+      ...(query.q ? await this.matchingProductIds(context, query.q) : {}),
       ...(query.productId ? { productId: query.productId } : {}),
       ...(query.maxQty ? { maxQty: query.maxQty } : {}),
       ...(query.unvaluedOnly ? { unvaluedOnly: true } : {}),
@@ -106,6 +109,7 @@ export class BackofficeStockService implements OnModuleDestroy {
 
     const page = await listStockMovements(this.requirePool(), undefined, {
       organizationId: context.user.organizationId, warehouseId: warehouse,
+      ...(query.q ? await this.matchingProductIds(context, query.q) : {}),
       ...(query.productId ? { productId: query.productId } : {}),
       ...(query.movementType ? { movementType: query.movementType } : {}),
       ...(query.reasonCode ? { reasonCode: query.reasonCode } : {}),
@@ -117,6 +121,25 @@ export class BackofficeStockService implements OnModuleDestroy {
       items: page.items.map((item) => ({ ...item, product: label(item.productId) })),
       page: page.page, pageSize: page.pageSize, total: page.total, hasMore: page.hasMore,
     });
+  }
+
+  /**
+   * The product ids a search term matches, resolved through `master-data`'s own read.
+   *
+   * **A stock screen searches by name, and the name is not this side's fact.** `core.product` is
+   * `master-data`'s table (AGENTS.md §3.1), so the ledger cannot `ILIKE` a name; the API layer asks
+   * the owner which products match and passes the ids down. That is also why the term is capped: a
+   * very broad term must not become an unbounded `IN (…)`, and a truncated match is reported as the
+   * `hasMore` on a truncated list rather than silently as "everything".
+   *
+   * The answer is `[]` when nothing matches, and an empty id set matches **nothing** in the ledger —
+   * a search with no hits must return an empty page, not the whole warehouse.
+   */
+  private async matchingProductIds(context: CommandContext, term: string): Promise<{ productIds: string[] }> {
+    const found = await listProducts(this.requirePool(), undefined, {
+      organizationId: context.user.organizationId, query: term, page: 1, pageSize: PRODUCT_SEARCH_LIMIT, sort: 'name',
+    });
+    return { productIds: found.items.map((item) => item.productId) };
   }
 
   /**

@@ -58,17 +58,53 @@ This drops and rebuilds the local `pss_operational` database. It applies every m
 | Seeded | Values |
 |---|---|
 | Counters | Konter 1 (KSR-01), Konter 2 (KSR-02) in Gudang Demo |
-| Products (KONTER price, 50 in stock each) | Mi Goreng 80g (KARTON, Rp118.000, barcode 8990001000012); Air Mineral 600ml (KARTON, Rp48.000, 8990001000029); Minuman Cokelat 200ml (KARTON, Rp126.000, 8990001000036); Saus Sambal 340ml (BTL, Rp12.000, 8990001000043) |
+| Products | 20 items in 5 categories, each with a base unit, a case unit, a barcode, a KONTER price and a unit cost. Opening stock is 50 per unit for the first four (below) and one case's worth for the rest. |
+| The four the demo names | Mi Goreng 80g (KARTON, Rp118.000, cost Rp95.000, barcode 8990001000012, 50 in stock); Air Mineral 600ml (KARTON, Rp48.000, 8990001000029); Minuman Cokelat 200ml (KARTON, Rp126.000, 8990001000036); Saus Sambal 340ml (BTL, Rp12.000, 8990001000043) |
+| The rest | DEMO-005…DEMO-020: four more mie, five minuman, four bumbu, three snack, one kebutuhan rumah |
 
-Prices and pack sizes are placeholders, not PSS data. Stock is received unvalued until OpenCode's costing merges. *(OpenCode: switch the seed to the product, price and goods-receipt commands, with a unit cost, once they exist.)*
+Every row goes through the domain's own commands — `createProduct`, `addProductUom`, `addProductBarcode`, `activatePriceList`, `receiveStock` — so the demo's catalogue is a validated, audited, versioned write rather than a fixture insert. The receipt carries a unit cost, so opening stock is worth Rp 40.732.000 on the first day and the first sale has a cost of goods sold to measure a margin against.
+
+Prices, costs and pack sizes are placeholders, not PSS data (MVP-OD-6).
 
 ## 4. Demo script
 
 Each role signs in at `http://localhost:3000/masuk`. **Switching user needs two sign-outs:** `Keluar` on `/beranda`, then open `http://127.0.0.1:8080/realms/pss-local/protocol/openid-connect/logout` and press **Logout**. Otherwise Keycloak signs the previous user straight back in. Using one browser profile per role avoids this.
 
-### 4.1 Back office sets up (admin.demo, gudang.demo) — *OpenCode to fill*
+### 4.1 Back office sets up (admin.demo)
 
-Create a product with its barcode and price, then receive goods with a unit cost (INVENTORY_RECEIVED, journal Dr Persediaan / Cr Barang Diterima Belum Ditagih). Until then, use the seeded products.
+Sign in as `admin.demo` and open **Kantor** on `/beranda`. Every screen below is in the left sidebar, and the **Gudang** box above it says which warehouse the stock screens act on. With no warehouse in scope the stock screens say so instead of showing a number.
+
+**Barang — a product, its units, its barcodes (MDM-001..003).**
+
+1. **Barang** → **Barang Baru**. SKU `BRG-001`, name *Teh Kotak 350ml*, base unit `BTL`, **Dicatat di**: PSS, **Keadaan**: Aktif. **Simpan Barang**.
+2. A SKU cannot be edited afterwards; the product page says so. Open it, set the name to *Teh Kotak 350ml*, and press **Simpan Perubahan** — a second person editing the same product gets *data sudah berubah*, not a silent overwrite.
+3. Under **Satuan dan barcode**: **Tambah satuan** `KARTON`, isi per `BTL` = `24`. The factor is written once and never edited.
+4. **Tambah barcode**: unit `KARTON`, code `8990002000018`. The form asks which *unit* the label is for, because a case label is not a piece label.
+5. **The exception to show here:** open *Mi Goreng 80g* and try the same `8990002000018`. The server refuses — *"Barcode 8990002000018 sudah dipakai barang lain"* — and the product keeps `8990001000012`.
+
+**Harga — a price change is a new version (COM-001).**
+
+6. **Harga Jual** → **Siapkan Versi Baru**. The draft copies every price that is in force, so only what changed needs retyping. The version is *Belum aktif*: the counter is still selling at the old list.
+7. **Tambah Harga Barang** → search `BRG-001` → pick it → **Harga jual** `12000` → **Simpan Harga**. Pick one existing price and press **Ubah** to move it by a few rupiah, so the version is visibly different.
+8. **Aktifkan Harga Ini.** The new list takes over at the counter; the old one becomes *Kedaluwarsa*. There is no approval step in the MVP (MVP-OD-14) — say so.
+
+**Terima Barang — the receipt, with a cost (WMS-003).**
+
+9. **Terima Barang** → search `BRG-001` → pick it. The line is added with the base unit; the unit dropdown offers the product's own units only.
+10. Quantity `10`, **Harga pokok** `9800`. Press **Terima 1 Baris**. The confirmation names the movement and says the goods are in stock.
+11. **To show the unvalued path:** receive a second line with the cost left empty. The screen says *"1 baris tanpa harga pokok — nilainya belum dihitung dan perlu dilengkapi Finance"*, and `INVENTORY_RECEIVED` is published with `unitCost: null` so Finance gets an exception rather than a zero cost. Leave `Teh Kotak 350ml` costed for the demo proper.
+
+**Stok — the shelf and its value (INV-001, INV-002).**
+
+12. **Stok** → *Saldo* lists every balance in the warehouse with its moving-average cost and value. The total is at the top; a balance that has never been valued reads *belum ada harga pokok*, never Rp 0.
+13. Press **Riwayat** for the movement ledger: *Penerimaan*, *Pengeluaran*, *Penyesuaian*, with the cost and the value of each movement.
+
+**Penyesuaian Stok — a correction, with a reason (INV-004).**
+
+14. **Penyesuaian Stok** → search `BRG-001` → pick it. Type `-2` in **Selisih** (a shortage), and pick a reason from the list — the options are the domain's own active codes with their Indonesian labels, never free text. A zero is refused: correcting nothing is a mistake.
+15. Press **Simpan 1 Koreksi**. There is no approval step in the demo (`inventory.adjustment.approve` belongs to `BRANCH_MANAGER`, which no demo user holds), so say that the correction is final.
+
+**Pelanggan** is a read-only list (MDM-004). Open it to show that the back office can look a customer up, and that it offers no edit.
 
 ### 4.2 Cashier sells (kasir.demo)
 
@@ -108,13 +144,28 @@ Create a product with its barcode and price, then receive goods with a unit cost
 
 Manual journal (maker), approval and posting (checker, a different user), Neraca Saldo / Laba Rugi / Neraca / Buku Besar, and period close.
 
-### 4.8 Dashboard — *OpenCode to fill*
+### 4.8 Dashboard (admin.demo)
 
-Today's sales and "kas belum disetor" come from `GET /api/bff/core/pos/reports/summary`.
+Open **Dasbor Harian** — the first item in the sidebar, and a tile on `/beranda`. Five tiles, and the point of the screen is that **each one answers for itself**: a tile that cannot be read says *Belum tersedia* and why, and the other four keep their numbers. Nothing is ever shown as Rp 0 to cover a failed read.
+
+| Tile | What it says | Where it comes from |
+|---|---|---|
+| Penjualan hari ini | The day's counter sales and how many transactions | `GET /api/bff/core/pos/reports/summary` (`pos.report.view`) |
+| Kas konter belum dihitung | Counter cash Finance has not yet counted, and how many payments are waiting | the same read — it is one domain's answer, so the two tiles stand or fall together |
+| Laba kotor hari ini | Today's gross profit, with the month to date under it | Finance (MVP-OD-23) — **not built yet**, so this tile reads *Belum tersedia*. Say so; do not read it as a zero margin |
+| Nilai stok gudang | The warehouse's inventory value, and how many goods have no cost yet | `GET /api/bff/core/inventory/stock-balances` |
+| Stok menipis | How many goods are below the threshold, with the five lowest listed | the same read, filtered by `maxQty` |
+
+Below the tiles, **Perlu diisi ulang** lists the low-stock goods with their remaining quantity and a link to **Terima Barang**, so the dashboard ends in an action rather than a number.
+
+The threshold is not a constant: the BFF supplies `PSS_DASHBOARD_LOW_STOCK_MIN_QTY` (default 10) as an input to the query, and the tile shows the threshold it used (MVP-OD-17). The warehouse comes from the signed-in user's own WAREHOUSE-scoped grants, not from configuration — nobody sees another branch's stock.
+
+Press **Muat Ulang** (the tiles also refresh every minute) after the cashier's sale to watch Penjualan hari ini and Kas konter belum dihitung move.
 
 ## 5. Exception paths to show
 
 - **Insufficient stock:** scan a product and raise its quantity above what is in stock (the seed has 50), then press **Bayar**. "Stok tidak cukup" appears, the sale stays in the cart, and nothing is reserved.
+- **Duplicate barcode:** in Barang, add a barcode that another product already has. "Kode sudah dipakai" appears with the sentence that names the code, and the first product keeps its own label. The automated path covers this.
 - **Unknown barcode:** scan `0000000000000`. "Barang tidak ditemukan" appears.
 - **Wrong branch or another cashier's sale:** covered by `apps/api/tests/pos.integration.test.ts` (another organization's id is reported as absent, and another cashier's shift is refused). Show the test output rather than forge a request in the demo.
 - **Retry does not charge twice:** covered by the same test. Each command's Idempotency-Key replays the first answer.
@@ -131,9 +182,19 @@ From stream A:
 - No customer selection, order list or returns on the counter.
 - Offline mode is not in the demo. The counter says so when the connection drops.
 
+From stream C (back office):
+- **The dashboard's gross-profit tile has no source.** `apps/finance-api` publishes only `/health`, so *Laba kotor hari ini* reads *Belum tersedia* and says the accounting report is the missing piece (MVP-OD-23). It is never shown as Rp 0, which would read as "no profit".
+- **A price change needs no approval.** COM-001 requires one and rejects proposer = approver; the MVP activates a draft directly and audits the activation (MVP-OD-14).
+- **A stock correction needs no approval either.** `inventory.adjustment.approve` belongs to `BRANCH_MANAGER`, which no demo user holds, so a correction posted from Penyesuaian Stok is final.
+- **A goods receipt may leave stock unvalued.** Leaving the cost empty is a real state (a physical count has no invoice), and the movement is published with `unitCost: null` for Finance to resolve. There is no revaluation, so a later valued receipt does not value a balance that already holds unvalued stock (MVP-OD-16).
+- **The read permissions are gaps, recorded not hidden.** No registered code exists for reading the stock card or a customer, so those screens stand on the write grants the demo role holds (MVP-OD-20, MVP-OD-21).
+- **A warehouse id cannot be fully validated.** A warehouse nobody has ever stocked is accepted, because no domain exposes a warehouse-by-id read yet (MVP-OD-22).
+- **The low-stock threshold is not configuration.** It is an input to the query, supplied by the BFF as `PSS_DASHBOARD_LOW_STOCK_MIN_QTY` (default 10) and shown beside the number (MVP-OD-17).
+
 ## 7. The demo path, automated
 
-`apps/web/tests/e2e/mvp-demo-path.spec.ts` runs sections 4.2–4.6 on the real stack: five people in five browser sessions, OTP included, plus both exception paths from §5.
+`apps/web/tests/e2e/mvp-demo-path.spec.ts` runs sections 4.1–4.6 on the real stack: five people in five browser sessions, OTP included, plus the exception paths from §5.
+- **Back office:** `admin.demo` creates a product, adds a case unit and a barcode on it, is refused a duplicate barcode, prices the case in a new version of the list, activates it, receives twelve cases at a cost, finds the balance with its value, and reads the dashboard — including the gross-profit tile degrading rather than showing zero.
 - **Insufficient stock:** refused, and the cart is left as it was.
 - **A sale id from another branch:** absent in Penjualan, refused to a cashier.
 

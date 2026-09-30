@@ -12,6 +12,13 @@ const ListStockMovementsInputSchema = z.strictObject({
   organizationId: z.uuid(),
   warehouseId: z.uuid().optional(),
   productId: z.uuid().optional(),
+  /**
+   * Restrict to these products. This is how a **search by name** reaches the ledger: `core.product` is
+   * `master-data`'s table, so the API layer resolves the ids that match and passes them here
+   * (AGENTS.md §3.1). An empty array matches nothing, so a search that found no product returns an
+   * empty ledger rather than every movement in the warehouse.
+   */
+  productIds: z.array(z.uuid()).optional(),
   movementType: MovementTypeSchema.optional(),
   reasonCode: z.string().min(1).max(64).optional(),
   page: z.number().int().positive().max(10_000).optional(),
@@ -85,6 +92,13 @@ export async function listStockMovements(
   if (input.productId) {
     values.push(input.productId);
     conditions.push(`m.product_id = $${values.length}`);
+  }
+  if (input.productIds) {
+    if (input.productIds.length === 0) {
+      return { items: [], page, pageSize, total: 0, hasMore: false };
+    }
+    values.push(input.productIds);
+    conditions.push(`m.product_id = ANY($${values.length}::uuid[])`);
   }
   if (input.movementType) {
     values.push(input.movementType);

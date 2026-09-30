@@ -196,6 +196,60 @@ describe('inventory: releaseReservation', () => {
   });
 });
 
+describe('inventory: filtering balances and movements by a set of product ids', () => {
+  it('keeps only the products in the set, and the total follows the set', async () => {
+    const wanted = randomUUID();
+    const other = randomUUID();
+    await seedBalance(wanted, 'PCS', '5');
+    await seedBalance(other, 'PCS', '7');
+
+    const page = await listStockBalances(pool, undefined, {
+      organizationId, warehouseId, productIds: [wanted], sort: 'product',
+    });
+
+    // The running total is over the *filtered* set, not the warehouse: a total beside a searched
+    // list that summed the whole warehouse would be a different number from the rows above it.
+    expect(page.items.map((item) => item.productId)).toEqual([wanted]);
+    expect(page.total).toBe(1);
+    // These two balances are seeded unvalued, so the total is blank and the count says why (MVP-OD-16).
+    expect(page.totalValue).toBeNull();
+    expect(page.unvaluedCount).toBe(1);
+  });
+
+  it('returns an empty page for an empty set, not the whole warehouse', async () => {
+    await seedBalance(randomUUID(), 'PCS', '3');
+
+    // This is the search-with-no-hits path. Skipping the filter would answer a search for a
+    // misspelled name with the entire warehouse, which reads as "the search worked".
+    const page = await listStockBalances(pool, undefined, { organizationId, warehouseId, productIds: [] });
+
+    expect(page.items).toEqual([]);
+    expect(page.total).toBe(0);
+    expect(page.hasMore).toBe(false);
+    expect(page.totalValue).toBe('0.00');
+    expect(page.unvaluedCount).toBe(0);
+  });
+
+  it('applies the id set to the ledger as well', async () => {
+    const wanted = randomUUID();
+    const other = randomUUID();
+    await seedBalance(wanted, 'PCS', '5');
+    await seedBalance(other, 'PCS', '7');
+    await receiveStock(pool, undefined, {
+      organizationId, warehouseId, sourceType: 'GOODS_RECEIPT',
+      referenceType: 'GOODS_RECEIPT', referenceId: randomUUID(),
+      lines: [{ productId: wanted, uom: 'PCS', qty: '2', unitCost: '1000' }],
+      ...auditMeta(),
+    });
+
+    const page = await listStockMovements(pool, undefined, { organizationId, warehouseId, productIds: [wanted] });
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.productId).toBe(wanted);
+    expect((await listStockMovements(pool, undefined, { organizationId, warehouseId, productIds: [] })).items).toEqual([]);
+  });
+});
+
 describe('inventory: one product in two units in one sale (MVP-OD-12)', () => {
   it('reserves and issues KARTON and PCS of the same product as two lines', async () => {
     const productId = randomUUID();
