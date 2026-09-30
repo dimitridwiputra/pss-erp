@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DomainError } from '@pss/contracts';
 import { adjustStock, issueInventory, receiveStock, releaseReservation, reserveStock } from '../src/index';
-import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
+import { applyAuditMigrations, applyDomainMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_inventory_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -45,11 +44,10 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
 
-  for (const file of ['0001_inventory.sql', '0002_inventory_receive_adjust.sql']) {
-    await pool.query(await readFile(
-      new URL(`../infrastructure/database/migrations/${file}`, import.meta.url), 'utf8',
-    ));
-  }
+  // The whole ordered list, not a hardcoded pair: a fixture that names its migrations stops
+  // running the ones added after it, which is what makes editing a shipped migration look like the
+  // shortest path (MIG-RISK-AUD-001, and the reason apply-migrations.mjs reads the directory).
+  await applyDomainMigrations((sql) => pool.query(sql), 'inventory');
 
   // Every command audits through @pss/audit's withAuditedTransaction/runAuditedWork, which
   // inserts into audit.audit_entry — so that table must exist here too. The whole audit domain
