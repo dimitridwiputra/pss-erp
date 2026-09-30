@@ -11,7 +11,7 @@
 -- discrepancy codes (`RC-WMS-DISC_*`, `RC-WMS-SHORT_*`) that `domains/wms` already writes through
 -- `adjustStock` and that the existing integration test exercises. F.3 also requires every list to
 -- carry an `…_OTHER` with a mandatory note; `RC-INV-OTHER` is that code, and the note field the PRD
--- asks for is MVP-OD-18.
+-- asks for is MVP-OD-19.
 --
 -- `label` is the Indonesian text the UI shows. F.3 says a code is never shown raw to a user, so this
 -- column — not the code — is what a reason picker renders, and it is why a code registered only as
@@ -19,7 +19,7 @@
 --
 -- SCOPE: platform-level, not per organization. The MVP runs a single organization and Appendix F.3
 -- registers one vocabulary, so a row is a code plus its label with no `organization_id`. Whether a
--- principal may add its own codes is MVP-OD-14 in MVP_PLAN §10 — that decision, not this migration,
+-- principal may add its own codes is MVP-OD-15 in MVP_PLAN §10 — that decision, not this migration,
 -- would change this table's shape.
 --
 -- `is_active` retires a code without deleting it: movements already written against a retired code

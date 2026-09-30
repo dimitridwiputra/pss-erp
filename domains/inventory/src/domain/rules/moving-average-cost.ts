@@ -13,13 +13,13 @@ import Decimal from 'decimal.js';
  *   - `balanceAvgUnitCost === null` the balance has never been valued.
  *   - a valued receipt into a balance that still holds unvalued quantity leaves BOTH null. Deciding
  *     what the unvalued quantity was worth is a revaluation, it is not in the MVP, and guessing
- *     would post a made-up amount to the GL. MVP-OD-15 in MVP_PLAN §10 carries the decision; until
+ *     would post a made-up amount to the GL. MVP-OD-16 in MVP_PLAN §10 carries the decision; until
  *     it is taken the conservative answer is a visible unvalued movement, not a silent zero.
  *
  * Precision: `inventory.stock_balance.avg_unit_cost` and `stock_movement.unit_cost` are
  * `numeric(18,4)` and `total_cost` is `numeric(18,2)`, so the rule rounds to 4 places for a unit
  * cost and 2 for a total, half away from zero. The PRD's `inventory.cost_precision` default of 6
- * for unit cost is MVP-OD-12; 4 is used because it is the scale the columns and the event payload
+ * for unit cost is MVP-OD-13; 4 is used because it is the scale the columns and the event payload
  * carry.
  */
 export const UNIT_COST_SCALE = 4;
@@ -85,7 +85,7 @@ export function applyMovingAverage(input: MovingAverageInput): MovingAverageResu
     const receivedUnitCost = toDecimal(input.receivedUnitCost);
     if (average === null && !qtyOnHand.isZero()) {
       // Quantity is on hand that was never valued. Valuing it now is a revaluation decision
-      // (MVP-OD-15), so the receipt itself is recorded unvalued and the balance stays unvalued.
+      // (MVP-OD-16), so the receipt itself is recorded unvalued and the balance stays unvalued.
       return unvalued(null);
     }
     const qtyAfter = qtyOnHand.plus(qty);

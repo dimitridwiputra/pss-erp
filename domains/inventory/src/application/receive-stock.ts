@@ -8,6 +8,7 @@ import { applyMovingAverage } from '../domain/rules/moving-average-cost';
 import { requirePositiveQuantity } from '../domain/rules/quantity';
 import { lockBalance, writeBalanceQuantity } from './stock-balance';
 import { resolveBusinessDate } from './business-date';
+import { assertWarehouseNotForeign } from './warehouse-ownership';
 import { publishInventoryReceived, type InventoryMovementFacts } from '../infrastructure/events/inventory-movement-events';
 
 /**
@@ -82,6 +83,7 @@ export async function receiveStock(
 
   const work = async (transaction: AuditedTransaction): Promise<{ movementIds: string[] }> => {
     const tx = transaction.client;
+    await assertWarehouseNotForeign(tx, input.organizationId, input.warehouseId);
     const businessDate = await resolveBusinessDate(tx, input.businessDate);
     const movementIds: string[] = [];
     const facts: InventoryMovementFacts[] = [];

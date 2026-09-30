@@ -102,7 +102,7 @@ export async function publishInventoryReceived(
       qty: quantity(fact.qty),
       // `unitCost` is published at the payload's 2 places, one below the ledger's 4. `totalCost` is
       // the authoritative amount — Finance posts it, never qty × unitCost (MVP_PLAN §8) — and it
-      // already carries the ledger's 2 places, so nothing the GL books loses a digit (MVP-OD-12).
+      // already carries the ledger's 2 places, so nothing the GL books loses a digit (MVP-OD-13).
       unitCost: money(fact.movementUnitCost),
       totalCost: money(fact.movementTotalCost),
       sourceType, sourceId: context.sourceId, businessDate: context.businessDate,

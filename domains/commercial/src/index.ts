@@ -7,6 +7,8 @@ export type { PriceListItemSet, SetPriceListItemInput } from './application/set-
 export { activateDraftPriceList } from './application/activate-draft-price-list';
 export type { ActivateDraftPriceListInput, ActivatedDraft } from './application/activate-draft-price-list';
 export { listPriceListItems } from './application/list-price-list-items';
+export { listPriceLists } from './application/list-price-lists';
+export type { ListPriceListsInput, PriceListPage, PriceListSummaryRow } from './application/list-price-lists';
 export type {
   ListPriceListItemsInput, PriceListItemPage, PriceListItemRow,
 } from './application/list-price-list-items';

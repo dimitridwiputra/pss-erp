@@ -45,7 +45,7 @@ export interface ActivatedPriceList {
  *   - **No approval step.** COM-001's main flow is "mengajukan → approval `price_list_activation`",
  *     its RBAC line requires a level per `approval.price_list_activation.levels`, and COM-001.AC03
  *     rejects proposer = approver. The MVP activates directly and builds no approval workflow
- *     (MVP-OD-13). This is the largest gap between this command and the PRD.
+ *     (MVP-OD-14). This is the largest gap between this command and the PRD.
  *   - **No `PRICE_LIST_ACTIVATED` event.** The name is in the catalog but no payload schema is
  *     registered for it in `packages/contracts/src/events/index.ts`, which this stream does not edit.
  *     Publication stays deferred until one is, and the audit entry §14 requires is what exists now.

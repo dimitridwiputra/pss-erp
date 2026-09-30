@@ -8,6 +8,7 @@ import { applyMovingAverage } from '../domain/rules/moving-average-cost';
 import { requireNonZeroQuantity } from '../domain/rules/quantity';
 import { lockBalance, writeBalanceQuantity } from './stock-balance';
 import { resolveBusinessDate } from './business-date';
+import { assertWarehouseNotForeign } from './warehouse-ownership';
 import { publishInventoryAdjusted, type InventoryAdjustmentFact } from '../infrastructure/events/inventory-movement-events';
 
 // Signed decimal: a discrepancy can be a surplus (+) or a shortage (-).
@@ -78,6 +79,7 @@ export async function adjustStock(
 
   const work = async (transaction: AuditedTransaction): Promise<{ movementIds: string[] }> => {
     const tx = transaction.client;
+    await assertWarehouseNotForeign(tx, input.organizationId, input.warehouseId);
     const businessDate = await resolveBusinessDate(tx, input.businessDate);
     const movementIds: string[] = [];
     const facts: InventoryAdjustmentFact[] = [];

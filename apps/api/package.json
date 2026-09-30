@@ -18,6 +18,7 @@
     "@pss/contracts": "workspace:*",
     "@pss/http": "workspace:*",
     "@pss/identity": "workspace:*",
+    "@pss/inventory": "workspace:*",
     "@pss/master-data": "workspace:*",
     "@pss/observability": "workspace:*",
     "@pss/payments": "workspace:*",

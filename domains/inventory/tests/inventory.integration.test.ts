@@ -344,7 +344,7 @@ describe('inventory: receiveStock with costing and INVENTORY_RECEIVED', () => {
     expect((await balanceOf(productId)).avg_unit_cost).toBe('9750.0000');
   });
 
-  it('leaves a valued receipt unvalued when unvalued stock is already on hand (MVP-OD-15)', async () => {
+  it('leaves a valued receipt unvalued when unvalued stock is already on hand (MVP-OD-16)', async () => {
     const productId = randomUUID();
     await warehouseReceipt([{ productId, uom: 'PCS', qty: '100' }]);
 
@@ -603,24 +603,29 @@ describe('inventory: listStockBalances', () => {
 
   it('paginates, and shows another organization nothing at all', async () => {
     const otherOrganization = randomUUID();
+    // Its own warehouse: `assertWarehouseNotForeign` refuses a warehouse another organization has
+    // stocked, so sharing this suite's warehouse would make this fixture a refusal, not a listing.
+    const otherWarehouse = randomUUID();
     const products = [randomUUID(), randomUUID(), randomUUID()];
     for (const productId of products) {
       await pool.query(
         `INSERT INTO inventory.stock_balance (id, organization_id, warehouse_id, product_id, uom, qty_on_hand, qty_reserved, version)
          VALUES ($1, $2, $3, $4, 'PCS', 1, 0, 1)`,
-        [randomUUID(), otherOrganization, warehouseId, productId],
+        [randomUUID(), otherOrganization, otherWarehouse, productId],
       );
     }
 
     const page = await listStockBalances(pool, undefined, {
-      organizationId: otherOrganization, warehouseId, pageSize: 2,
+      organizationId: otherOrganization, warehouseId: otherWarehouse, pageSize: 2,
     });
     expect(page.items).toHaveLength(2);
     expect(page.total).toBe(3);
     expect(page.hasMore).toBe(true);
     // A warehouse id is required, because MVP-OD-4 scopes the average and the value per warehouse:
     // an organization-wide total would need a rule for goods received at one and sold from another.
-    expect((await listStockBalances(pool, undefined, { organizationId: randomUUID(), warehouseId })).total).toBe(0);
+    expect((await listStockBalances(pool, undefined, {
+      organizationId: randomUUID(), warehouseId: otherWarehouse,
+    })).total).toBe(0);
     const withoutWarehouse = await listStockBalances(pool, undefined, {
       organizationId: otherOrganization, warehouseId: undefined,
     }).catch((error) => error);

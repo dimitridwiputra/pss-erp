@@ -19,6 +19,7 @@ export type {
   ListStockMovementsInput, StockMovementListItem, StockMovementPage,
 } from './application/list-stock-movements';
 export { listAdjustmentReasons } from './application/list-adjustment-reasons';
+export { assertWarehouseNotForeign } from './application/warehouse-ownership';
 export type { AdjustmentReason } from './application/list-adjustment-reasons';
 export {
   applyMovingAverage, TOTAL_COST_SCALE, UNIT_COST_SCALE,

@@ -11,12 +11,12 @@
 --
 -- GRANULARITY: `stock_balance` is unique per `(warehouse_id, product_id)` and carries one `uom`, so
 -- the average it holds is per warehouse × product × UoM (MVP-OD-4). The PRD's `inventory.valuation_unit`
--- would place that average at BRANCH level instead; that is MVP-OD-11 in MVP_PLAN §10 and is not
+-- would place that average at BRANCH level instead; that is MVP-OD-12 in MVP_PLAN §10 and is not
 -- decided here, so this migration changes no key that the granularity decision would move.
 --
 -- PRECISION: 4 fraction digits for a unit cost, 2 for a total, matching the column scales. The PRD
 -- (INV-003.BR01) names `inventory.cost_precision` with a default of 6 for unit cost. That conflict is
--- MVP-OD-12 in MVP_PLAN §10; 4 is used here because it is the scale the column and the event payload
+-- MVP-OD-13 in MVP_PLAN §10; 4 is used here because it is the scale the column and the event payload
 -- carry, and raising it later is a widening migration that cannot lose a value already stored.
 
 ALTER TABLE inventory.stock_balance
