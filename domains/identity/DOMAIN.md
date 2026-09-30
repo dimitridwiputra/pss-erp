@@ -22,6 +22,9 @@ No production user or role mutation command exists yet. Test fixtures insert acc
 
 `resolveActiveUser(pool, idpSubject)` reads the current PSS account on each request. An unknown subject returns `UNAUTHENTICATED`; an inactive account returns `ACCOUNT_INACTIVE`. The API `/me` endpoint composes this query with the `@pss/auth-client` JWKS verifier and returns a typed current-user response.
 
+- `scopeIdsFor(assignments, organizationId, permission, 'BRANCH' | 'WAREHOUSE')` turns a caller's assignments into the concrete branch or warehouse ids where the permission is held, or `all` for an organization-wide assignment. It applies the same role, permission and scope rules as `checkAccess`, so a list scoped by it in SQL never shows a row `checkAccess` would refuse on its own record.
+- `getUserDisplayNames(executor, organizationId, ids)` names the people on a record. An id from another organization is simply absent.
+
 `loadActiveRoleAssignments` reads only the user's effective, unrevoked assignments. `GET /me/permissions` returns concrete scoped grants after the same token and active-account check as `/me`. `checkAccess` denies by default, requires a declared role permission, checks role-compatible scope against canonical resource attributes, enforces organization isolation, and accepts a domain-owned state guard. A read outside scope yields `NOT_FOUND`; a mutation yields `PERMISSION_DENIED`.
 
 ## Events produced and consumed

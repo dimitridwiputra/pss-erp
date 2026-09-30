@@ -4,6 +4,7 @@ import { DomainError } from '@pss/contracts';
 import { ZodValidationPipe } from '@pss/http';
 import { decideApproval, listPendingApprovals } from '@pss/platform';
 import { Pool } from 'pg';
+import { createApiPool } from './database-pool';
 import { z } from 'zod';
 import { IdentityService } from './identity.controller';
 
@@ -21,7 +22,7 @@ function jakartaBusinessDate(): string {
 
 @Injectable()
 export class ApprovalService implements OnModuleDestroy {
-  private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  private readonly pool = createApiPool();
   constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}
 
   private requirePool(): Pool {

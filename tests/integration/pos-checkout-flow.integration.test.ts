@@ -99,10 +99,19 @@ describe('W-14 PSS Kasir counter sale (cash, full happy path)', () => {
     const sale = await createPosSale(pool, undefined, { shiftId: shift.id, ...meta(cashierId) });
     expect(sale.status).toBe('CART');
 
-    const line = await addPosSaleLine(pool, undefined, {
-      saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '2', ...meta(cashierId),
+    const first = await addPosSaleLine(pool, undefined, {
+      saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '1', ...meta(cashierId),
     });
+    // Scanning the same karton again raises that line: one line per product reaches checkout, whose
+    // stock reservation is one per sale and product (the demo-path e2e found two lines crashing it).
+    const line = await addPosSaleLine(pool, undefined, {
+      saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '1', ...meta(cashierId),
+    });
+    expect(line.id).toBe(first.id);
+    expect(line.qty).toBe('2.000');
     expect(line.lineTotal).toBe('236000.00'); // 2 karton x Rp118.000
+    const lineCount = await pool.query<{ count: number }>('SELECT count(*)::int AS count FROM pos.pos_sale_line WHERE sale_id = $1', [sale.id]);
+    expect(lineCount.rows[0]!.count).toBe(1);
 
     const checkedOut = await checkoutPosSale(pool, undefined, { saleId: sale.id, ...meta(cashierId) });
     expect(checkedOut.status).toBe('PENDING_PAYMENT');
@@ -174,6 +183,20 @@ describe('W-14 PSS Kasir counter sale (cash, full happy path)', () => {
     const finalStock = await pool.query('SELECT qty_on_hand, qty_reserved FROM inventory.stock_balance WHERE warehouse_id = $1 AND product_id = $2', [warehouseId, productId]);
     expect(finalStock.rows[0].qty_on_hand).toBe('23.000'); // 25 - 2 karton issued
     expect(finalStock.rows[0].qty_reserved).toBe('0.000');
+  });
+
+  it('refuses a cart holding one product on two lines at different prices, before reserving anything', async () => {
+    const cashier = randomUUID();
+    const terminal = await registerPosTerminal(pool, undefined, { organizationId, branchId, warehouseId, code: 'KSR-03', name: 'Konter 3', ...meta(cashier) });
+    const shift = await openPosShift(pool, undefined, { organizationId, terminalId: terminal.id, cashierUserId: cashier, openingFloat: '0', ...meta(cashier) });
+    const sale = await createPosSale(pool, undefined, { shiftId: shift.id, ...meta(cashier) });
+    await addPosSaleLine(pool, undefined, { saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '1', ...meta(cashier) });
+    // A price that changed between two scans leaves a second line for the same product.
+    await pool.query('UPDATE pos.pos_sale_line SET unit_price = 1 WHERE sale_id = $1', [sale.id]);
+    await addPosSaleLine(pool, undefined, { saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '1', ...meta(cashier) });
+    await expect(checkoutPosSale(pool, undefined, { saleId: sale.id, ...meta(cashier) })).rejects.toMatchObject({ code: 'REPRICE_REQUIRED' });
+    const reserved = await pool.query<{ count: number }>("SELECT count(*)::int AS count FROM inventory.stock_reservation WHERE reference_id = $1", [sale.id]);
+    expect(reserved.rows[0]!.count).toBe(0);
   });
 
   it('rejects checkout when stock is insufficient and leaves the sale in CART', async () => {

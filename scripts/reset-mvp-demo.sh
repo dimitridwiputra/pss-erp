@@ -27,7 +27,9 @@ await client.query('CREATE DATABASE ' + name);
 await client.end();
 "
 
-pnpm build >/dev/null
+# Only what the seed scripts load. A full `pnpm build` would run `next build` and overwrite the
+# .next directory under a running `next dev`, breaking the web app mid-rehearsal.
+pnpm turbo run build --filter=@pss/pos --filter=@pss/inventory --filter=@pss/contracts >/dev/null
 DATABASE_URL="$url" node scripts/migrate-local.mjs
 DATABASE_URL="$url" node scripts/setup-local-identity.mjs
 DATABASE_URL="$url" node scripts/seed-mvp-demo.mjs

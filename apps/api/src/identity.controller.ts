@@ -8,7 +8,7 @@ import {
 } from '@pss/identity';
 import { IdempotencyError, runCommand, type ApprovalAuthorization } from '@pss/platform';
 import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
-import { Pool } from 'pg';
+import { createApiPool } from './database-pool';
 import { z } from 'zod';
 
 const RevokeSessionsSchema = z.strictObject({ reason: z.string().trim().min(1).max(200) });
@@ -35,7 +35,7 @@ type AccessReviewResponse = z.infer<typeof AccessReviewResponseSchema>;
 
 @Injectable()
 export class IdentityService implements OnModuleDestroy {
-  private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  private readonly pool = createApiPool();
   private readonly verify = process.env.PSS_OIDC_ISSUER && process.env.PSS_OIDC_AUDIENCE && process.env.PSS_OIDC_JWKS_URI
     ? createAccessTokenVerifier({
       issuer: process.env.PSS_OIDC_ISSUER,

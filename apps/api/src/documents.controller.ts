@@ -8,6 +8,7 @@ import {
 } from '@pss/platform';
 import type { AuditedTransaction } from '@pss/platform';
 import { Pool } from 'pg';
+import { createApiPool } from './database-pool';
 import { z } from 'zod';
 import { IdentityService } from './identity.controller';
 
@@ -68,7 +69,7 @@ type VoidBody = z.infer<typeof VoidBodySchema>;
  */
 @Injectable()
 export class DocumentNumberingService implements OnModuleDestroy {
-  private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  private readonly pool = createApiPool();
 
   constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}
 

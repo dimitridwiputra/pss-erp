@@ -15,6 +15,7 @@ import {
   getBranchesOfWarehouses, getPosSale, getPosSaleScope, getPosSalesListItem, getPosSalesSummary, getPosShiftSummaries, listPosSales, printPosReceipt,
 } from '@pss/pos';
 import { Pool } from 'pg';
+import { createApiPool } from './database-pool';
 import { z } from 'zod';
 import {
   authorizeAt, commandContext, commandMeta, inOrganization, requireHeldPermission, runApiCommand, uuidParam, type CommandContext,
@@ -49,7 +50,7 @@ function parseQuery<T>(schema: z.ZodType<T>, raw: unknown): T {
  */
 @Injectable()
 export class CounterBackofficeService implements OnModuleDestroy {
-  private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  private readonly pool = createApiPool();
 
   private requirePool(): Pool {
     if (!this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');

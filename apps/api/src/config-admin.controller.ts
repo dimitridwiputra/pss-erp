@@ -12,6 +12,7 @@ import {
 } from '@pss/platform';
 import type { AuditedTransaction } from '@pss/platform';
 import { Pool } from 'pg';
+import { createApiPool } from './database-pool';
 import { z } from 'zod';
 import { IdentityService } from './identity.controller';
 
@@ -82,7 +83,7 @@ const KeyQuerySchema = z.string().trim().min(1).max(200);
  */
 @Injectable()
 export class ConfigAdminService implements OnModuleDestroy {
-  private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  private readonly pool = createApiPool();
 
   constructor(@Inject(IdentityService) private readonly identity: IdentityService) {}
 

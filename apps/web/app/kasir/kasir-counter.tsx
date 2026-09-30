@@ -126,12 +126,26 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
   const lastScan = useRef<{ code: string; at: number } | null>(null);
   useEffect(() => { scanRef.current?.focus(); }, [sale?.lines.length]);
 
+  const pendingScans = useRef<string[]>([]);
+  const scanInFlight = useRef(false);
+
+  /** Scans are sent one at a time, in order: a scan made while the previous one is still on the network waits, never vanishes. */
+  function drainScans() {
+    if (scanInFlight.current) return;
+    const next = pendingScans.current.shift();
+    if (next === undefined) return;
+    scanInFlight.current = true;
+    addLine.mutate({ barcode: next }, { onSettled: () => { scanInFlight.current = false; drainScans(); } });
+  }
+
   /** POS-003 idempotency: the same barcode read twice within 500 ms is one scan (a scanner double-read). */
   function scan(code: string) {
     const now = Date.now();
-    if (lastScan.current && lastScan.current.code === code && now - lastScan.current.at < 500) { setBarcode(''); return; }
+    setBarcode('');
+    if (lastScan.current && lastScan.current.code === code && now - lastScan.current.at < 500) return;
     lastScan.current = { code, at: now };
-    addLine.mutate({ barcode: code });
+    pendingScans.current.push(code);
+    drainScans();
   }
 
   const katalog = useQuery({
@@ -139,15 +153,20 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
     queryFn: () => kasirFetch<KasirKatalogResponse>(`/kasir/products?q=${encodeURIComponent(search.trim())}`),
   });
 
+  // The sale a queued scan belongs to is known as soon as it is created, before the screen re-reads it.
+  const currentSaleId = useRef<string | null>(sale?.id ?? null);
+  useEffect(() => { if (sale?.id) currentSaleId.current = sale.id; }, [sale?.id]);
+
   const addLine = useCommand(async (input: { barcode: string }, key) => {
-    let id = sale?.id;
+    let id = currentSaleId.current;
     if (!id) {
       const created = await post<{ id: string }>('/pos/sales', `${key}:sale`, { shiftId: shift.id });
       id = created.id;
+      currentSaleId.current = id;
       onSaleCreated(id);
     }
     return post<AddPosSaleLineResponse>(`/pos/sales/${id}/lines`, key, { barcode: input.barcode });
-  }, { onSuccess: async () => { setBarcode(''); await onChanged(); } });
+  }, { onSuccess: async () => { await onChanged(); } });
 
   const setQty = useCommand((input: { lineId: string; qty: string }, key) => kasirFetch(`/pos/sales/${sale?.id}/lines/${input.lineId}`, {
     method: 'PATCH', idempotencyKey: key, body: JSON.stringify({ qty: input.qty }),
@@ -171,7 +190,8 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
             <input ref={scanRef} aria-label="Scan barang" value={barcode} onChange={(event) => setBarcode(event.target.value)}
               placeholder="Scan atau ketik barcode" autoComplete="off" disabled={!online} />
           </label>
-          <button className="pos-primary" type="submit" disabled={!barcode.trim() || busy || !online}>Tambah</button>
+          {/* Not disabled while a scan is in flight: a disabled submit button blocks Enter, and scans queue instead. */}
+          <button className="pos-primary" type="submit" disabled={!barcode.trim() || !online}>Tambah</button>
         </form>
         <ProblemNotice error={addLine.error} />
         <label className="pos-search pos-katalog-search"><Search size={20} />

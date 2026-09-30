@@ -19,7 +19,9 @@ export default defineConfig({
   // `pnpm test:e2e:experience` / `test:e2e:local`. The POS preview route is
   // deliberately development-only (`notFound()` unless NODE_ENV is development), so
   // this gate drives `next dev` rather than a production server.
-  testIgnore: ['**/local-login.spec.ts', '**/approval-inbox.spec.ts'],
+  // mvp-demo-path needs the whole local stack (Keycloak, the API with the demo switch, a seeded
+  // database) and runs under `pnpm --filter @pss/web test:e2e:mvp`.
+  testIgnore: ['**/local-login.spec.ts', '**/approval-inbox.spec.ts', '**/mvp-demo-path.spec.ts'],
   use: { ...baseConfig.use, ...devices['Desktop Chrome'], baseURL: 'http://localhost:3100' },
   webServer: {
     command: 'pnpm exec next dev --webpack -p 3100',

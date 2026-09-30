@@ -42,11 +42,19 @@ export async function addPosSaleLine(pool: Pool, client: PoolClient | undefined,
       organizationId: cart.organizationId, productId: match.productId, uom: match.uom, priceListScope: input.priceListScope,
     });
 
-    const id = randomUUID();
-    const inserted = await client.query<{ qty: string; unit_price: string; line_total: string }>(
+    // A repeat scan of the same product, unit and price raises that line's quantity: one line per
+    // product keeps checkout's reservation (one per sale and product) and the invoice lines intact.
+    const merged = await client.query<{ id: string; qty: string; unit_price: string; line_total: string }>(
+      `UPDATE pos.pos_sale_line SET qty = qty + $5::numeric, line_total = (qty + $5::numeric) * unit_price
+       WHERE sale_id = $1 AND product_id = $2 AND uom = $3 AND unit_price = $4::numeric
+       RETURNING id, qty::text, unit_price::text, line_total::text`,
+      [input.saleId, match.productId, match.uom, price.unitPrice, input.qty],
+    );
+    const id = merged.rows[0]?.id ?? randomUUID();
+    const inserted = merged.rows[0] ? merged : await client.query<{ id: string; qty: string; unit_price: string; line_total: string }>(
       `INSERT INTO pos.pos_sale_line (id, sale_id, product_id, sku, name, uom, qty, unit_price, line_total)
        VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, $8::numeric, $7::numeric * $8::numeric)
-       RETURNING qty::text, unit_price::text, line_total::text`,
+       RETURNING id, qty::text, unit_price::text, line_total::text`,
       [id, input.saleId, match.productId, match.sku, match.name, match.uom, input.qty, price.unitPrice],
     );
     const line = inserted.rows[0]!;

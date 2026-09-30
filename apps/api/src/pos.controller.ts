@@ -21,6 +21,7 @@ import {
   type PosSaleScope, type PosShiftScope,
 } from '@pss/pos';
 import { Pool, type PoolClient } from 'pg';
+import { createApiPool } from './database-pool';
 import { z } from 'zod';
 import {
   authorizeAt, canAt, commandContext, commandMeta, inOrganization, requireHeldPermission, runApiCommand, uuidParam,
@@ -48,7 +49,7 @@ const DEFAULT_PRICE_LIST_SCOPE = 'KONTER';
  */
 @Injectable()
 export class PosService implements OnModuleDestroy {
-  private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  private readonly pool = createApiPool();
 
   private requirePool(): Pool {
     if (!this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');

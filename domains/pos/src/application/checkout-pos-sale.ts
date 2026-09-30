@@ -24,6 +24,25 @@ interface SaleRow {
 interface LineRow { product_id: string; uom: string; qty: string; unit_price: string }
 
 /**
+ * Inventory keeps one reservation per sale and product, and the invoice matches delivered lines by
+ * product and unit, so a cart reaching checkout must hold each product once. Scanning merges
+ * repeats; a product still on two lines is either a price that changed between scans
+ * (REPRICE_REQUIRED, POS-003.AC04) or two units of one product, which inventory cannot reserve
+ * separately yet (MVP_PLAN §10, MVP-OD-12).
+ */
+function assertOneLinePerProduct(lines: readonly LineRow[]): void {
+  const seen = new Map<string, LineRow>();
+  for (const line of lines) {
+    const earlier = seen.get(line.product_id);
+    if (!earlier) { seen.set(line.product_id, line); continue; }
+    if (earlier.uom === line.uom) throw new DomainError('REPRICE_REQUIRED');
+    throw new DomainError('VALIDATION_FAILED', [], [{
+      path: 'lines', code: 'duplicate_product', message: 'Satu barang dalam dua satuan belum bisa dibayar sekaligus. Pisahkan ke transaksi lain.',
+    }]);
+  }
+}
+
+/**
  * POS-005: the checkout saga. Because this is one physical Postgres cluster
  * (compose.yaml — modular monolith, A-02), the whole chain runs as a single ACID
  * transaction shared across pos/inventory/orders/fulfillment/invoicing via each
@@ -53,6 +72,7 @@ export async function checkoutPosSale(pool: Pool, client: PoolClient | undefined
     if (lines.rowCount === 0) {
       throw new DomainError('VALIDATION_FAILED', [], [{ path: 'lines', code: 'empty', message: 'Keranjang kosong.' }]);
     }
+    assertOneLinePerProduct(lines.rows);
 
     // POS-004.AC01: no customer selected before Bayar defaults to the branch's walk-in customer.
     const customerId = sale.customer_id ?? (await getOrCreateWalkInCustomer(pool, { organizationId: sale.organization_id, branchId: sale.branch_id })).id;

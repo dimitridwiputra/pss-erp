@@ -64,7 +64,7 @@ export default async function SignedInHome() {
           )}
           {outcome.view.workTiles.length > 0 && (
             <section className="home-work" aria-labelledby="home-work-title">
-              <h2 id="home-work-title">Pekerjaan Anda</h2>
+              <h2 id="home-work-title">Buka layar kerja</h2>
               <ul>
                 {outcome.view.workTiles.map((tile) => (
                   <li key={tile.key}><Link className="home-work-tile" href={tile.href}><strong>{tile.label}</strong><span>{tile.description}</span></Link></li>

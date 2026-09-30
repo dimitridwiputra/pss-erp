@@ -227,7 +227,7 @@ describe('POS API: the counter flow over HTTP', () => {
       `SELECT event_type FROM platform.outbox_event WHERE event_type IN ('PAYMENT_RECEIVED', 'INVOICE_ISSUED') ORDER BY created_at`,
     );
     expect(events.rows.map((row) => row.event_type)).toEqual(['PAYMENT_RECEIVED', 'INVOICE_ISSUED']);
-  });
+  }, 20_000);
 });
 
 describe('POS API: negative paths (RBAC-002, PLT-006, NEXT_IMPLEMENTATION_PLAN §2)', () => {

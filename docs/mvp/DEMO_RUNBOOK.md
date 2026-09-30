@@ -8,8 +8,12 @@ This is a demo build. It activates no branch, real cash or real books (MVP_PLAN 
 
 - Docker Desktop, Node (see `scripts/check-toolchain.mjs`), pnpm, and a Chromium-based browser.
 - `pnpm install` in the repository.
-- An authenticator app on the presenter's phone. `keuangan.demo` and `kepala.keuangan.demo` enrol one on first login: their roles are `mfaRequired` (Appendix D), and approval decisions check a login less than 15 minutes old. Enrol both during rehearsal, not in front of the audience.
+- An authenticator app on the presenter's phone. `keuangan.demo` and `kepala.keuangan.demo` must use one: their roles are `mfaRequired` (Appendix D), and approval decisions check a login less than 15 minutes old.
+  - The demo-path test (§7) enrols both and records each secret, with an `otpauth://` link, in `.local/pss-mvp-demo-otp.txt` (gitignored).
+  - Add those two secrets to the phone, typed in or from the link, so the phone and the test share one authenticator.
+  - If a user enrolled another device instead, the test stops and says so.
 - The demo passwords are in `.local/pss-mvp-demo-logins.txt` in the main checkout (gitignored). They are never pasted into slides or chat.
+- If Postgres restarts during the demo, the API keeps running and reconnects on the next request. No restart is needed.
 
 ## 2. Start
 
@@ -127,7 +131,45 @@ From stream A:
 - No customer selection, order list or returns on the counter.
 - Offline mode is not in the demo. The counter says so when the connection drops.
 
-## 7. If something is down
+## 7. The demo path, automated
+
+`apps/web/tests/e2e/mvp-demo-path.spec.ts` runs sections 4.2–4.6 on the real stack: five people in five browser sessions, OTP included, plus both exception paths from §5.
+- **Insufficient stock:** refused, and the cart is left as it was.
+- **A sale id from another branch:** absent in Penjualan, refused to a cashier.
+
+Run it after a reset, with the API and web running:
+
+```bash
+CONFIRM_RESET=yes bash scripts/reset-mvp-demo.sh
+```
+
+```bash
+pnpm --filter @pss/web test:e2e:mvp
+```
+
+To keep your working data, run it against its own database instead. Point both the reset and the API at `pss_mvp_e2e`:
+
+```bash
+CONFIRM_RESET=yes PSS_DEMO_DATABASE=pss_mvp_e2e bash scripts/reset-mvp-demo.sh
+```
+
+```bash
+DATABASE_URL=postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_mvp_e2e bash scripts/dev-mvp-api.sh
+```
+
+```bash
+DATABASE_URL=postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_mvp_e2e pnpm --filter @pss/web test:e2e:mvp
+```
+
+Its first runs found and fixed four things the mocked tests could not:
+- Two scans of one product crashed checkout. Repeats now merge into one line.
+- Scans made while the previous one was still on the network were lost. They now queue.
+- A database restart killed the API. The pool now survives it.
+- A full `pnpm build` during a reset broke the running web app. The reset now builds only what the seed needs.
+
+Codex and OpenCode append their steps to this spec.
+
+## 8. If something is down
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
