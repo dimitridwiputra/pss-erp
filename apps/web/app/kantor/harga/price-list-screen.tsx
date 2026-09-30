@@ -71,7 +71,7 @@ export function PriceListScreen() {
         </div>
       </div>
 
-      <div className="pos-dashboard-grid">
+      <div className="pos-stack">
         <section className="pos-card">
           <div className="pos-card-title"><h2>Daftar harga</h2></div>
 
@@ -117,7 +117,7 @@ export function PriceListScreen() {
               <div className="pos-table-wrap">
                 <table className="pos-table">
                   <thead>
-                    <tr><th>Scope</th><th className="pos-number">Versi</th><th>Berlaku sejak</th><th className="pos-number">Harga</th><th>Keadaan</th></tr>
+                    <tr><th>Scope</th><th className="pos-number">Versi</th><th>Berlaku sejak</th><th>Keadaan</th></tr>
                   </thead>
                   <tbody>
                     {lists.data.items.map((item) => (
@@ -126,11 +126,12 @@ export function PriceListScreen() {
                           <button type="button" className="pos-linkish" onClick={() => setOpenId(item.priceListId)}>
                             <strong>{item.scope}</strong>
                           </button>
-                          <small>{item.priceListId === activeId ? 'Yang berlaku sekarang' : `Dibuat ${item.createdAt.slice(0, 10)}`}</small>
+                          <small>
+                            {item.itemCount} harga · {item.priceListId === activeId ? 'yang berlaku sekarang' : `dibuat ${item.createdAt.slice(0, 10)}`}
+                          </small>
                         </td>
                         <td className="pos-number">{item.version}</td>
                         <td>{item.validFrom}</td>
-                        <td className="pos-number">{item.itemCount}</td>
                         <td><span className={`pos-status pos-status-${priceListStatusLabel[item.status].tone}`}>{priceListStatusLabel[item.status].label}</span></td>
                       </tr>
                     ))}
@@ -164,8 +165,9 @@ function PriceItems({ priceListId, onChanged }: { priceListId: string; onChanged
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<{ productId: string; sku: string; name: string; uom: string; unitPrice: string } | null>(null);
   const [adding, setAdding] = useState(false);
+  const [sort, setSort] = useState<'unitPrice' | 'product'>('unitPrice');
 
-  const params = new URLSearchParams({ page: '1', pageSize: '100', sort: 'product' });
+  const params = new URLSearchParams({ page: '1', pageSize: '100', sort });
   if (query) params.set('q', query);
 
   const items = useQuery({
@@ -231,6 +233,12 @@ function PriceItems({ priceListId, onChanged }: { priceListId: string; onChanged
                   aria-label="Cari barang yang harganya akan diubah"
                 />
               </label>
+              <span className="pos-filter-label">
+                <select value={sort} onChange={(event) => setSort(event.target.value as 'unitPrice' | 'product')} aria-label="Urutkan harga">
+                  <option value="unitPrice">Harga tertinggi</option>
+                  <option value="product">Sesuai urutan barang</option>
+                </select>
+              </span>
               <button type="submit" className="pos-outline">Cari</button>
             </form>
 

@@ -1,18 +1,20 @@
 'use client';
 
-import type { GoodsReceiptRequest, GoodsReceiptResponse, ProductDetail, ProductListResponse } from '@pss/contracts';
+import type {
+  GoodsReceiptRequest, GoodsReceiptResponse, ProductDetail, ProductListResponse,
+} from '@pss/contracts';
 import { EmptyState } from '@pss/ui';
 import { useQuery } from '@tanstack/react-query';
 import { PackagePlus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { BackofficeFrame, BackofficeProblem } from '../../kasir/components/backoffice-frame';
-import { KantorProblem } from '../lib/problem';
 import { useCommand } from '../../kasir/hooks/use-command';
+import { KantorProblem } from '../lib/problem';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaToday } from '../../kasir/lib/labels';
 import { NO_COST } from '../lib/labels';
 import { threeDecimals } from '../lib/quantity';
-import { useKantorSession } from '../warehouse-context';
+import { WarehouseGate } from '../lib/warehouse-gate';
 
 interface ReceiptLine {
   key: string;
@@ -40,7 +42,22 @@ interface ReceiptLine {
  * "belum ada harga pokok" (MVP-OD-16). The screen does not present that as a completed valuation.
  */
 export function ReceiveScreen() {
-  const { warehouseId } = useKantorSession();
+  return (
+    <BackofficeFrame title="Terima Barang">
+      <div className="pos-page-heading">
+        <div>
+          <h1>Terima Barang</h1>
+          <p>Catat barang yang masuk ke gudang, lengkap dengan harga pokoknya.</p>
+        </div>
+      </div>
+      <section className="pos-card">
+        <WarehouseGate>{(warehouseId) => <ReceiveBody warehouseId={warehouseId} />}</WarehouseGate>
+      </section>
+    </BackofficeFrame>
+  );
+}
+
+function ReceiveBody({ warehouseId }: { warehouseId: string }) {
   const [lines, setLines] = useState<ReceiptLine[]>([]);
   const [businessDate, setBusinessDate] = useState('');
   const [done, setDone] = useState<GoodsReceiptResponse | null>(null);
@@ -52,31 +69,10 @@ export function ReceiveScreen() {
     { onSuccess: (result) => { setDone(result); setLines([]); } },
   );
 
-  if (!warehouseId) {
-    return (
-      <BackofficeFrame title="Terima Barang">
-        <div className="pos-page-heading">
-          <div><h1>Terima Barang</h1><p>Catat barang yang masuk ke gudang.</p></div>
-        </div>
-        <EmptyState
-          title="Belum ada gudang yang bisa dipilih"
-          description="Akun Anda tidak punya cakupan gudang, jadi barang tidak dapat diterima. Hubungi administrator bila ini tidak sesuai."
-        />
-      </BackofficeFrame>
-    );
-  }
-
   const incomplete = lines.some((line) => threeDecimals(line.qty) === '');
 
   return (
-    <BackofficeFrame title="Terima Barang">
-      <div className="pos-page-heading">
-        <div>
-          <h1>Terima Barang</h1>
-          <p>Catat barang yang masuk ke gudang, lengkap dengan harga pokoknya.</p>
-        </div>
-      </div>
-
+    <>
       {done && (
         <p className="pos-inline-success" role="status">
           {done.movementIds.length} barang diterima dan sudah masuk ke stok gudang.
@@ -86,63 +82,61 @@ export function ReceiveScreen() {
       )}
       {receive.isError && <KantorProblem error={receive.error} />}
 
-      <section className="pos-card">
-        <ProductPicker onPick={(line) => setLines((current) => [...current, line])} />
+      <ProductPicker onPick={(line) => setLines((current) => [...current, line])} />
 
-        {lines.length === 0
-          ? <EmptyState title="Belum ada barang di daftar terima" description="Cari barang di atas, lalu pilih untuk menambahkannya ke daftar terima." />
-          : (
-            <>
-              <div className="pos-table-wrap">
-                <table className="pos-table">
-                  <thead>
-                    <tr>
-                      <th>Barang</th><th>Satuan</th><th>Jumlah</th>
-                      <th>Harga pokok per satuan</th><th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map((line, index) => (
-                      <ReceiptRow
-                        key={line.key}
-                        line={line}
-                        onChange={(patch) => setLines((current) => current.map((item, at) => (at === index ? { ...item, ...patch } : item)))}
-                        onRemove={() => setLines((current) => current.filter((_, at) => at !== index))}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+      {lines.length === 0
+        ? <EmptyState title="Belum ada barang di daftar terima" description="Cari barang di atas, lalu pilih untuk menambahkannya ke daftar terima." />
+        : (
+          <>
+            <div className="pos-table-wrap">
+              <table className="pos-table">
+                <thead>
+                  <tr>
+                    <th>Barang</th><th>Satuan</th><th>Jumlah</th>
+                    <th>Harga pokok per satuan</th><th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line, index) => (
+                    <ReceiptRow
+                      key={line.key}
+                      line={line}
+                      onChange={(patch) => setLines((current) => current.map((item, at) => (at === index ? { ...item, ...patch } : item)))}
+                      onRemove={() => setLines((current) => current.filter((_, at) => at !== index))}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (lines.length === 0 || incomplete) return;
-                  receive.mutate({
-                    lines: lines.map((line) => ({
-                      productId: line.productId,
-                      uom: line.uom,
-                      qty: threeDecimals(line.qty),
-                      // The key is omitted, not sent as null: an absent cost is how the domain is told
-                      // this line arrives unvalued, and null would read as a cost of zero.
-                      ...(line.cost === '' ? {} : { unitCost: line.cost }),
-                    })),
-                    ...(businessDate ? { businessDate } : {}),
-                  });
-                }}
-              >
-                <label className="pos-field">Tanggal penerimaan
-                  <input type="date" value={businessDate} max={jakartaToday()} onChange={(event) => setBusinessDate(event.target.value)} />
-                  <small>Kosongkan untuk memakai hari ini. Isi hanya bila barang datang dengan tanggal dokumen yang berbeda.</small>
-                </label>
-                <button type="submit" className="pos-primary" disabled={receive.isPending || incomplete}>
-                  <PackagePlus size={17} aria-hidden="true" /> {receive.isPending ? 'Menerima…' : `Terima ${lines.length} Baris`}
-                </button>
-              </form>
-            </>
-          )}
-      </section>
-    </BackofficeFrame>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (lines.length === 0 || incomplete) return;
+                receive.mutate({
+                  lines: lines.map((line) => ({
+                    productId: line.productId,
+                    uom: line.uom,
+                    qty: threeDecimals(line.qty),
+                    // The key is omitted, not sent as null: an absent cost is how the domain is told
+                    // this line arrives unvalued, and null would read as a cost of zero.
+                    ...(line.cost === '' ? {} : { unitCost: line.cost }),
+                  })),
+                  ...(businessDate ? { businessDate } : {}),
+                });
+              }}
+            >
+              <label className="pos-field">Tanggal penerimaan
+                <input type="date" value={businessDate} max={jakartaToday()} onChange={(event) => setBusinessDate(event.target.value)} />
+                <small>Kosongkan untuk memakai hari ini. Isi hanya bila barang datang dengan tanggal dokumen yang berbeda.</small>
+              </label>
+              <button type="submit" className="pos-primary" disabled={receive.isPending || incomplete}>
+                <PackagePlus size={17} aria-hidden="true" /> {receive.isPending ? 'Menerima…' : `Terima ${lines.length} Baris`}
+              </button>
+            </form>
+          </>
+        )}
+    </>
   );
 }
 
@@ -241,6 +235,7 @@ function ReceiptRow({ line, onChange, onRemove }: {
   onChange: (patch: Partial<ReceiptLine>) => void;
   onRemove: () => void;
 }) {
+  const sent = threeDecimals(line.qty);
   return (
     <tr>
       <td><strong>{line.name}</strong><small>{line.sku}</small></td>
@@ -259,7 +254,7 @@ function ReceiptRow({ line, onChange, onRemove }: {
           onChange={(event) => onChange({ qty: event.target.value })}
           placeholder="0"
         />
-        <small>{threeDecimals(line.qty) === '' ? 'Isi jumlah' : `Dikirim sebagai ${threeDecimals(line.qty)}`}</small>
+        <small>{sent === '' ? 'Isi jumlah' : `Dicatat sebagai ${sent}`}</small>
       </td>
       <td style={{ minWidth: 200 }}>
         <label className="pos-visually-hidden" htmlFor={`cost-${line.key}`}>Harga pokok {line.name} per {line.uom}</label>
@@ -270,7 +265,7 @@ function ReceiptRow({ line, onChange, onRemove }: {
           onChange={(event) => onChange({ cost: event.target.value.replace(/\D/g, '') })}
           placeholder="Kosongkan bila tidak ada"
         />
-        <small>{line.cost === '' ? `Akan diterima tanpa harga pokok (${NO_COST})` : 'Harga pokok per satuan'}</small>
+        <small>{line.cost === '' ? `Akan diterima tanpa harga pokok (${NO_COST})` : `Harga pokok per ${line.uom}`}</small>
       </td>
       <td>
         <button type="button" className="pos-danger-link" onClick={onRemove} aria-label={`Hapus ${line.name} dari daftar terima`}>

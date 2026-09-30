@@ -12,6 +12,7 @@ import { KantorProblem } from '../lib/problem';
 import { useCommand } from '../../kasir/hooks/use-command';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaDateTime } from '../../kasir/lib/labels';
+import { quantity } from '../../kasir/lib/money';
 import { orderCaptureLabel, productStatusLabel } from '../lib/labels';
 import { useKantorSession } from '../warehouse-context';
 
@@ -373,7 +374,7 @@ function UnitsAndBarcodes({ detail, onSaved }: { detail: ProductDetail; onSaved:
             {detail.units.map((unit) => (
               <tr key={unit.uom}>
                 <td><strong>{unit.uom}</strong>{unit.isBase && <small>Satuan dasar</small>}</td>
-                <td className="pos-number">{unit.conversionFactor}</td>
+                <td className="pos-number">{quantity(unit.conversionFactor)}</td>
                 <td>
                   {unit.barcode
                     ? <span style={{ fontVariantNumeric: 'tabular-nums' }}>{unit.barcode}</span>
@@ -423,7 +424,7 @@ function UnitsAndBarcodes({ detail, onSaved }: { detail: ProductDetail; onSaved:
           <small>Barcode karton bukan barcode pcs. Kasir memindai satuan yang diberi label ini.</small>
         </label>
         <label className="pos-field">Kode barcode
-          <input value={barcode} onChange={(event) => setBarcode(event.target.value)} required minLength={6} maxLength={64} autoComplete="off" placeholder="8990001000012" />
+          <input value={barcode} onChange={(event) => setBarcode(event.target.value)} required minLength={6} maxLength={64} autoComplete="off" placeholder="8990002000018" />
           <small>Satu barcode untuk satu satuan. Barcode yang sama tidak dapat dipakai barang lain.</small>
         </label>
         <button type="submit" className="pos-outline" disabled={addBarcode.isPending}>

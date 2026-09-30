@@ -78,7 +78,10 @@ export function KantorSessionProvider({ children }: { children: ReactNode }) {
   }, [warehouseIds]);
 
   const value = useMemo<KantorSession>(() => ({
-    pending: permissions.isPending,
+    // `pending` covers the read *and* its failure. A caller must not be able to tell "we do not know
+    // yet" from "you have none", because the second is a statement about the person and the first is
+    // a statement about the network.
+    pending: permissions.isPending || permissions.isError,
     permissions: granted,
     warehouseIds,
     warehouseId,
@@ -91,7 +94,7 @@ export function KantorSessionProvider({ children }: { children: ReactNode }) {
       }
     },
     can: (permission) => granted.has(permission),
-  }), [permissions.isPending, granted, warehouseIds, warehouseId]);
+  }), [permissions.isPending, permissions.isError, granted, warehouseIds, warehouseId]);
 
   return <KantorSessionContext.Provider value={value}>{children}</KantorSessionContext.Provider>;
 }

@@ -89,6 +89,9 @@ export function KantorShell({ children }: { children: ReactNode }) {
               })}
             </div>
           ))}
+          {pending && (
+            <p style={{ padding: '0 14px', color: 'var(--gray-500)', fontSize: 13 }} role="status">Memuat menu…</p>
+          )}
           {!pending && groups.length === 0 && (
             <p style={{ padding: '0 14px', color: 'var(--gray-500)', fontSize: 13, lineHeight: 1.5 }}>
               Belum ada menu untuk hak akses Anda. Hubungi administrator bila ini tidak sesuai.
@@ -102,17 +105,20 @@ export function KantorShell({ children }: { children: ReactNode }) {
             id="kantor-warehouse"
             value={warehouseId ?? ''}
             onChange={(event) => setWarehouseId(event.target.value)}
-            disabled={warehouseIds.length === 0}
+            disabled={pending || warehouseIds.length === 0}
           >
-            {warehouseIds.length === 0 && <option value="">Tidak ada gudang</option>}
+            {pending && <option value="">Memuat…</option>}
+            {!pending && warehouseIds.length === 0 && <option value="">Tidak ada gudang</option>}
             {warehouseIds.map((id) => <option key={id} value={id}>{id.slice(0, 8)}…</option>)}
           </select>
           <small>
-            {warehouseIds.length === 0
-              ? 'Akun ini tidak punya cakupan gudang, jadi layar stok tidak dapat menampilkan apa pun.'
-              : warehouseIds.length === 1
-                ? 'Gudang yang dipakai di Stok, Terima Barang, dan Penyesuaian.'
-                : 'Pilih gudang yang dipakai di Stok, Terima Barang, dan Penyesuaian.'}
+            {pending
+              ? 'Memuat cakupan gudang Anda…'
+              : warehouseIds.length === 0
+                ? 'Akun ini tidak punya cakupan gudang, jadi layar stok tidak dapat menampilkan apa pun.'
+                : warehouseIds.length === 1
+                  ? 'Gudang yang dipakai di Stok, Terima Barang, dan Penyesuaian.'
+                  : 'Pilih gudang yang dipakai di Stok, Terima Barang, dan Penyesuaian.'}
           </small>
         </div>
 

@@ -10,7 +10,7 @@ import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaDateTime } from '../../kasir/lib/labels';
 import { quantity, rupiah } from '../../kasir/lib/money';
 import { movementTypeLabel, NO_COST, NO_VALUE } from '../lib/labels';
-import { useKantorSession } from '../warehouse-context';
+import { WarehouseGate } from '../lib/warehouse-gate';
 
 const PAGE_SIZE = 25;
 
@@ -26,11 +26,27 @@ const PAGE_SIZE = 25;
  * (MVP-OD-17).
  */
 export function StockScreen() {
-  const { warehouseId } = useKantorSession();
+  return (
+    <BackofficeFrame title="Stok">
+      <div className="pos-page-heading">
+        <div>
+          <h1>Stok</h1>
+          <p>Saldo barang di gudang terpilih beserta nilainya.</p>
+        </div>
+      </div>
+      <section className="pos-card">
+        <WarehouseGate>{(warehouseId) => <StockBody warehouseId={warehouseId} />}</WarehouseGate>
+      </section>
+    </BackofficeFrame>
+  );
+}
+
+function StockBody({ warehouseId }: { warehouseId: string }) {
   const [view, setView] = useState<'saldo' | 'perubahan'>('saldo');
   const [typed, setTyped] = useState('');
   const [query, setQuery] = useState('');
   const [maxQty, setMaxQty] = useState('');
+  const [sort, setSort] = useState<'qtyOnHand' | 'value'>('qtyOnHand');
   const [page, setPage] = useState(1);
 
   const search = (event: FormEvent) => {
@@ -39,87 +55,91 @@ export function StockScreen() {
     setQuery(typed.trim());
   };
 
-  if (!warehouseId) return <NoWarehouse />;
-
   return (
-    <BackofficeFrame title="Stok">
-      <div className="pos-page-heading">
-        <div>
-          <h1>Stok</h1>
-          <p>Saldo barang di gudang terpilih beserta nilainya.</p>
-        </div>
-        <div className="pos-toolbar" style={{ margin: 0 }}>
-          <button
-            type="button"
-            className={view === 'saldo' ? 'pos-primary' : 'pos-outline'}
-            onClick={() => { setView('saldo'); setPage(1); }}
-          >
-            Saldo
-          </button>
-          <button
-            type="button"
-            className={view === 'perubahan' ? 'pos-primary' : 'pos-outline'}
-            onClick={() => { setView('perubahan'); setPage(1); }}
-          >
-            Riwayat
-          </button>
-        </div>
+    <>
+      <div className="pos-toolbar" style={{ marginTop: 0 }}>
+        <button
+          type="button"
+          className={view === 'saldo' ? 'pos-primary' : 'pos-outline'}
+          onClick={() => { setView('saldo'); setPage(1); }}
+        >
+          Saldo
+        </button>
+        <button
+          type="button"
+          className={view === 'perubahan' ? 'pos-primary' : 'pos-outline'}
+          onClick={() => { setView('perubahan'); setPage(1); }}
+        >
+          Riwayat
+        </button>
       </div>
 
-      <section className="pos-card">
-        <form className="pos-toolbar pos-filter-row" onSubmit={search} role="search">
-          <label className="pos-search">
-            <Search size={17} aria-hidden="true" />
-            <input
-              value={typed}
-              onChange={(event) => setTyped(event.target.value)}
-              placeholder={view === 'saldo' ? 'Cari SKU atau nama barang…' : 'Cari barang di riwayat…'}
-              aria-label={view === 'saldo' ? 'Cari SKU atau nama barang' : 'Cari barang di riwayat'}
-            />
-          </label>
-          {view === 'saldo' && (
-            <label className="pos-field" style={{ margin: 0 }}>
-              <span className="pos-filter-label">
-                <select
-                  value={maxQty}
-                  onChange={(event) => { setMaxQty(event.target.value); setPage(1); }}
-                  aria-label="Saring stok menipis"
-                >
-                  <option value="">Semua jumlah</option>
-                  <option value="10">10 atau kurang</option>
-                  <option value="5">5 atau kurang</option>
-                  <option value="0">Habis</option>
-                </select>
-              </span>
-            </label>
-          )}
-          <button type="submit" className="pos-outline">Cari</button>
-        </form>
+      <form className="pos-toolbar pos-filter-row" onSubmit={search} role="search">
+        <label className="pos-search">
+          <Search size={17} aria-hidden="true" />
+          <input
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            placeholder={view === 'saldo' ? 'Cari SKU atau nama barang…' : 'Cari barang di riwayat…'}
+            aria-label={view === 'saldo' ? 'Cari SKU atau nama barang' : 'Cari barang di riwayat'}
+          />
+        </label>
+        {view === 'saldo' ? (
+          <>
+            <span className="pos-filter-label">
+              <select value={maxQty} onChange={(event) => { setMaxQty(event.target.value); setPage(1); }} aria-label="Saring stok menipis">
+                <option value="">Semua jumlah</option>
+                <option value="10">10 atau kurang</option>
+                <option value="5">5 atau kurang</option>
+                <option value="0">Habis</option>
+              </select>
+            </span>
+            <SortSelect value={sort} onChange={(next) => { setSort(next); setPage(1); }} />
+          </>
+        ) : (
+          <span className="pos-filter-label">
+            <select value="occurredAt" onChange={() => setPage(1)} aria-label="Urutkan riwayat">
+              <option value="occurredAt">Terbaru lebih dulu</option>
+            </select>
+          </span>
+        )}
+        <button type="submit" className="pos-outline">Cari</button>
+      </form>
 
-        {view === 'saldo'
-          ? <Balances warehouseId={warehouseId} query={query} maxQty={maxQty} page={page} onPage={setPage} />
-          : <Movements warehouseId={warehouseId} query={query} page={page} onPage={setPage} />}
-      </section>
-    </BackofficeFrame>
+      {view === 'saldo'
+        ? <Balances warehouseId={warehouseId} query={query} maxQty={maxQty} sort={sort} page={page} onPage={setPage} />
+        : <Ledger warehouseId={warehouseId} query={query} page={page} onPage={setPage} />}
+    </>
   );
 }
 
-function NoWarehouse() {
+/**
+ * The order is chosen and named, because the ledger cannot sort by name.
+ *
+ * `core.product` is `master-data`'s table, so this side can only order by what it stores — the
+ * product id, which means nothing to a person. Rather than leave the rows in an arbitrary order and
+ * say nothing, the screen offers the two orders that do mean something and shows which one is on.
+ */
+function SortSelect({ value, onChange }: { value: 'qtyOnHand' | 'value'; onChange: (next: 'qtyOnHand' | 'value') => void }) {
   return (
-    <BackofficeFrame title="Stok">
-      <div className="pos-page-heading"><div><h1>Stok</h1><p>Saldo barang di gudang terpilih beserta nilainya.</p></div></div>
-      <EmptyState
-        title="Belum ada gudang yang bisa dipilih"
-        description="Akun Anda tidak punya cakupan gudang, jadi tidak ada saldo yang dapat ditampilkan. Hubungi administrator bila ini tidak sesuai."
-      />
-    </BackofficeFrame>
+    <span className="pos-filter-label">
+      <select value={value} onChange={(event) => onChange(event.target.value as 'qtyOnHand' | 'value')} aria-label="Urutkan saldo">
+        <option value="qtyOnHand">Stok terbanyak</option>
+        <option value="value">Nilai terbesar</option>
+      </select>
+    </span>
   );
 }
 
-function Balances({ warehouseId, query, maxQty, page, onPage }: {
-  warehouseId: string; query: string; maxQty: string; page: number; onPage: (page: number) => void;
+function Balances({ warehouseId, query, maxQty, sort, page, onPage }: {
+  warehouseId: string;
+  query: string;
+  maxQty: string;
+  sort: 'qtyOnHand' | 'value';
+  page: number;
+  onPage: (page: number) => void;
 }) {
-  const params = new URLSearchParams({ warehouseId, page: String(page), pageSize: String(PAGE_SIZE), sort: 'product' });
+  const params = new URLSearchParams({ warehouseId, page: String(page), pageSize: String(PAGE_SIZE), sort });
   if (query) params.set('q', query);
   if (maxQty) params.set('maxQty', maxQty);
 
@@ -193,23 +213,11 @@ function Balances({ warehouseId, query, maxQty, page, onPage }: {
 }
 
 /** The movement ledger, newest first: what came in, what went out, and what was corrected. */
-function Movements({ warehouseId, query, page, onPage }: {
+function Ledger({ warehouseId, query, page, onPage }: {
   warehouseId: string; query: string; page: number; onPage: (page: number) => void;
-}) {
-  return <Ledger warehouseId={warehouseId} query={query} page={page} onPage={onPage} />;
-}
-
-function Ledger({ warehouseId, query, page, onPage, productId }: {
-  warehouseId: string;
-  query: string;
-  page: number;
-  onPage: (page: number) => void;
-  /** Set when the ledger is showing one product's history. */
-  productId?: string;
 }) {
   const params = new URLSearchParams({ warehouseId, page: String(page), pageSize: String(PAGE_SIZE), sort: 'occurredAt' });
   if (query) params.set('q', query);
-  if (productId) params.set('productId', productId);
 
   const movements = useQuery({
     queryKey: ['kantor-stock-movements', params.toString()],
@@ -273,5 +281,3 @@ function Ledger({ warehouseId, query, page, onPage, productId }: {
     </>
   );
 }
-
-

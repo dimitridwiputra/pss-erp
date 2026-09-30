@@ -13,7 +13,7 @@ import { useCommand } from '../../kasir/hooks/use-command';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaToday } from '../../kasir/lib/labels';
 import { threeDecimals } from '../lib/quantity';
-import { useKantorSession } from '../warehouse-context';
+import { WarehouseGate } from '../lib/warehouse-gate';
 
 interface AdjustmentLine {
   key: string;
@@ -43,7 +43,22 @@ interface AdjustmentLine {
  * is coming.
  */
 export function AdjustmentScreen() {
-  const { warehouseId } = useKantorSession();
+  return (
+    <BackofficeFrame title="Penyesuaian Stok">
+      <div className="pos-page-heading">
+        <div>
+          <h1>Penyesuaian Stok</h1>
+          <p>Koreksi saldo barang yang tidak sesuai dengan isi rak.</p>
+        </div>
+      </div>
+      <section className="pos-card">
+        <WarehouseGate>{(warehouseId) => <AdjustmentBody warehouseId={warehouseId} />}</WarehouseGate>
+      </section>
+    </BackofficeFrame>
+  );
+}
+
+function AdjustmentBody({ warehouseId }: { warehouseId: string }) {
   const [lines, setLines] = useState<AdjustmentLine[]>([]);
   const [businessDate, setBusinessDate] = useState('');
   const [done, setDone] = useState<StockAdjustmentResponse | null>(null);
@@ -61,20 +76,6 @@ export function AdjustmentScreen() {
     { onSuccess: (result) => { setDone(result); setLines([]); } },
   );
 
-  if (!warehouseId) {
-    return (
-      <BackofficeFrame title="Penyesuaian Stok">
-        <div className="pos-page-heading">
-          <div><h1>Penyesuaian Stok</h1><p>Koreksi saldo barang yang tidak sesuai dengan isi rak.</p></div>
-        </div>
-        <EmptyState
-          title="Belum ada gudang yang bisa dipilih"
-          description="Akun Anda tidak punya cakupan gudang, jadi stok tidak dapat disesuaikan. Hubungi administrator bila ini tidak sesuai."
-        />
-      </BackofficeFrame>
-    );
-  }
-
   // The ledger's own scale: `qty_delta` is `numeric(18,3)` and signed, so "40" reaches the domain as
   // "40.000" and a shortage as "-2.000". A zero delta is refused — correcting nothing is a mistake.
   const deltas = lines.map((line) => threeDecimals(line.delta));
@@ -86,14 +87,7 @@ export function AdjustmentScreen() {
     || payload.some((line) => Number(line.qtyDelta) === 0 || line.reasonCode === '');
 
   return (
-    <BackofficeFrame title="Penyesuaian Stok">
-      <div className="pos-page-heading">
-        <div>
-          <h1>Penyesuaian Stok</h1>
-          <p>Koreksi saldo barang yang tidak sesuai dengan isi rak.</p>
-        </div>
-      </div>
-
+    <>
       {done && (
         <p className="pos-inline-success" role="status">
           {done.movementIds.length} koreksi tersimpan dan sudah tercatat di riwayat stok.
@@ -101,8 +95,7 @@ export function AdjustmentScreen() {
       )}
       {adjust.isError && <KantorProblem error={adjust.error} />}
 
-      <section className="pos-card">
-        <ProductPicker
+      <ProductPicker
           disabled={reasons.isPending || reasons.isError}
           onPick={(line) => setLines((current) => [...current, { ...line, reasonCode: '' }])}
         />
@@ -197,8 +190,7 @@ export function AdjustmentScreen() {
               </form>
             </>
           )}
-      </section>
-    </BackofficeFrame>
+    </>
   );
 }
 

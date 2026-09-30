@@ -81,6 +81,10 @@ const catalog = [
   { sku: 'DEMO-020', name: 'Sabun Mandi Cair 825ml', category: 'KEBUTUHAN RUMAH', baseUom: 'BTL', case: ['KARTON', 12], barcodes: [{ uom: 'BTL', code: '8990001000164' }, { uom: 'KARTON', code: '8990001100181' }], price: '186000.00', cost: '158000.00', qty: '12' },
 ];
 
+/** Display only: the amount is already a decimal string, and this never becomes a number. */
+const rupiahOf = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
+  .format(Number(value.split('.')[0]));
+
 const pool = new pg.Pool({ connectionString: databaseUrl });
 const meta = { actor: { roles: [], serviceIdentity: 'mvp-demo-seed' }, requestId: randomUUID(), correlationId: randomUUID(), source: 'SYSTEM' };
 
@@ -90,6 +94,20 @@ async function exists(sql, values) {
 }
 
 try {
+  // The demo's gross margin is the whole reason the opening stock is costed, and a missing costing
+  // migration otherwise shows up as a raw SQL error from inside the receipt, on the rehearsal morning.
+  // Checked first, before anything is written, so the failure names its cause.
+  const costing = await pool.query(
+    `SELECT count(*)::int AS present FROM information_schema.columns
+     WHERE table_schema = 'inventory' AND table_name = 'stock_balance' AND column_name = 'avg_unit_cost'`,
+  );
+  if (costing.rows[0].present !== 1) {
+    throw new Error(
+      'inventory.stock_balance.avg_unit_cost is missing, so nothing can be valued and every goods receipt '
+      + 'would fail. Run: node scripts/migrate-local.mjs — the reset should already have applied it.',
+    );
+  }
+
   for (const terminal of terminals) {
     if (await exists('SELECT 1 FROM pos.pos_terminal WHERE organization_id = $1 AND code = $2', [organizationId, terminal.code])) continue;
     await registerPosTerminal(pool, undefined, { organizationId, branchId, warehouseId, code: terminal.code, name: terminal.name, ...meta });
@@ -153,9 +171,26 @@ try {
     });
   }
 
+  // And the one about what this run produced: the opening stock is costed, so no balance may be left
+  // unvalued. A margin read against a blank cost is a number nobody can explain.
+  const unvalued = await pool.query(
+    'SELECT count(*)::int AS count FROM inventory.stock_balance WHERE avg_unit_cost IS NULL',
+  );
+  if (unvalued.rows[0].count > 0) {
+    throw new Error(
+      `${unvalued.rows[0].count} stock balances have no value. The demo's gross margin reads from the `
+      + 'moving average, so an unvalued balance makes it a number nobody can explain.',
+    );
+  }
+
+  const totalValue = await pool.query(
+    'SELECT COALESCE(sum(round(qty_on_hand * avg_unit_cost, 2)), 0)::text AS value FROM inventory.stock_balance',
+  );
+
   process.stdout.write(
     `MVP demo data ready: ${terminals.length} terminals, ${catalog.length} products `
-    + `(${new Set(catalog.map((product) => product.category)).size} categories) with costed opening stock in ${demo.warehouse.name}.\n`,
+    + `(${new Set(catalog.map((product) => product.category)).size} categories) with costed opening stock `
+    + `worth ${rupiahOf(totalValue.rows[0].value)} in ${demo.warehouse.name}.\n`,
   );
 } finally {
   await pool.end();

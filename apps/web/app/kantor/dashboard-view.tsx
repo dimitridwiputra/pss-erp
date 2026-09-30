@@ -51,11 +51,11 @@ export function DashboardView() {
 
       {data && (
         <>
-          <dl className="pos-kpis">
+          <dl className="kantor-kpis">
             <Tile state={data.sales} icon={<Banknote />} label="Penjualan hari ini">
               {(sales) => (
                 <>
-                  {rupiah(sales.salesTotal)}
+                  <strong>{rupiah(sales.salesTotal)}</strong>
                   <em>{sales.saleCount === 0 ? 'Belum ada transaksi' : `${sales.saleCount} transaksi`}</em>
                 </>
               )}
@@ -63,7 +63,7 @@ export function DashboardView() {
             <Tile state={data.sales} icon={<Coins />} label="Kas konter belum dihitung">
               {(sales) => (
                 <>
-                  {rupiah(sales.undepositedCash)}
+                  <strong>{rupiah(sales.undepositedCash)}</strong>
                   <em>{sales.undepositedPaymentCount === 0 ? 'Semua kas sudah dihitung' : `${sales.undepositedPaymentCount} menunggu dihitung`}</em>
                 </>
               )}
@@ -71,7 +71,7 @@ export function DashboardView() {
             <Tile state={data.grossProfit} icon={<TrendingUp />} label="Laba kotor hari ini">
               {(profit) => (
                 <>
-                  {rupiah(profit.today)}
+                  <strong>{rupiah(profit.today)}</strong>
                   <em>Bulan ini {rupiah(profit.monthToDate)}</em>
                 </>
               )}
@@ -79,7 +79,7 @@ export function DashboardView() {
             <Tile state={data.stockValue} icon={<Boxes />} label="Nilai stok gudang">
               {(value) => (
                 <>
-                  {value.totalValue === null ? 'Belum dapat dihitung' : rupiah(value.totalValue)}
+                  <strong>{value.totalValue === null ? 'Belum dapat dihitung' : rupiah(value.totalValue)}</strong>
                   <em>
                     {value.unvaluedCount > 0
                       ? `${value.unvaluedCount} barang belum ada harga pokok`
@@ -91,7 +91,7 @@ export function DashboardView() {
             <Tile state={data.lowStock} icon={<PackageSearch />} label="Stok menipis">
               {(low) => (
                 <>
-                  {low.total === 0 ? 'Aman' : `${low.total} jenis`}
+                  <strong>{low.total === 0 ? 'Aman' : `${low.total} jenis`}</strong>
                   <em>{low.total === 0 ? 'Semua di atas batas minimum' : `di bawah ${quantity(low.threshold)} per satuan`}</em>
                 </>
               )}
@@ -158,7 +158,9 @@ function Tile<T>({ state, icon, label, children }: {
         <div>
           <small>{label}</small>
           <strong>Belum tersedia</strong>
-          <em className="pos-muted">{state.reason}</em>
+          {/* The reason is a sentence in the operator's language, not a headline: the registry's code
+              is behind the word, never on the screen. */}
+          <em className="pos-kpi-reason">{state.reason}</em>
         </div>
       </div>
     );
