@@ -34,6 +34,7 @@ import {
   getLocationUtilization,
   listWarehouseTasks,
 } from '../src/index';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_wms_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -97,8 +98,13 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
 
-  await applyMigration('../../audit/infrastructure/database/migrations/0001_audit_entry.sql');
-  await applyMigration('../../audit/infrastructure/database/migrations/0002_audit_source_offline_paper.sql');
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  // The whole audit domain, not a hand-picked pair of its files. Replaying 0001 and 0002 by name
+  // is what made amending a shipped migration look safe (MIG-RISK-AUD-001), and it broke as soon as
+  // the domain grew a migration: 0002 alters a constraint the replayed 0001 no longer creates.
+  await applyAuditMigrations(pool);
+
   await applyMigration('../../inventory/infrastructure/database/migrations/0001_inventory.sql');
   await applyMigration('../../inventory/infrastructure/database/migrations/0002_inventory_receive_adjust.sql');
   await applyMigration('../infrastructure/database/migrations/0001_wms.sql');

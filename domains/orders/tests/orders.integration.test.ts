@@ -9,6 +9,7 @@ import {
   type CancelSalesOrderInput,
   type RequestSalesOrderInput,
 } from '../src/index';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_orders_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -60,9 +61,10 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
   const ordersMigration = await readFile(new URL('../infrastructure/database/migrations/0001_orders.sql', import.meta.url), 'utf8');
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
   await pool.query(ordersMigration);
-  const auditMigration = await readFile(new URL('../../audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8');
-  await pool.query(auditMigration);
 }, 30_000);
 
 afterAll(async () => {

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { decideApproval, requestApproval, type AuthorizeApproval } from '../src/application/approval';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_approval_test_${randomUUID().replaceAll('-', '')}`;
 const organizationId = randomUUID();
@@ -21,8 +22,10 @@ beforeAll(async () => {
   const testUrl = new URL(baseUrl);
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
   for (const relativePath of [
-    '../../audit/infrastructure/database/migrations/0001_audit_entry.sql',
     '../infrastructure/database/migrations/0001_outbox_event.sql',
     '../infrastructure/database/migrations/0003_approval.sql',
   ]) {

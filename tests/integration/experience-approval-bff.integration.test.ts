@@ -7,6 +7,7 @@ import { listPendingApprovals, requestApproval, type AuthorizeApproval } from '@
 import { resolveApprovalDetail, resolveApprovalInbox } from '../../apps/web/lib/experience/experience-handler';
 import { IDENTITY_GRANTS_PATH, IDENTITY_SELF_PATH, PLATFORM_APPROVAL_INBOX_PATH } from '../../apps/web/lib/experience/sources';
 import type { UpstreamRead, UpstreamTransport } from '../../apps/web/lib/experience/sources';
+import { applyAuditMigrations } from '../../scripts/apply-migrations.mjs';
 
 /**
  * PLT-008.AC04 / PLT-008.TS04 against a real database.
@@ -80,8 +81,11 @@ beforeAll(async () => {
   const testUrl = new URL(baseUrl);
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
+
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
   for (const relativePath of [
-    '../../domains/audit/infrastructure/database/migrations/0001_audit_entry.sql',
     '../../domains/platform/infrastructure/database/migrations/0001_outbox_event.sql',
     '../../domains/platform/infrastructure/database/migrations/0003_approval.sql',
     '../../domains/identity/infrastructure/database/migrations/0001_user_account.sql',
@@ -125,6 +129,7 @@ beforeAll(async () => {
   }).then((result) => result.id);
   approvalInBranchA = await raise(branchA, 'Override kredit · Toko Makmur · Rp 15 jt', '15000000.00');
   approvalInBranchB = await raise(branchB, 'Override kredit · Toko Sejahtera · Rp 9 jt', '9000000.00');
+
 }, 30_000);
 
 afterAll(async () => {

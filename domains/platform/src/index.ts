@@ -53,7 +53,7 @@ export {
 } from './application/business-calendar';
 export type { NonWorkingDates } from './application/business-calendar';
 export {
-  proposeConfigValue, loadConfigRows, listConfigValues,
+  proposeConfigValue, loadConfigRows, listConfigValues, loadConfigKeyPolicies, loadConfigKeyPolicy,
   configGateReport, registeredConfigKeys, assertRegisteredConfigKey,
 } from './application/config-admin';
 export type {

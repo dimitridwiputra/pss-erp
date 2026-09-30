@@ -40,3 +40,13 @@ footer { margin-top: auto; padding-top: 48px; color: var(--gray-600); font-size:
 .approval-partial p { margin: 0; color: var(--gray-700); line-height: 1.6; }
 .approval-item h2 + .pss-status-pill { margin-bottom: 12px; }
 .approval-detail-link { display: inline-flex; align-items: center; min-height: 48px; margin-top: 8px; color: var(--pss-navy-900); font-weight: 700; text-decoration: underline; }
+.home-page .hero { padding: 58px 0 30px; }
+.home-page h1 { font-size: clamp(36px, 5vw, 58px); }
+.home-page .lead { margin-bottom: 0; }
+.home-page .status-panel { margin-top: 20px; }
+.home-page .pss-standard-state { margin-top: 20px; }
+.home-products { margin-top: 36px; }
+.home-products h2 { color: var(--pss-navy-950); }
+.home-products p, .home-access-note { color: var(--gray-600); line-height: 1.6; }
+.home-products ul { display: flex; flex-wrap: wrap; gap: 10px; padding: 0; list-style: none; }
+.home-products li { padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: var(--radius-default); background: var(--pss-white); }

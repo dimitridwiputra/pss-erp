@@ -21149,7 +21149,7 @@ Dua mekanisme berbeda diatur di sini: (1) **Registry konfigurasi & policy effect
 **API / COMMAND CONCEPTS:** `ProposeConfigValue`, `getConfig` (library), `GET /platform/config?key=`.
 **IDEMPOTENCY REQUIREMENT:** `Idempotency-Key`.
 **AUDIT REQUIREMENT:** Wajib.
-**RBAC / SCOPE:** `configuration.*.manage` (SYSTEM_ADMIN untuk teknis); owner bisnis per key (FIN-CONFIG, dll.).
+**RBAC / SCOPE:** `configuration.technical.manage` (SYSTEM_ADMIN untuk key teknis); owner bisnis per key dari `platform.config_key` (FIN-CONFIG, dll.). Key `SENSITIVE` selalu lewat approval `config_change`; permission tulis tidak sama dengan permission setujui.
 **OFFLINE BEHAVIOR:** Nilai relevan dibawa dalam snapshot mobile dengan versi.
 **UX REQUIREMENTS:** Tabel key dengan nilai aktif per scope, jadwal, histori; badge ASM/KOSONG.
 **USER-FACING COPY EXAMPLES:** "Titik pengakuan pendapatan: Saat terkirim (asumsi, perlu divalidasi Finance)"; "Berlaku mulai 1 Jan 2027".
@@ -23024,7 +23024,7 @@ Scope mengikuti ARC §16: `ORGANIZATION`, `BRANCH`, `WAREHOUSE`, `TERRITORY`, `P
 | POS-SUPERVISE | `pos.terminal.manage`, `pos.shift.force_close`, `pos.shift.review`, `pos.sale.cancel.approve`, `pos.tender.void.approve`, `pos.transfer.release.approve`, `pos.offline.activate`, `pos.report.view` |
 | DQ-WORK | `platform.exception.work` — mengerjakan antrian yang owner role-nya dimiliki user (Appendix P). Dimiliki semua role yang tercantum sebagai owner antrian |
 | AUDIT-READ-ALL | `*.read`, `audit.entry.read`, `audit.export` |
-| SYS-ADMIN | `identity.user.manage`, `identity.role.assign`, `configuration.*.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis |
+| SYS-ADMIN | `identity.user.manage`, `identity.role.assign`, `configuration.technical.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis |
 
 **Level approval** L1/L2/L3 dan threshold nominalnya disimpan di Appendix N (`approval.<type>.levels`). Nilai default ada di Appendix N dan **wajib divalidasi Finance**.
 
@@ -24003,7 +24003,8 @@ Label **ASM** menandai nilai asumsi kerja yang wajib divalidasi. **KOSONG** bera
 | `finance.journal.emergency_self_approval` | nonaktif | org | CFO | F4 |
 | `finance.petty_cash.max_per_expense` | KOSONG → semua pengeluaran kas kecil perlu approval Branch Manager | cabang | Finance | F6 |
 | `finance.fiscal_year_start_month` | 1 (ASM) | org | Finance | F4 |
-| `tax.vat_output_rate` / `tax.vat_input_rate` | KOSONG → invoice tidak bisa diterbitkan sampai tarif diisi | effective-dated | Finance/Tax | F4 |
+| `tax.vat_output_rate` | KOSONG → invoice tidak bisa terbit untuk pelanggan kena PPN sampai tarif diisi | effective-dated | Finance/Tax | F4 |
+| `tax.vat_input_rate` | KOSONG → pembelian belum bisa diklaim PPN masukan sampai tarif diisi | effective-dated | Finance/Tax | F4 |
 | `credit.auto_release_on_payment` | true | org | Finance | F5 |
 | `credit.revalidate_after_minutes` | 60 | org | Finance | F5 |
 | `credit.hold_expiry_hours` | 48 | cabang | Finance | F5 |
@@ -24024,7 +24025,6 @@ Label **ASM** menandai nilai asumsi kerja yang wajib divalidasi. **KOSONG** bera
 | `procurement.po_approval_threshold` | KOSONG → semua PO perlu approval | org | Finance | F5 |
 | `procurement.over_receipt_tolerance_pct` | 0 | org | Ops | F5 |
 | `procurement.price_match_tolerance` | 0 | org | Finance | F5 |
-| `approval.<type>.levels` | per tipe; threshold KOSONG → dirutekan ke level **tertinggi** tipe tersebut (fail-safe) | org | Finance + Ops | F0 (mesin) / F5 (nilai) |
 | `identity.sod_exception` | tidak ada | cabang | CFO | F0 |
 | `sfa.geofence_radius_m` | 100 (ASM) | cabang | Sales | F7 |
 | `sfa.geofence_block` | false | cabang | Sales | F7 |
@@ -24041,10 +24041,11 @@ Label **ASM** menandai nilai asumsi kerja yang wajib divalidasi. **KOSONG** bera
 
 | Jenis | Key (default; owner; gate) | Bagian |
 |---|---|---|
+| Policy Field | `approval.<type>.levels` — per tipe; threshold KOSONG → dirutekan ke level **tertinggi** tipe tersebut (fail-safe). Bukan kunci yang bisa ditulis: nama kuncinya memuat `<type>`, jadi nilainya hidup di `platform.approval_level` per tipe. owner Finance + Ops, gate F0 (mesin) / F5 (nilai) | §30 |
 | Config | `identity.access_token_minutes` (15), `identity.refresh_token_hours` (≤ `offline.max_age_hours`), `identity.step_up_minutes` (15), `identity.shared_device_idle_minutes` (10), `identity.max_devices_per_user` (2) — owner Engineering, gate F0 | §22 |
 | Config | `master_data.duplicate_threshold` (ASM, steward, F1); `master_data.review_sla_days` (3) | §24 |
 | Config | `approval.price_override.levels`, `approval.price_override.expiry_hours` (24), `approval.price_list_activation.levels` — threshold KOSONG → level tertinggi | §27 |
-| Config | `tax.rounding_rule` (KOSONG → blocking), `tax.input_vat_tolerance` (0), `tax.invoice_deadline_days` (KOSONG), `tax_export_format_version` (KOSONG) — owner Finance/Tax, gate F5 | §28 |
+| Config | `tax.rounding_rule` (KOSONG → blocking), `tax.input_vat_tolerance` (0), `tax.invoice_deadline_days` (KOSONG), `tax.export_format_version` (KOSONG) — owner Finance/Tax, gate F5 | §28 |
 | Config | `orders.auto_confirm` (true), `orders.shortage_wait_hours` (24), `integration.fingerprint_amount_tolerance` (ASM 0) | §29 |
 | Config | `approval.credit_profile_change.levels`, `approval.credit_override.levels` (threshold KOSONG → level tertinggi), `credit.show_limit_to_sales` (false) | §30 |
 | Config | `fulfillment.sj_show_prices` (false), `fulfillment.delivery_date_backdate_days` (2) | §31 |
@@ -24073,9 +24074,10 @@ Label **ASM** menandai nilai asumsi kerja yang wajib divalidasi. **KOSONG** bera
 | Config | `geo.review_distance_m` (1000 ASM) · `geo.plus_code_length` (10 ASM) · `geo.nearby_max_radius_m` (5000 ASM) · `geo.unmapped_outlet_days` (90) · `geo.tile_source_url` (KOSONG → fallback daftar) | §57 |
 | Config | `fleet.capacity_block` (false) · `fleet.driver_silence_minutes` (60 ASM) · `fleet.late_tolerance_minutes` (30 ASM) · `fleet.optimizer_timeout_s` (30) · `fleet.gps_interval_s` (60 ASM) · `fleet.gps_retention_days` (KOSONG → OD-39; fitur tidak aktif) | §58 |
 | Config | `integration.max_file_mb` (200 ASM) · `integration.auto_rule_match` (false) · `integration.pending_mapping_max_days` (3 ASM) · `integration.duplicate_amount_tolerance` (0 ASM) · `integration.dependency_retry_hours` (72 ASM) · `integration.expected_file_interval_hours` (26 ASM) · `integration.recon_tolerance` (0) · `integration.pending_match_max_hours` (24 ASM) | §59 |
-| Config | `approval.<type>.expiry_hours` (per tipe; default 48 ASM) · `approval.<type>.bulk_allowed` (false) | §60 |
+| Policy Field | `approval.<type>.expiry_hours` (per tipe; default 48 ASM) · `approval.<type>.bulk_allowed` (false) — bukan kunci yang bisa ditulis; nilainya hidup di `platform.approval_type` per tipe | §60 |
 | Config | `documents.reservation_timeout_minutes` (60 ASM) | §61 |
-| Config | `media.url_ttl_seconds` (300) · `media.policy.<purpose>` (tipe, ukuran maks, retensi) · `media.max_image_kb` (ada di §41) | §62 |
+| Config | `media.url_ttl_seconds` (300) · `media.max_image_kb` (ada di §41) | §62 |
+| Policy Field | `media.policy.<purpose>` (tipe, ukuran maks, retensi) — kebijakan per tujuan, bukan kunci tunggal | §62 |
 | Config | `notifications.retention_days` (90 ASM) | §63 |
 | Config | `dwh.retirement_grace_days` (30 ASM) | §67 |
 | Config | `platform.business_calendar` (KOSONG → Senin–Jumat tanpa hari libur; owner Ops; wajib diisi hari kerja per cabang & hari libur nasional sebelum gate F3) | §68 |
@@ -24083,7 +24085,7 @@ Label **ASM** menandai nilai asumsi kerja yang wajib divalidasi. **KOSONG** bera
 | Config | `api.rate_limits` (per identitas/endpoint; default ASUMSI 600 req/menit per user) | §71 |
 | Config | `events.archive_days` (400 ASM — ≥ 1 tahun untuk replay read model/DW) · `events.retry_backoff` (1s, 5s, 30s, 2m, 10m) · `events.dlq_alert_minutes` (15) | §72 |
 | Config | `observability.log_retention_days` (30 ASM; OD-40) | §76 |
-| Config | `privacy.retention.<category>` (KOSONG kecuali raw 180 hari; Legal) | §77 |
+| Policy Field | `privacy.retention.<category>` (KOSONG kecuali raw 180 hari; Legal) — retensi per kategori data, bukan kunci tunggal | §77 |
 | Config | `migration.parallel_run_days_required` (10 hari kerja ASM; Finance+Ops) · `migration.emergency_rollback` (nonaktif; CFO) | §85 |
 | Config | `backup.pitr_days` (14 ASM) | §87 |
 | Config / flag | `fulfillment.cross_branch_enabled` (nonaktif; owner Finance; gate sebelum diaktifkan) | §23 |
@@ -24101,7 +24103,7 @@ Label **ASM** menandai nilai asumsi kerja yang wajib divalidasi. **KOSONG** bera
 | Flag | `finance.posting_enabled` (per organisasi) | §49 |
 | Flag | `finance.bank_api` (off) | §51 |
 | Flag | `fleet.route_optimization`, `fleet.vehicle_gps`, `fleet.route_economics` (semua off) | §58 |
-| Flag | `integration.outbound_enabled` (off); policy flag `allow_manual_pending_match` (per principal/cabang, default off) | §59 |
+| Flag | `integration.outbound_enabled` (off) · `integration.allow_manual_pending_match` (per principal/cabang, default off) | §59 |
 | Flag | `notifications.external_channels` (off) | §63 |
 | Flag | `reporting.attribution` (off) | §69 |
 | Policy field | `warehouse_id`, `pss_mode`; proses tambahan FULFILLMENT, INVENTORY, PROCUREMENT, DELIVERY_EXECUTION | §26 |

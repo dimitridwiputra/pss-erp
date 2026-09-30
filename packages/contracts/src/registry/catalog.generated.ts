@@ -568,10 +568,10 @@ export const registryCatalog = {
       "permissions": [
         "identity.user.manage",
         "identity.role.assign",
-        "configuration.*.manage",
+        "configuration.technical.manage",
         "integration.connector.manage"
       ],
-      "sourceText": "`identity.user.manage`, `identity.role.assign`, `configuration.*.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis"
+      "sourceText": "`identity.user.manage`, `identity.role.assign`, `configuration.technical.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis"
     }
   ],
   "permissionAdditions": [
@@ -3194,8 +3194,15 @@ export const registryCatalog = {
       "validationGate": "F4"
     },
     {
-      "keyExpression": "tax.vat_output_rate` / `tax.vat_input_rate",
-      "defaultText": "KOSONG → invoice tidak bisa diterbitkan sampai tarif diisi",
+      "keyExpression": "tax.vat_output_rate",
+      "defaultText": "KOSONG → invoice tidak bisa terbit untuk pelanggan kena PPN sampai tarif diisi",
+      "scope": "effective-dated",
+      "owner": "Finance/Tax",
+      "validationGate": "F4"
+    },
+    {
+      "keyExpression": "tax.vat_input_rate",
+      "defaultText": "KOSONG → pembelian belum bisa diklaim PPN masukan sampai tarif diisi",
       "scope": "effective-dated",
       "owner": "Finance/Tax",
       "validationGate": "F4"
@@ -3341,13 +3348,6 @@ export const registryCatalog = {
       "validationGate": "F5"
     },
     {
-      "keyExpression": "approval.<type>.levels",
-      "defaultText": "per tipe; threshold KOSONG → dirutekan ke level **tertinggi** tipe tersebut (fail-safe)",
-      "scope": "org",
-      "owner": "Finance + Ops",
-      "validationGate": "F0 (mesin) / F5 (nilai)"
-    },
-    {
       "keyExpression": "identity.sod_exception",
       "defaultText": "tidak ada",
       "scope": "cabang",
@@ -3427,6 +3427,17 @@ export const registryCatalog = {
   ],
   "configurationAdditions": [
     {
+      "kind": "Policy Field",
+      "item": "`approval.<type>.levels` — per tipe; threshold KOSONG → dirutekan ke level **tertinggi** tipe tersebut (fail-safe). Bukan kunci yang bisa ditulis: nama kuncinya memuat `<type>`, jadi nilainya hidup di `platform.approval_level` per tipe. owner Finance + Ops, gate F0 (mesin) / F5 (nilai)",
+      "section": "§30",
+      "keys": [],
+      "documentedOnly": [
+        "approval.<type>.levels",
+        "<type>",
+        "platform.approval_level"
+      ]
+    },
+    {
       "kind": "Config",
       "item": "`identity.access_token_minutes` (15), `identity.refresh_token_hours` (≤ `offline.max_age_hours`), `identity.step_up_minutes` (15), `identity.shared_device_idle_minutes` (10), `identity.max_devices_per_user` (2) — owner Engineering, gate F0",
       "section": "§22",
@@ -3460,13 +3471,13 @@ export const registryCatalog = {
     },
     {
       "kind": "Config",
-      "item": "`tax.rounding_rule` (KOSONG → blocking), `tax.input_vat_tolerance` (0), `tax.invoice_deadline_days` (KOSONG), `tax_export_format_version` (KOSONG) — owner Finance/Tax, gate F5",
+      "item": "`tax.rounding_rule` (KOSONG → blocking), `tax.input_vat_tolerance` (0), `tax.invoice_deadline_days` (KOSONG), `tax.export_format_version` (KOSONG) — owner Finance/Tax, gate F5",
       "section": "§28",
       "keys": [
         "tax.rounding_rule",
         "tax.input_vat_tolerance",
         "tax.invoice_deadline_days",
-        "tax_export_format_version"
+        "tax.export_format_version"
       ]
     },
     {
@@ -3755,12 +3766,14 @@ export const registryCatalog = {
       ]
     },
     {
-      "kind": "Config",
-      "item": "`approval.<type>.expiry_hours` (per tipe; default 48 ASM) · `approval.<type>.bulk_allowed` (false)",
+      "kind": "Policy Field",
+      "item": "`approval.<type>.expiry_hours` (per tipe; default 48 ASM) · `approval.<type>.bulk_allowed` (false) — bukan kunci yang bisa ditulis; nilainya hidup di `platform.approval_type` per tipe",
       "section": "§60",
-      "keys": [
+      "keys": [],
+      "documentedOnly": [
         "approval.<type>.expiry_hours",
-        "approval.<type>.bulk_allowed"
+        "approval.<type>.bulk_allowed",
+        "platform.approval_type"
       ]
     },
     {
@@ -3773,12 +3786,20 @@ export const registryCatalog = {
     },
     {
       "kind": "Config",
-      "item": "`media.url_ttl_seconds` (300) · `media.policy.<purpose>` (tipe, ukuran maks, retensi) · `media.max_image_kb` (ada di §41)",
+      "item": "`media.url_ttl_seconds` (300) · `media.max_image_kb` (ada di §41)",
       "section": "§62",
       "keys": [
         "media.url_ttl_seconds",
-        "media.policy.<purpose>",
         "media.max_image_kb"
+      ]
+    },
+    {
+      "kind": "Policy Field",
+      "item": "`media.policy.<purpose>` (tipe, ukuran maks, retensi) — kebijakan per tujuan, bukan kunci tunggal",
+      "section": "§62",
+      "keys": [],
+      "documentedOnly": [
+        "media.policy.<purpose>"
       ]
     },
     {
@@ -3841,10 +3862,11 @@ export const registryCatalog = {
       ]
     },
     {
-      "kind": "Config",
-      "item": "`privacy.retention.<category>` (KOSONG kecuali raw 180 hari; Legal)",
+      "kind": "Policy Field",
+      "item": "`privacy.retention.<category>` (KOSONG kecuali raw 180 hari; Legal) — retensi per kategori data, bukan kunci tunggal",
       "section": "§77",
-      "keys": [
+      "keys": [],
+      "documentedOnly": [
         "privacy.retention.<category>"
       ]
     },
@@ -3994,11 +4016,11 @@ export const registryCatalog = {
     },
     {
       "kind": "Flag",
-      "item": "`integration.outbound_enabled` (off); policy flag `allow_manual_pending_match` (per principal/cabang, default off)",
+      "item": "`integration.outbound_enabled` (off) · `integration.allow_manual_pending_match` (per principal/cabang, default off)",
       "section": "§59",
       "keys": [
         "integration.outbound_enabled",
-        "allow_manual_pending_match"
+        "integration.allow_manual_pending_match"
       ]
     },
     {
@@ -4021,7 +4043,8 @@ export const registryCatalog = {
       "kind": "Policy field",
       "item": "`warehouse_id`, `pss_mode`; proses tambahan FULFILLMENT, INVENTORY, PROCUREMENT, DELIVERY_EXECUTION",
       "section": "§26",
-      "keys": [
+      "keys": [],
+      "documentedOnly": [
         "warehouse_id",
         "pss_mode"
       ]

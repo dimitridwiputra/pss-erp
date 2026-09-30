@@ -11,6 +11,7 @@ import { ProblemExceptionFilter } from '@pss/http';
 import { requestApproval } from '@pss/platform';
 import { ApprovalController, ApprovalService } from '../src/approval.controller';
 import { IdentityAdminController, IdentityController, IdentityService } from '../src/identity.controller';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 @Module({ controllers: [IdentityController, IdentityAdminController, ApprovalController], providers: [IdentityService, ApprovalService] })
 class IdentityTestModule {}
@@ -62,6 +63,9 @@ beforeAll(async () => {
     // test database also needs the `platform` schema and its idempotency table. 0001 only
     // creates the schema and the outbox table; the outbox table is not otherwise used here.
     const platformMigrations = new URL('../../../domains/platform/infrastructure/database/migrations/', import.meta.url);
+    // The whole audit domain, not one file: a fixture that replays only
+    // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+    await applyAuditMigrations(setup);
     for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql']) {
       await setup.query(await readFile(new URL(file, platformMigrations), 'utf8'));
     }
@@ -94,8 +98,6 @@ beforeAll(async () => {
        VALUES ($1, $2, 'FINANCE_APPROVER', 'ORGANIZATION', $3)`,
       [randomUUID(), financeApproverId, organizationId],
     );
-    const auditMigration = await readFile(new URL('../../../domains/audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8');
-    await setup.query(auditMigration);
     for (const file of ['0001_outbox_event.sql', '0003_approval.sql']) {
       await setup.query(await readFile(new URL(`../../../domains/platform/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
     }

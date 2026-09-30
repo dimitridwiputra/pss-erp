@@ -4,6 +4,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DomainError } from '@pss/contracts';
 import { declareCashHandover, recordPayment, verifyCashCustody } from '../src/index';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_payments_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -25,15 +26,15 @@ beforeAll(async () => {
     new URL('../infrastructure/database/migrations/0001_payments.sql', import.meta.url),
     'utf8',
   );
+
   await pool.query(paymentsMigration);
 
   // Every command audits through @pss/audit's withAuditedTransaction/runAuditedWork, which
-  // inserts into audit.audit_entry — so that table must exist here too.
-  const auditMigration = await readFile(
-    new URL('../../audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url),
-    'utf8',
-  );
-  await pool.query(auditMigration);
+  // inserts into audit.audit_entry — so that table must exist here too. The whole audit domain
+  // is replayed, not one file: a fixture that applies only 0001 is what made amending a shipped
+  // migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
+
 }, 30_000);
 
 afterAll(async () => {

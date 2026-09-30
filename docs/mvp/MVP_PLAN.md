@@ -1,0 +1,143 @@
+# MVP plan — PSS Kasir + Back Office + Accounting (demo build)
+
+Status: **Active plan, 1–13 October 2026 (9 working days).** Demo build only. Nothing in this plan activates a branch, real cash, or real books. Every business value marked **DEMO DEFAULT** is a placeholder that Finance/Product must approve before production use (AGENTS.md §20: surface, do not invent).
+
+This file is the shared source of truth for the three parallel agents. If a change touches this file's contracts, the agent that owns the section updates it and notes the change in its daily report.
+
+## 1. The demo story (one connected loop)
+
+```text
+Back office: create product + barcode + price → receive goods with unit cost
+  → stock up, INVENTORY_RECEIVED → journal Dr Persediaan / Cr Barang Diterima Belum Ditagih
+Cashier (PSS Kasir): open shift → scan → Bayar → Terima Uang (TUNAI)
+  → PAYMENT_RECEIVED → journal Dr Kas Konter / Cr Piutang Usaha
+Warehouse staff: serah barang (pickup handover, a different user — SOD-09)
+  → INVENTORY_ISSUED → journal Dr HPP / Cr Persediaan
+  → INVOICE_ISSUED   → journal Dr Piutang Usaha / Cr Penjualan (/ Cr PPN Keluaran)
+Cashier: tutup shift → serah kas
+Finance cashier: verifikasi setoran → CASH_CUSTODY_VERIFIED → journal Dr Kas Kantor / Cr Kas Konter (± Selisih Kas)
+Finance: jurnal manual (maker) → approve (checker) → post; Neraca Saldo, Laba Rugi, Neraca, Buku Besar; tutup periode
+Dashboard: today's sales, cash not yet deposited, low stock, gross profit
+```
+
+## 2. Timeline and checkpoints
+
+| Day | Date | Checkpoint (all three agents) |
+|---|---|---|
+| 1 | Thu 1 Oct | **Contract freeze.** Claude merges event payload schemas (§5), BFF proxy, demo roles, demo switch. Codex merges the demo accounting defaults decision record. OpenCode merges the costing migration. |
+| 3 | Mon 5 Oct | **Events flow.** A POS sale and a goods receipt write outbox events that pass `parseEventForPublication`. |
+| 5 | Wed 7 Oct | **Full chain.** Root integration test: receipt → sale → handover → cash verification produces balanced journals; trial balance ties. |
+| 7 | Fri 9 Oct | **Feature complete.** All screens connected to real endpoints. |
+| 8 | Mon 12 Oct | **Code freeze.** Bug fixes only; Playwright demo path green. |
+| 9 | Tue 13 Oct | **Rehearsal** on the demo laptop using `docs/mvp/DEMO_RUNBOOK.md`. |
+
+## 3. Branching and merge rules
+
+- Precondition: the owner commits the current `feat/config-write-path-and-audit-retention` work, then creates `mvp/integration` from it. All agent branches start from `mvp/integration`.
+- Branches, each in its own git worktree: `mvp/foundation-pos` (Claude), `mvp/finance` (Codex), `mvp/backoffice` (OpenCode).
+- Merge into `mvp/integration` **at the end of every day**, in the order Claude → OpenCode → Codex. Each agent rebases on `mvp/integration` at the start of every day.
+- A merge requires green results from `pnpm lint && pnpm typecheck && pnpm architecture:check && pnpm contracts:check && pnpm db:check && pnpm test && pnpm test:integration`.
+- Commits end with the attribution line the owner's tooling requires. No force-pushes to `mvp/integration`.
+
+## 4. Ownership (who may edit what)
+
+| Area | Owner | Others may |
+|---|---|---|
+| `domains/pos`, `domains/invoicing`, `domains/payments`, `domains/orders`, `domains/fulfillment`, `domains/identity` | **Claude** | call exported functions only |
+| `packages/contracts/src/events/index.ts` (payload schemas + `eventSchemaRegistry`) | **Claude** | request a change through this file; never edit |
+| Web BFF proxy (`apps/web/lib/bff/*`), `/kasir`, `/pos-preview`, `/kantor/penjualan`, `/kantor/setoran-kas`, `/beranda` tiles | **Claude** | use the proxy |
+| `domains/master-data`, `domains/commercial`, `domains/inventory` (including costing and inventory events) | **OpenCode** | call exported functions only |
+| `/kantor/*` except `penjualan` and `setoran-kas`; `/kantor` dashboard | **OpenCode** | — |
+| `domains/finance`, `apps/finance-api`, finance consumers in `apps/integration-worker`, `/keuangan/*` | **Codex** | call finance-api only |
+| `domains/wms`, `/gudang` | nobody (frozen) | OpenCode may make the one change §6.3 requires |
+
+**Shared hotspots, append-only one-line edits allowed by anyone:** `packages/contracts/src/api/index.ts` (one `export *` line per new file), `apps/api/src/main.ts` controller list, `scripts/check-api-controller-registration.mjs` allow-list, `vitest.integration.config.ts` include list, `scripts/apply-migrations.mjs` domain list. Put new API contracts in a new file per area (`api/backoffice-*.ts`, `api/finance-*.ts`, `api/pos-*.ts`). Resolve conflicts in these files by keeping both sides.
+
+## 5. Event contracts (v1): Claude implements on Day 1, everyone builds against them now
+
+Envelope: the existing canonical envelope (`EventEnvelopeSchema`, `producer` required, `organizationId` in the envelope). Money is a decimal string with 2 places (`"118000.00"`), quantity a decimal string with 3 places, `businessDate` is `YYYY-MM-DD` in Asia/Jakarta. All payloads use `z.strictObject`. Events are appended through `appendOutboxEvent` **in the same transaction** as the fact they describe.
+
+| Event | Producer / aggregate | Payload |
+|---|---|---|
+| `INVENTORY_RECEIVED` | inventory / InventoryMovement | `movementId, warehouseId, productId, uom, qty, unitCost \| null, totalCost \| null, sourceType: 'GOODS_RECEIPT' \| 'WMS_RECEIPT', sourceId, businessDate` |
+| `INVENTORY_ISSUED` | inventory / InventoryMovement | `movementId, warehouseId, productId, uom, qty, unitCost \| null, totalCost \| null, sourceType: 'SALES_FULFILLMENT', sourceId, businessDate` |
+| `INVENTORY_ADJUSTED` | inventory / StockAdjustment | `adjustmentId, warehouseId, productId, uom, qtyDelta (signed), unitCost \| null, totalCostDelta \| null (signed), reasonCode, businessDate` |
+| `INVOICE_ISSUED` | invoicing / Invoice | `invoiceId, invoiceNumber, customerId, branchId, salesOrderId, channel: 'POS', currency: 'IDR', subtotal, taxAmount, total, businessDate` |
+| `PAYMENT_RECEIVED` | payments / Payment | `paymentId, method: 'TUNAI', amount, currency: 'IDR', customerId, referenceType: 'POS_SALE', referenceId, invoiceId \| null, receivedBy, cashLocationType: 'POS_SHIFT', cashLocationId, businessDate` |
+| `CASH_CUSTODY_VERIFIED` | payments / CashCustodyRecord | `cashCustodyRecordId, declaredAmount, countedAmount, varianceAmount (counted − declared, signed), verifiedBy, sourceType: 'POS_SHIFT', sourceId, businessDate` |
+| `JOURNAL_POSTED` | finance / Journal | `journalId, journalNumber, periodCode, businessDate, sourceType, sourceEventId \| null, totalDebit, totalCredit` |
+| `JOURNAL_REVERSED` | finance / Journal | `journalId, reversalJournalId, reasonCode` |
+| `ACCOUNTING_PERIOD_CLOSED` | finance / AccountingPeriod | `periodId, periodCode, closedBy` |
+
+A `null` cost means the movement is **unvalued** (for example a WMS receipt without a cost). Finance must route it to the exception queue rather than post zero or skip it (AGENTS.md §3.7).
+
+## 6. Scope per stream
+
+### 6.1 Claude — foundation, POS, sales and cash
+Fix `tests/integration/pos-checkout-flow.integration.test.ts`; demo seed; server-side demo switch `PSS_DEMO_POS_ENABLED`; harden and register `PosController`; web BFF proxy for `apps/api` and `apps/finance-api`; demo roles; POS UI (`/pos-preview` design wired to the real API, counter flow only); invoicing/payments event emission; list/detail endpoints and screens for **Penjualan** and **Setoran Kas**; root full-chain integration test; Playwright demo path; `DEMO_RUNBOOK.md`.
+
+### 6.2 Codex — accounting (`domains/finance`, `apps/finance-api`, `/keuangan`)
+Chart of accounts, accounting periods, journals (automatic and manual), versioned posting rules, event consumers, maker-checker via the existing approval inbox, reversal, period close/reopen, reports (Buku Besar, Neraca Saldo, Laba Rugi, Neraca), subledger reconciliation, finance UI.
+
+### 6.3 OpenCode — back office (`master-data`, `commercial`, `inventory`, `/kantor`)
+Create/update product, barcode and UoM; list/search customers; set and activate prices; moving-average costing on inventory; inventory events; goods receipt with unit cost; stock adjustment with reason; stock balance/movement queries; back-office screens; dashboard. The one permitted WMS change: pass `unitCost: null` explicitly where WMS calls `receiveStock`.
+
+## 7. Demo roles (Claude maps on Day 1; permission codes from PRD Appendix D)
+
+| Demo user | Role | Does |
+|---|---|---|
+| `kasir.demo` | Kasir | POS shift, sale, tender, close, cash handover |
+| `gudang.demo` | Staf Gudang | pickup handover, goods receipt |
+| `admin.demo` | Admin Back Office | products, prices, stock adjustment |
+| `keuangan.demo` | Staf Keuangan (maker) | verify cash deposit, create manual journal |
+| `kepala.keuangan.demo` | Kepala Keuangan (checker) | approve/post manual journal, close period |
+
+Test credentials live only in `infrastructure/keycloak` seed files and are never pasted into chat or docs.
+
+## 8. DEMO DEFAULT accounting policy (Codex records it as a decision; Finance must sign off)
+
+Chart of accounts (IDR, one organization, one branch):
+
+| Code | Account | Type |
+|---|---|---|
+| 1-1100 | Kas Kantor | Asset |
+| 1-1110 | Kas Konter | Asset |
+| 1-1300 | Piutang Usaha | Asset |
+| 1-1400 | Persediaan Barang Dagang | Asset |
+| 2-1150 | Barang Diterima Belum Ditagih | Liability |
+| 2-1300 | PPN Keluaran | Liability |
+| 3-1000 | Modal | Equity |
+| 3-2000 | Laba Ditahan | Equity |
+| 4-1000 | Penjualan | Revenue |
+| 5-1000 | Harga Pokok Penjualan | Expense |
+| 6-2100 | Selisih Persediaan | Expense |
+| 6-2200 | Selisih Kas | Expense |
+| 6-9000 | Beban Lain-lain | Expense |
+
+Posting rules v1:
+
+| Event | Debit | Credit |
+|---|---|---|
+| `INVENTORY_RECEIVED` (valued) | 1-1400 totalCost | 2-1150 totalCost |
+| `INVENTORY_ISSUED` (valued) | 5-1000 totalCost | 1-1400 totalCost |
+| `INVENTORY_ADJUSTED` loss / gain | 6-2100 / 1-1400 | 1-1400 / 6-2100 |
+| `INVOICE_ISSUED` | 1-1300 total | 4-1000 subtotal; 2-1300 taxAmount (when > 0) |
+| `PAYMENT_RECEIVED` (TUNAI) | 1-1110 amount | 1-1300 amount |
+| `CASH_CUSTODY_VERIFIED` | 1-1100 countedAmount; 6-2200 shortage | 1-1110 declaredAmount; 6-2200 overage |
+
+Other defaults: calendar-month periods in Asia/Jakarta; moving-average cost per warehouse, product and UoM; PPN posted only from the invoice's own `taxAmount` (the current POS invoice has tax 0, so PPN Keluaran stays unused until Finance confirms PKP status, rate and price-inclusive rules); manual journals need a different approver (AGENTS.md §4.5). Payment is posted before the invoice in the POS flow, so Piutang Usaha carries a temporary credit balance between payment and handover. This is expected and must be shown correctly in the reconciliation.
+
+## 9. Out of scope (say so openly in the demo)
+
+QRIS, transfer, credit (tempo) sales, returns, purchase orders and AP invoices, tax/e-Faktur, multiple branches, ND6/FoxPro integration, offline sync, hosted deployment, fixed assets, bank reconciliation.
+
+## 10. Open decisions (demo proceeds on the defaults; production blocked)
+
+| ID | Decision | Default | Owner |
+|---|---|---|---|
+| MVP-OD-1 | Chart of accounts | §8 table | Finance |
+| MVP-OD-2 | Posting rules | §8 table | Finance |
+| MVP-OD-3 | PPN status, rate, price-inclusive | Tax from the invoice only (currently 0) | Finance/Tax |
+| MVP-OD-4 | Costing method | Moving average | Finance |
+| MVP-OD-5 | POS API demo exposure | Server-side `PSS_DEMO_POS_ENABLED`, off by default, refused in production | Engineering owner |
+| MVP-OD-6 | Demo data | Synthetic sample products | Product owner |

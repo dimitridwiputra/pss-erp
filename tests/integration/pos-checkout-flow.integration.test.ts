@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { registerPosTerminal, openPosShift, createPosSale, addPosSaleLine, checkoutPosSale, acceptPosTender, confirmPosPickupHandover, declarePosCashHandover } from '../../domains/pos/src/index';
 import { verifyCashCustody } from '../../domains/payments/src/index';
+import { getOrCreateWalkInCustomer } from '../../domains/master-data/src/index';
+import { applyAuditMigrations, applyMigrations } from '../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_pos_e2e_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -16,11 +17,6 @@ const cashierId = randomUUID();
 const productId = randomUUID();
 const barcode = `BC-${randomUUID().slice(0, 8)}`;
 
-async function applyMigration(relativePath: string): Promise<void> {
-  const sql = await readFile(new URL(relativePath, import.meta.url), 'utf8');
-  await pool.query(sql);
-}
-
 beforeAll(async () => {
   const baseUrl = process.env.PSS_TEST_DATABASE_URL;
   if (!baseUrl) throw new Error('PSS_TEST_DATABASE_URL is required for PostgreSQL integration tests.');
@@ -31,24 +27,44 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString(), max: 20 });
 
-  await applyMigration('../../domains/audit/infrastructure/database/migrations/0001_audit_entry.sql');
-  await applyMigration('../../domains/platform/infrastructure/database/migrations/0001_outbox_event.sql');
-  await applyMigration('../../domains/platform/infrastructure/database/migrations/0002_idempotency_key.sql');
-  await applyMigration('../../domains/master-data/infrastructure/database/migrations/0001_master_data.sql');
-  await applyMigration('../../domains/commercial/infrastructure/database/migrations/0001_commercial.sql');
-  await applyMigration('../../domains/inventory/infrastructure/database/migrations/0001_inventory.sql');
-  await applyMigration('../../domains/orders/infrastructure/database/migrations/0001_orders.sql');
-  await applyMigration('../../domains/fulfillment/infrastructure/database/migrations/0001_fulfillment.sql');
-  await applyMigration('../../domains/invoicing/infrastructure/database/migrations/0001_invoicing.sql');
-  await applyMigration('../../domains/payments/infrastructure/database/migrations/0001_payments.sql');
-  await applyMigration('../../domains/pos/infrastructure/database/migrations/0001_pos.sql');
+  await applyAuditMigrations(pool);
+  // Whole domains by name, so a migration added later is picked up without editing this fixture:
+  // a fixture that replays only `0001` is what made amending a shipped migration look safe
+  // (MIG-RISK-AUD-001). `platform` is fully replayed rather than only its first two files because
+  // tax resolution reads `platform.config_value`, and `tax` and `invoicing` are applied in full
+  // because checkout now resolves PPN through them — a real precondition of this flow.
+  await applyMigrations(pool, 'platform');
+  await applyMigrations(pool, 'master-data');
+  await applyMigrations(pool, 'tax');
+  await applyMigrations(pool, 'commercial');
+  await applyMigrations(pool, 'inventory');
+  await applyMigrations(pool, 'orders');
+  await applyMigrations(pool, 'fulfillment');
+  await applyMigrations(pool, 'invoicing');
+  await applyMigrations(pool, 'payments');
+  await applyMigrations(pool, 'pos');
 
-  // Seed a sellable product with a karton barcode and an ACTIVE price list (POS-003 preconditions).
+  // Seed a sellable product with a karton barcode, an ACTIVE price list (POS-003 preconditions), and
+  // a tax code. The code is `EXEMPT` deliberately: this test is about the counter-sales flow, and a
+  // VAT_OUTPUT product would make it depend on an approved rate and a rounding rule being configured,
+  // which would turn a POS regression into a tax-configuration failure.
   await pool.query(
-    `INSERT INTO core.product (id, organization_id, sku, name, base_uom, order_capture, status)
-     VALUES ($1, $2, 'SKU-001', 'Indomie Goreng', 'PCS', 'PSS', 'ACTIVE')`,
+    `INSERT INTO core.product (id, organization_id, sku, name, base_uom, order_capture, status, tax_code)
+     VALUES ($1, $2, 'SKU-001', 'Indomie Goreng', 'PCS', 'PSS', 'ACTIVE', 'EXEMPT')`,
     [productId, organizationId],
   );
+  await pool.query(
+    `INSERT INTO core.tax_code (id, code, name, zero_rated)
+     VALUES ($1, 'EXEMPT', 'Bebas PPN', true)
+     ON CONFLICT (code) DO UPDATE SET zero_rated = EXCLUDED.zero_rated`,
+    [randomUUID()],
+  );
+
+  // POS-004 defaults to the branch's walk-in customer when none is selected. Its treatment has to be
+  // recorded before checkout: `tax` refuses a customer with an undetermined treatment rather than
+  // assuming one, so an UNSET walk-in customer would fail the very checkout this test walks.
+  const walkIn = await getOrCreateWalkInCustomer(pool, { organizationId, branchId });
+  await pool.query(`UPDATE core.customer SET tax_treatment = 'EXEMPT' WHERE id = $1`, [walkIn.id]);
   await pool.query(
     `INSERT INTO core.product_uom (id, product_id, uom, conversion_factor, is_base)
      VALUES ($1, $2, 'KARTON', 40, false)`,
@@ -73,6 +89,7 @@ beforeAll(async () => {
      VALUES ($1, $2, $3, $4, 'KARTON', 25, 0)`,
     [randomUUID(), organizationId, warehouseId, productId],
   );
+
 }, 60_000);
 
 afterAll(async () => {
