@@ -76,6 +76,70 @@ export interface AuditArchive {
 }
 
 /**
+ * Restore verification, and the gate it exists to enforce.
+ *
+ * `audit.audit_entry` is append-only and its UPDATE/DELETE are refused by trigger, so a partition
+ * DROP is the only way a row leaves the hot table. The archive is therefore the only other copy, and
+ * "the archive call returned success" is not evidence that the bytes are readable — it is evidence
+ * that a client accepted a request. A client that silently discards its input still returns a
+ * receipt, and the receipt is what the drop was previously gated on.
+ *
+ * So a partition may only be dropped after the artifact has been restored into an isolated database
+ * and read back. This interface is the seam for that, shaped like `AuditArchive` above: one narrow
+ * method, no credentials, no knowledge of a cloud provider, so the rule that a drop requires a
+ * verified restore is testable without a storage account or a second database.
+ */
+export interface AuditRestoreVerifier {
+  /**
+   * Restore the artifact into an isolated database and check it. Implementations must NOT touch the
+   * source partition; the point is to prove the archive is independently readable.
+   */
+  verify(request: AuditRestoreVerificationRequest): Promise<AuditRestoreVerificationResult>;
+}
+
+export interface AuditRestoreVerificationRequest {
+  partition: string;
+  objectUri: string;
+  /** The digest the domain computed, which a restore must reproduce. */
+  expectedDigest: string;
+  expectedRows: number;
+  expectedMinOccurredAt: string;
+  expectedMaxOccurredAt: string;
+  periodFrom: string;
+  periodThrough: string;
+  serviceIdentity: string;
+  correlationId: string;
+}
+
+export interface AuditRestoreVerificationResult {
+  status: 'VERIFIED' | 'FAILED';
+  /** Present only when VERIFIED: a claim with no evidence must not satisfy the gate. */
+  restoredRowCount?: number;
+  restoredDigest?: string;
+  restoredMinOccurredAt?: string;
+  restoredMaxOccurredAt?: string;
+  /** A representative read, so "it loaded" is not mistaken for "an auditor could find a row in it". */
+  entityProbe?: string;
+  scratchDatabase?: string;
+  failureReason?: string;
+}
+
+/**
+ * True only when the verification both succeeded and carries the evidence it claims.
+ *
+ * A verifier returning `{ status: 'VERIFIED' }` with nothing else is treated as a failure, not as a
+ * pass. Otherwise a stub, a crash mid-verification, or a future implementation that forgets a field
+ * would silently unlock partition deletion.
+ */
+export function isRestoreVerified(result: AuditRestoreVerificationResult): boolean {
+  return result.status === 'VERIFIED'
+    && typeof result.restoredRowCount === 'number'
+    && typeof result.restoredDigest === 'string' && result.restoredDigest.length > 0
+    && typeof result.restoredMinOccurredAt === 'string'
+    && typeof result.restoredMaxOccurredAt === 'string';
+}
+
+/**
  * Digest over exactly the fields an archive must preserve, in a fixed order.
  *
  * Object key order in a JSON body is not stable across languages and drivers, so the digest is taken

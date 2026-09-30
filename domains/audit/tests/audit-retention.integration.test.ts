@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { escapeIdentifier, escapeLiteral } from 'pg';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';import {
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
   archiveExpiredAuditPartitions,
   decidePartitionDisposition,
   ensureAuditPartitions,
@@ -13,6 +14,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';import {
   type AuditArchivePage,
   type AuditArchivePageReceipt,
   type PartitionDispositionInput,
+  type AuditRestoreVerifier,
+  type AuditRestoreVerificationRequest,
+  type AuditRestoreVerificationResult,
   defaultAuditRetentionClass,
   retentionClassFieldClassification,
 } from '../src/index';
@@ -150,6 +154,44 @@ async function rowsIn(partition: string): Promise<number> {
 }
 
 /** An archive that confirms faithfully: it stores what it was sent and reports the same digest. */
+/**
+ * A verifier that reports what the domain already knows, standing in for a real restore.
+ *
+ * The production implementation restores the artifact into an isolated database and reads it back;
+ * this one echoes the expectation, which is enough to exercise the gate itself — that a partition is
+ * only dropped when verification produces evidence. The tests that matter for the restore itself
+ * live in audit-archive-restore, which does the round trip against real rows.
+ */
+function faithfulVerifier(): AuditRestoreVerifier {
+  return {
+    async verify(request: AuditRestoreVerificationRequest): Promise<AuditRestoreVerificationResult> {
+      return {
+        status: 'VERIFIED',
+        restoredRowCount: request.expectedRows,
+        restoredDigest: request.expectedDigest,
+        restoredMinOccurredAt: request.expectedMinOccurredAt,
+        restoredMaxOccurredAt: request.expectedMaxOccurredAt,
+        entityProbe: 'one row by entity_id',
+        scratchDatabase: 'pss_audit_restore_scratch',
+      };
+    },
+  };
+}
+
+/** A verifier that refuses, used to prove the drop is skipped rather than merely delayed. */
+function refusingVerifier(reason = 'restore digest did not match'): AuditRestoreVerifier {
+  return {
+    async verify(): Promise<AuditRestoreVerificationResult> {
+      return { status: 'FAILED', failureReason: reason };
+    },
+  };
+}
+
+/** Reports success but produces no evidence, which must be treated as a failure. */
+function unverifiableVerifier(): AuditRestoreVerifier {
+  return { async verify(): Promise<AuditRestoreVerificationResult> { return { status: 'VERIFIED' }; } };
+}
+
 function faithfulArchive(received: AuditArchiveEntry[] = []): AuditArchive & { pages: AuditArchivePage[] } {
   const pages: AuditArchivePage[] = [];
   return {
@@ -169,7 +211,11 @@ function faithfulArchive(received: AuditArchiveEntry[] = []): AuditArchive & { p
 }
 
 let runCounter = 0;
-function retentionInput(archive: AuditArchive, overrides: Record<string, unknown> = {}) {
+function retentionInput(
+  archive: AuditArchive,
+  overrides: Record<string, unknown> = {},
+  verifyRestore: AuditRestoreVerifier = faithfulVerifier(),
+) {
   runCounter += 1;
   // A policy override is merged over the accepted OD-19 default rather than replacing it, so a test
   // that changes only `totalYears` still gets the 24-month hot window.
@@ -179,6 +225,9 @@ function retentionInput(archive: AuditArchive, overrides: Record<string, unknown
     asOf: asOf.toISOString(),
     policy: policyOverride ? { ...policy, ...policyOverride } : policy,
     archive,
+    // Overridable per test so a refusal can be exercised; a run with no verifier is refused at the
+    // boundary, because the drop is gated on the restore and cannot be defaulted into permissiveness.
+    verifyRestore,
     serviceIdentity,
     requestId: `req-retention-${runCounter}`,
     correlationId: 'cor-retention-test',
@@ -332,6 +381,96 @@ describe('OD-19 archive-and-drop against a real partitioned table', () => {
       retentionClass: 'BUSINESS',
     });
     expect(new Date(stored[0]?.occurredAt ?? '').toISOString()).toBe(stored[0]?.occurredAt);
+  });
+
+  /**
+   * AUD-ARCHIVE-01 / 02 — the drop gate.
+   *
+   * A partition DROP is the only way a row leaves `audit.audit_entry`, because UPDATE and DELETE are
+   * refused by trigger. The archive is therefore the only other copy, and a successful `archive()`
+   * call is not evidence that the bytes are readable — it is evidence that a client accepted a
+   * request. These two tests are the difference between "the archive said OK" and "the rows came
+   * back".
+   */
+  it('AUD-ARCHIVE-01: holds the partition when the archive succeeds but restore verification fails', async () => {
+    const partition = await createMonthWith('2022-01', [
+      { occurredAt: '2022-01-10T10:00:00.000Z', retentionClass: 'FINANCIAL' },
+    ]);
+    const archive = faithfulArchive();
+    const result = await archiveExpiredAuditPartitions(
+      pool, retentionInput(archive, {}, refusingVerifier('restored row count was 9, expected 10')),
+    );
+
+    const outcome = result.outcomes.find((entry) => entry.partition === partition);
+    expect(outcome?.outcome).toBe('HELD');
+    // The point of the test: the partition is still there and its rows are still readable.
+    expect(await partitionExists(partition)).toBe(true);
+    expect(await rowsIn(partition)).toBe(1);
+
+    // And the failure is recorded rather than swallowed.
+    const verification = await pool.query<{ status: string; failure_reason: string }>(
+      `SELECT v.status, v.failure_reason
+         FROM audit.audit_restore_verification v
+         JOIN audit.audit_archive_object o ON o.id = v.archive_object_id
+        WHERE o.source_partition = $1`, [partition],
+    );
+    expect(verification.rows).toHaveLength(1);
+    expect(verification.rows[0]).toMatchObject({ status: 'FAILED' });
+  });
+
+  it('AUD-ARCHIVE-02: verifies the receipt, records the evidence, and only then drops', async () => {
+    const partition = await createMonthWith('2022-02', [
+      { occurredAt: '2022-02-10T10:00:00.000Z', retentionClass: 'FINANCIAL' },
+    ]);
+    const archive = faithfulArchive();
+    const result = await archiveExpiredAuditPartitions(
+      pool, retentionInput(archive, {}, faithfulVerifier()),
+    );
+
+    expect(result.outcomes.find((entry) => entry.partition === partition)?.outcome).toBe('ARCHIVED_AND_DROPPED');
+    expect(await partitionExists(partition)).toBe(false);
+
+    // The receipt is the evidence, and it has to actually contain what it claims.
+    const stored = await pool.query<{
+      status: string; row_count: number; checksum_sha256: string; schema_version: string;
+      retention_mode: string; purge_after: Date | null; object_uri: string;
+    }>(
+      `SELECT status, row_count, checksum_sha256, schema_version, retention_mode, purge_after, object_uri
+         FROM audit.audit_archive_object WHERE source_partition = $1`, [partition],
+    );
+    expect(stored.rows[0]).toMatchObject({ status: 'VERIFIED', row_count: 1, schema_version: 'audit.audit_entry/1' });
+    expect(stored.rows[0]?.checksum_sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(stored.rows[0]?.object_uri).toContain(partition);
+
+    const verification = await pool.query<{
+      status: string; restored_row_count: number; restored_checksum_sha256: string;
+      scratch_database: string; entity_probe_result: string;
+    }>(
+      `SELECT v.status, v.restored_row_count, v.restored_checksum_sha256, v.scratch_database, v.entity_probe_result
+         FROM audit.audit_restore_verification v
+         JOIN audit.audit_archive_object o ON o.id = v.archive_object_id
+        WHERE o.source_partition = $1`, [partition],
+    );
+    expect(verification.rows[0]).toMatchObject({ status: 'VERIFIED', restored_row_count: 1 });
+
+    // The lifecycle ends in HOT_PARTITION_DROPPED, and it is reachable only from ARCHIVED_VERIFIED.
+    const state = await pool.query<{ state: string }>(
+      `SELECT state FROM audit.audit_partition_state WHERE partition_name = $1`, [partition],
+    );
+    expect(state.rows[0]?.state).toBe('HOT_PARTITION_DROPPED');
+  });
+
+  it('treats a verifier that claims success without evidence as a failure', async () => {
+    // Otherwise a stub, a crash mid-verification, or a future implementation that forgets a field
+    // would silently unlock partition deletion.
+    const partition = await createMonthWith('2022-03', [
+      { occurredAt: '2022-03-10T10:00:00.000Z', retentionClass: 'FINANCIAL' },
+    ]);
+    const result = await archiveExpiredAuditPartitions(
+      pool, retentionInput(faithfulArchive(), {}, unverifiableVerifier()),
+    );
+    expect(result.outcomes.find((entry) => entry.partition === partition)?.outcome).toBe('HELD');
+    expect(await partitionExists(partition)).toBe(true);
   });
 
   it('tells the archive when it may stop keeping the rows, from the total obligation', async () => {

@@ -3,10 +3,12 @@ import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import {
   auditArchiveDigest,
+  isRestoreVerified,
   type AuditArchive,
   type AuditArchiveEntry,
   type AuditArchivePage,
   type AuditArchivePageReceipt,
+  type AuditRestoreVerifier,
 } from '../domain/audit-archive';
 import {
   decidePartitionDisposition,
@@ -63,6 +65,9 @@ import { withAuditedTransaction, type AuditedTransaction } from './append-audit-
  * `isAlreadySettled` below.
  */
 
+/** Recorded on every artifact so a restore knows which column shape it is reading. */
+const SCHEMA_VERSION = 'audit.audit_entry/1';
+
 const ArchiveExpiredAuditPartitionsSchema = z.strictObject({
   organizationId: z.uuid(),
   /** The instant retention is evaluated at. Injected so a run is reproducible and testable. */
@@ -70,6 +75,15 @@ const ArchiveExpiredAuditPartitionsSchema = z.strictObject({
   policy: AuditRetentionPolicySchema,
   archive: z.custom<AuditArchive>((value) => typeof (value as AuditArchive).archive === 'function',
     'An archive target must implement archive(page).'),
+  /**
+   * Required, with no default. The drop is gated on a verified restore, so a caller that supplies no
+   * verifier is expressing an intent to drop that cannot be checked — refused at the boundary rather
+   * than defaulted into a permissive one.
+   */
+  verifyRestore: z.custom<AuditRestoreVerifier>(
+    (value) => typeof (value as AuditRestoreVerifier).verify === 'function',
+    'A restore verifier must implement verify(request).',
+  ),
   /** The service identity the run acts as. A scheduled job has no user. */
   serviceIdentity: z.string().min(1),
   requestId: z.string().min(1),
@@ -227,13 +241,27 @@ async function listPartitions(client: PoolClient): Promise<readonly PartitionRow
  * joined per class, which is the only formulation that answers "is every row in this partition past
  * ITS class period" rather than "past the shortest period".
  */
+/** What the count must also report for a restore to be able to reproduce it. */
+interface CountedRows {
+  total: number;
+  inside: number;
+  insideByClass: Record<string, number>;
+  minOccurredAt: Date;
+  maxOccurredAt: Date;
+}
+
 async function countRowsInsideHotWindow(
   client: PoolClient, partition: string, cutoffs: Readonly<Record<AuditRetentionClass, Date>>,
-): Promise<{ total: number; inside: number; insideByClass: Record<string, number> }> {
-  const { rows } = await client.query<{ retention_class: string; rows: number; inside: number }>(
+): Promise<CountedRows> {
+  const { rows } = await client.query<{
+    retention_class: string; rows: number; inside: number;
+    min_occurred_at: Date; max_occurred_at: Date;
+  }>(
     `SELECT r.retention_class,
             count(*)::int AS rows,
-            count(*) FILTER (WHERE r.occurred_at >= c.cutoff)::int AS inside
+            count(*) FILTER (WHERE r.occurred_at >= c.cutoff)::int AS inside,
+            min(r.occurred_at) AS min_occurred_at,
+            max(r.occurred_at) AS max_occurred_at
        FROM audit.audit_entry r
        CROSS JOIN unnest($2::text[], $3::timestamptz[]) AS c(retention_class, cutoff)
       WHERE r.tableoid = $1::regclass
@@ -244,12 +272,29 @@ async function countRowsInsideHotWindow(
   const insideByClass: Record<string, number> = {};
   let total = 0;
   let inside = 0;
+  // Collected as a list and reduced once, rather than compared inside the loop: the pg driver
+  // types these columns as `Date`, and a `Date | null` accumulator compared against them inside a
+  // narrowing loop resolves to `never` rather than to the union.
+  const observedMins: Date[] = [];
+  const observedMaxes: Date[] = [];
   for (const row of rows) {
     total += row.rows;
     inside += row.inside;
     insideByClass[row.retention_class] = row.inside;
+    if (row.min_occurred_at) observedMins.push(row.min_occurred_at);
+    if (row.max_occurred_at) observedMaxes.push(row.max_occurred_at);
   }
-  return { total, inside, insideByClass };
+  const minOccurredAt = observedMins.length ? new Date(Math.min(...observedMins.map((d) => d.getTime()))) : null;
+  const maxOccurredAt = observedMaxes.length ? new Date(Math.max(...observedMaxes.map((d) => d.getTime()))) : null;
+  // A partition with no rows is released earlier and never reaches a restore, so the fallback is
+  // the partition's own bounds rather than a sentinel that would fail a checksum comparison.
+  return {
+    total,
+    inside,
+    insideByClass,
+    minOccurredAt: minOccurredAt ?? new Date(0),
+    maxOccurredAt: maxOccurredAt ?? new Date(0),
+  };
 }
 
 async function readPage(
@@ -324,6 +369,10 @@ async function runRetention(
     }
 
     const attempts: PartitionPageAttempt[] = [];
+    // Every row this partition sent, so the restore can be asked to reproduce the exact digest
+    // rather than a per-page one that would not detect a page that never arrived.
+    const archivedEntries: AuditArchiveEntry[] = [];
+    const archiveObjectId = randomUUID();
     let after: { occurredAt: Date; id: string } | null = null;
     let purgeAfter: Date | null = null;
     let unreadable = false;
@@ -344,6 +393,7 @@ async function runRetention(
       }
       const entries = await readPage(client, partition.partition, input.pageSize, after);
       if (entries.length === 0) break;
+      archivedEntries.push(...entries);
 
       const first = entries[0];
       if (first === undefined) break;
@@ -453,10 +503,112 @@ async function runRetention(
       continue;
     }
 
+    // Restore verification, before the drop and not after it.
+    //
+    // The partition DROP is the only way a row leaves this table, so the archive is the only other
+    // copy, and a successful `archive()` call is not evidence that the bytes are readable — it is
+    // evidence that a client accepted a request. A client that discards its input silently still
+    // returns a receipt, and the receipt was the whole of the previous gate. Restoring the artifact
+    // into an isolated database and reading it back is what actually demonstrates the rows survive
+    // outside this process, and it is the owner's stated prerequisite for running rotation at all.
+    //
+    // A verifier that reports VERIFIED without the evidence to back it is treated as a failure
+    // (isRestoreVerified), so a stub cannot unlock deletion.
+    // The artifact record is opened before the restore, so a verification row always points at
+    // something real and a crash between the two leaves an ARCHIVING row an operator can see.
+    // One digest, computed once and used for both the stored artifact and the restore request, so
+    // the evidence recorded is the evidence the verifier was asked to reproduce.
+    const partitionDigest = auditArchiveDigest(archivedEntries);
+    const objectUri = `audit://${partition.partition}/${attempts.map((a) => a.receipt?.cursor ?? 'unknown').join('+')}`;
+    const objectRetention = resolveAuditArchiveRetention(partition.periodThrough, periods[defaultAuditRetentionClass].totalYears);
+    await client.query(
+      `INSERT INTO audit.audit_archive_object (
+         id, organization_id, source_partition, period_from, period_through, object_uri,
+         object_lock_configured, row_count, min_occurred_at, max_occurred_at, checksum_sha256,
+         schema_version, retention_mode, purge_after, status, actor_service_identity,
+         job_request_id, correlation_id
+       ) VALUES ($1,$2,$3,$4::date,$5::date,$6,true,$7,$8,$9,$10,$11,$12,$13,'ARCHIVED',$14,$15,$16)`,
+      [archiveObjectId, input.organizationId, partition.partition,
+        partition.periodFrom.toISOString().slice(0, 10), partition.periodThrough.toISOString().slice(0, 10),
+        objectUri, counted.total, counted.minOccurredAt, counted.maxOccurredAt,
+        partitionDigest, SCHEMA_VERSION, objectRetention.mode,
+        objectRetention.purgeAfter, input.serviceIdentity, input.requestId, input.correlationId],
+    );
+    await client.query(
+      `INSERT INTO audit.audit_partition_state (
+         id, organization_id, partition_name, state, archive_object_id,
+         period_from, period_through, service_identity, correlation_id
+       ) VALUES ($1,$2,$3,'ARCHIVED',$4,$5::date,$6::date,$7,$8)
+       ON CONFLICT (organization_id, partition_name) DO UPDATE
+         SET state = 'ARCHIVED', archive_object_id = EXCLUDED.archive_object_id, updated_at = now()`,
+      [randomUUID(), input.organizationId, partition.partition, archiveObjectId,
+        partition.periodFrom.toISOString().slice(0, 10), partition.periodThrough.toISOString().slice(0, 10),
+        input.serviceIdentity, input.correlationId],
+    );
+    const verification = await input.verifyRestore.verify({
+      partition: partition.partition,
+      objectUri,
+      expectedDigest: partitionDigest,
+      expectedRows: counted.total,
+      expectedMinOccurredAt: counted.minOccurredAt.toISOString(),
+      expectedMaxOccurredAt: counted.maxOccurredAt.toISOString(),
+      periodFrom: partition.periodFrom.toISOString(),
+      periodThrough: partition.periodThrough.toISOString(),
+      serviceIdentity: input.serviceIdentity,
+      correlationId: input.correlationId,
+    });
+    // Downgraded before it is written, not caught by the table. Letting the CHECK constraint do it
+    // would abort the entire retention transaction — every other partition in the run rolls back
+    // with it — when the only thing wrong is one verifier that forgot to report its evidence.
+    const recorded = isRestoreVerified(verification) ? verification : {
+      ...verification,
+      status: 'FAILED' as const,
+      failureReason: verification.failureReason
+        ?? `A verifier reported ${verification.status} without the evidence that claim requires.`,
+    };
+    await client.query(
+      `INSERT INTO audit.audit_restore_verification (
+         id, archive_object_id, status, restored_row_count, restored_checksum_sha256,
+         restored_min_occurred_at, restored_max_occurred_at, entity_probe_result,
+         scratch_database, failure_reason, verified_at, operator_service_identity, correlation_id
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11,$12)`,
+      [randomUUID(), archiveObjectId, recorded.status,
+        recorded.restoredRowCount ?? null, recorded.restoredDigest ?? null,
+        recorded.restoredMinOccurredAt ? new Date(recorded.restoredMinOccurredAt) : null,
+        recorded.restoredMaxOccurredAt ? new Date(recorded.restoredMaxOccurredAt) : null,
+        recorded.entityProbe ?? null, recorded.scratchDatabase ?? null,
+        recorded.failureReason ?? null, input.serviceIdentity, input.correlationId],
+    );
+    if (recorded.status !== 'VERIFIED') {
+      heldPartitions += 1;
+      outcomes.push({
+        partition: partition.partition,
+        outcome: 'HELD',
+        reason: 'ARCHIVE_RECEIPT_MISMATCH',
+        detail: recorded.failureReason
+          ?? 'Restore verification did not produce evidence; the partition is left intact.',
+      });
+      continue;
+    }
+
+    await client.query(
+      `UPDATE audit.audit_archive_object SET status = 'VERIFIED' WHERE id = $1`, [archiveObjectId],
+    );
+    await client.query(
+      `UPDATE audit.audit_partition_state SET state = 'ARCHIVED_VERIFIED', archive_object_id = $1, updated_at = now()
+       WHERE organization_id = $2 AND partition_name = $3`,
+      [archiveObjectId, input.organizationId, partition.partition],
+    );
+
     // The DROP goes through `audit.drop_month_partition` rather than an interpolated statement. The
     // function quotes the identifier with format('%I') and refuses anything that is not a partition of
     // `audit.audit_entry`, so a mistake in the catalogue query above cannot reach another table.
     await client.query('SELECT audit.drop_month_partition($1)', [partition.partition]);
+    await client.query(
+      `UPDATE audit.audit_partition_state SET state = 'HOT_PARTITION_DROPPED', updated_at = now()
+       WHERE organization_id = $1 AND partition_name = $2`,
+      [input.organizationId, partition.partition],
+    );
     droppedPartitions += 1;
     archivedRows += disposition.rows;
     outcomes.push({

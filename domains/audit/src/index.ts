@@ -29,11 +29,14 @@ export {
   type AuditArchiveRetention,
 } from './domain/retention-policy';
 export {
-  auditArchiveDigest,
+  auditArchiveDigest, isRestoreVerified,
   type AuditArchive,
   type AuditArchiveEntry,
   type AuditArchivePage,
   type AuditArchivePageReceipt,
+  type AuditRestoreVerifier,
+  type AuditRestoreVerificationRequest,
+  type AuditRestoreVerificationResult,
 } from './domain/audit-archive';
 export {
   decidePartitionDisposition,
