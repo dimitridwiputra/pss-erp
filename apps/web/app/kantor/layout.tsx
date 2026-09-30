@@ -5,6 +5,7 @@ import './kantor.css';
 import type { ReactNode } from 'react';
 import { PssAppShell } from '../_shell/pss-app-shell';
 import { KasirProviders } from '../kasir/providers';
+import { KantorSessionProvider } from './warehouse-context';
 
 export const metadata = { title: 'PSS Kantor' };
 
@@ -13,5 +14,5 @@ export const metadata = { title: 'PSS Kantor' };
  * inside `KasirProviders` when its screens land; the frame itself is `PssAppShell`.
  */
 export default function KantorLayout({ children }: { children: ReactNode }) {
-  return <PssAppShell><KasirProviders>{children}</KasirProviders></PssAppShell>;
+  return <PssAppShell><KasirProviders><KantorSessionProvider>{children}</KantorSessionProvider></KasirProviders></PssAppShell>;
 }
