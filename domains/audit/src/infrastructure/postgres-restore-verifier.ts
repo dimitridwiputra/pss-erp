@@ -194,8 +194,24 @@ export class PostgresRestoreVerifier implements AuditRestoreVerifier {
       // The scratch database is destroyed even when verification succeeded, and even when it threw.
       // Leaving it would mean every run kept a full copy of aged audit rows in a second database
       // that nothing manages or purges.
-      if (scratch) await scratch.end().catch(() => undefined);
-      await this.options.admin.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(scratchName)}`).catch(() => undefined);
+      //
+      // The close is bounded rather than awaited unconditionally. `pg`'s `end()` waits for in-flight
+      // queries, and an unbounded wait means a verification can hang on a query that will never
+      // finish; the DROP below then races a still-open connection and terminates it, which surfaces
+      // to the caller as an unhandled `57P01` and fails a run that actually passed.
+      //
+      // FORCE is what makes the drop deterministic once that grace period expires. It is safe to use
+      // here precisely because the database was created by this call, on a name this module
+      // generated, and nothing else can be connected to it.
+      if (scratch) {
+        await Promise.race([
+          scratch.end().catch(() => undefined),
+          new Promise((resolve) => setTimeout(resolve, SCRATCH_CLOSE_GRACE_MS).unref()),
+        ]);
+      }
+      await this.options.admin
+        .query(`DROP DATABASE IF EXISTS ${quoteIdentifier(scratchName)} WITH (FORCE)`)
+        .catch(() => undefined);
     }
   }
 
@@ -285,6 +301,14 @@ function toArchiveEntry(row: Record<string, unknown>): AuditArchiveEntry {
 }
 
 const MONTH_PATTERN = /^\d{4}-(?:0[1-9]|1[0-2])$/;
+
+/**
+ * How long a scratch client is given to close before the database is taken away from it.
+ *
+ * Short enough that a hung query cannot stall a retention run, long enough that an ordinary
+ * `pg` close — which drains in-flight statements before ending the socket — completes normally.
+ */
+const SCRATCH_CLOSE_GRACE_MS = 2_000;
 
 /** Months covering [from, through), derived from the period rather than from the rows. */
 function monthsBetween(from: string, through: string): string[] {

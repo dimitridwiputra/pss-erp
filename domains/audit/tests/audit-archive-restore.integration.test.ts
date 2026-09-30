@@ -62,7 +62,41 @@ describe('audit archive round trip against real bytes and a real scratch databas
     await pool?.end();
     await admin?.query(`DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`);
     await admin?.end();
+
+    // Nothing must survive this file. The scratch databases hold full copies of aged audit rows, and
+    // docs/runbooks/audit-archive-restore.md says a leftover one is a disclosure surface rather than
+    // a control — so a leak here is a defect in the same sense the runbook treats it as one, and it
+    // was in fact leaking.
+    //
+    // This assertion is the reason the leak was ever found. The suite passed locally three times out
+    // of three while a `pss_audit_restore_*` database survived every run; the only symptom was a
+    // connection error on CI under different timing. A test that cannot see its own mess teaches you
+    // nothing when it goes wrong, so this one can.
+    const leaked = await leakProbe();
+    expect(leaked, `scratch databases left behind: ${leaked.join(', ')}`).toEqual([]);
   });
+
+  /**
+   * Every scratch database currently on the server.
+   *
+   * A fresh admin connection, because the one this file holds is closed by the time the probe runs.
+   * No exclusion clause is needed: this file's own database is named `audit_restore_*` and is
+   * already dropped above, so it cannot match. The first version excluded it with
+   * `datname <> ALL($1::text[])`, which passed a bare string as the bind value and made PostgreSQL
+   * read it as a malformed array literal — a failure in the assertion meant to catch the leak.
+   */
+  async function leakProbe(): Promise<string[]> {
+    const probe = new pg.Client({ connectionString: adminBaseUrl });
+    await probe.connect();
+    try {
+      const found = await probe.query<{ datname: string }>(
+        "SELECT datname FROM pg_database WHERE datname LIKE 'pss_audit_restore_%'",
+      );
+      return found.rows.map((row) => row.datname);
+    } finally {
+      await probe.end();
+    }
+  }
 
   /**
    * Creates one monthly partition and seeds it, deriving the partition bounds from the month rather
@@ -252,8 +286,15 @@ describe('audit archive round trip against real bytes and a real scratch databas
         const scratch = new pg.Client({ connectionString: scratchUrl.toString() });
         await scratch.connect();
         return new Proxy(scratch, {
-          get(target, property, receiver) {
-            if (property !== 'query') return Reflect.get(target, property, receiver) as unknown;
+          get(target, property) {
+            // Bound to `target`, never to the proxy. `Reflect.get(target, p, receiver)` would return
+            // `end` unbound and let it run with `this` = the proxy, so `this.ending` was set on the
+            // proxy and the real Client was never closed. The verifier's `scratch.end()` then
+            // returned as if it had succeeded, the scratch database was dropped with a live
+            // connection still attached, and CI failed with `terminating connection due to
+            // administrator command` on a database this test owns. Three local runs passed because
+            // the leak is silent; it only surfaces as a connection error under different timing.
+            if (property !== 'query') return Reflect.get(target, property, target);
             return (...args: unknown[]) => {
               issued.push(String(args[0]));
               return (target.query as (...a: unknown[]) => unknown)(...args);
