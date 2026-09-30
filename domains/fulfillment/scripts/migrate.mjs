@@ -1,19 +1,20 @@
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
+import { applyPendingMigrations, ensureMigrationLedger } from '../../../scripts/apply-migrations.mjs';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is required for fulfillment migration.');
 
+// Pending files only, read from the migrations directory and recorded in the shared ledger. A
+// hardcoded list silently stops applying the next migration someone adds; replaying every file is
+// unsafe on a live database (see applyPendingMigrations). `pnpm db:migrate` runs every domain.
 const client = new pg.Client({ connectionString });
 await client.connect();
 try {
+  const bootstrap = await ensureMigrationLedger(client);
   await client.query('BEGIN');
-  for (const file of ['0001_fulfillment.sql']) {
-    const sql = await readFile(new URL(`../infrastructure/database/migrations/${file}`, import.meta.url), 'utf8');
-    await client.query(sql);
-  }
+  const outcome = await applyPendingMigrations(client, 'fulfillment', { bootstrap, report: (line) => process.stderr.write(`warning: ${line}\n`) });
   await client.query('COMMIT');
-  process.stdout.write('Fulfillment migrations 0001 applied.\n');
+  process.stdout.write(`Fulfillment migrations: ${outcome.applied.length} applied, ${outcome.assumed.length} already present.\n`);
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

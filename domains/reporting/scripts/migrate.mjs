@@ -1,15 +1,23 @@
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
+import { applyPendingMigrations, ensureMigrationLedger } from '../../../scripts/apply-migrations.mjs';
 
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for reporting migration.');
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error('DATABASE_URL is required for reporting migration.');
+
+// Pending files only, read from the migrations directory and recorded in the shared ledger. A
+// hardcoded list silently stops applying the next migration someone adds; replaying every file is
+// unsafe on a live database (see applyPendingMigrations). `pnpm db:migrate` runs every domain.
+const client = new pg.Client({ connectionString });
 await client.connect();
 try {
-  for (const file of ['0001_delivery_order_read_model.sql', '0002_approval_read_model.sql']) {
-    const sql = await readFile(new URL(`../infrastructure/database/migrations/${file}`, import.meta.url), 'utf8');
-    await client.query(sql);
-  }
-  process.stdout.write('Reporting migrations 0001-0002 applied.\n');
+  const bootstrap = await ensureMigrationLedger(client);
+  await client.query('BEGIN');
+  const outcome = await applyPendingMigrations(client, 'reporting', { bootstrap, report: (line) => process.stderr.write(`warning: ${line}\n`) });
+  await client.query('COMMIT');
+  process.stdout.write(`Reporting migrations: ${outcome.applied.length} applied, ${outcome.assumed.length} already present.\n`);
+} catch (error) {
+  await client.query('ROLLBACK');
+  throw error;
 } finally {
   await client.end();
 }

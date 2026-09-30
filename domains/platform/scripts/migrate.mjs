@@ -1,30 +1,20 @@
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
+import { applyPendingMigrations, ensureMigrationLedger } from '../../../scripts/apply-migrations.mjs';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is required for platform migration.');
 
-const migrationFiles = [
-  '0001_outbox_event.sql',
-  '0002_idempotency_key.sql',
-  '0003_approval.sql',
-  '0004_configuration.sql',
-  '0005_event_delivery_reliability.sql',
-  '0006_exception_queue.sql',
-  '0007_exception_queue_registry_seed.sql',
-  '0008_document_numbering.sql',
-  '0009_config_flag_admin.sql',
-];
+// Pending files only, read from the migrations directory and recorded in the shared ledger. A
+// hardcoded list silently stops applying the next migration someone adds; replaying every file is
+// unsafe on a live database (see applyPendingMigrations). `pnpm db:migrate` runs every domain.
 const client = new pg.Client({ connectionString });
 await client.connect();
 try {
+  const bootstrap = await ensureMigrationLedger(client);
   await client.query('BEGIN');
-  for (const migrationFile of migrationFiles) {
-    const sql = await readFile(new URL(`../infrastructure/database/migrations/${migrationFile}`, import.meta.url), 'utf8');
-    await client.query(sql);
-  }
+  const outcome = await applyPendingMigrations(client, 'platform', { bootstrap, report: (line) => process.stderr.write(`warning: ${line}\n`) });
   await client.query('COMMIT');
-  process.stdout.write(`Platform migrations ${migrationFiles[0].slice(0, 4)}-${migrationFiles.at(-1).slice(0, 4)} applied.\n`);
+  process.stdout.write(`Platform migrations: ${outcome.applied.length} applied, ${outcome.assumed.length} already present.\n`);
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

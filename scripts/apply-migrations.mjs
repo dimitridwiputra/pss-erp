@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -56,4 +57,74 @@ export async function applyDomainMigrations(executor, domain) {
   for (const file of await listMigrations(directory)) {
     await executor(await readFile(join(directory, file), 'utf8'));
   }
+}
+
+/**
+ * Apply only a domain's migrations that this database has not recorded, for a real (non-test)
+ * database. Replaying every file is safe on a fresh database and is what the fixtures above do,
+ * but not on a live one: audit's 0003–0006 prepare and then perform a table swap, so replaying them
+ * after the swap tries to swap again. Recording what ran is the standard answer.
+ *
+ * A database that predates the ledger is bootstrapped once, per file, in a savepoint. A file whose
+ * effect is already present fails there and is recorded as ASSUMED_APPLIED (reported, never
+ * silent). A replayable file simply re-runs, so a migration that a hardcoded per-domain list had
+ * skipped is applied for real. Later runs apply only files the ledger has not seen; a recorded
+ * file whose content changed is reported, because a shipped migration must not be amended
+ * (MIG-RISK-AUD-001).
+ *
+ * The caller owns the transaction.
+ */
+export async function applyPendingMigrations(client, domain, { bootstrap = false, report = () => {} } = {}) {
+  const directory = migrationsDirectory(domain);
+  const recorded = new Map((await client.query(
+    'SELECT file, checksum FROM public.pss_schema_migration WHERE domain = $1', [domain],
+  )).rows.map((row) => [row.file, row.checksum]));
+  const outcome = { applied: [], assumed: [], changed: [] };
+  for (const file of await listMigrations(directory)) {
+    const sql = await readFile(join(directory, file), 'utf8');
+    const checksum = createHash('sha256').update(sql).digest('hex');
+    if (recorded.has(file)) {
+      if (recorded.get(file) !== checksum) outcome.changed.push(file);
+      continue;
+    }
+    let state = 'APPLIED';
+    if (bootstrap) {
+      await client.query('SAVEPOINT pss_migration');
+      try {
+        await client.query(sql);
+        await client.query('RELEASE SAVEPOINT pss_migration');
+      } catch (error) {
+        await client.query('ROLLBACK TO SAVEPOINT pss_migration');
+        state = 'ASSUMED_APPLIED';
+        report(`${domain}/${file}: not re-run on this pre-ledger database (${error.message}); recorded as already applied.`);
+      }
+    } else {
+      await client.query(sql);
+    }
+    await client.query(
+      'INSERT INTO public.pss_schema_migration (domain, file, checksum, outcome) VALUES ($1, $2, $3, $4)',
+      [domain, file, checksum, state],
+    );
+    (state === 'APPLIED' ? outcome.applied : outcome.assumed).push(file);
+  }
+  for (const file of outcome.changed) report(`${domain}/${file}: content differs from the version recorded as applied. Shipped migrations must not be amended; add a new one.`);
+  return outcome;
+}
+
+/** Create the ledger; true when this database predates it and already holds schemas (bootstrap). */
+export async function ensureMigrationLedger(client) {
+  const existed = (await client.query("SELECT to_regclass('public.pss_schema_migration') IS NOT NULL AS present")).rows[0].present;
+  await client.query(`CREATE TABLE IF NOT EXISTS public.pss_schema_migration (
+    domain text NOT NULL,
+    file text NOT NULL,
+    checksum text NOT NULL,
+    outcome text NOT NULL CHECK (outcome IN ('APPLIED', 'ASSUMED_APPLIED')),
+    applied_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (domain, file)
+  )`);
+  if (existed) return false;
+  const populated = (await client.query(
+    "SELECT count(*)::int AS count FROM pg_namespace WHERE nspname IN ('audit', 'platform', 'identity', 'sales', 'pos', 'core', 'inventory', 'payments')",
+  )).rows[0].count;
+  return populated > 0;
 }

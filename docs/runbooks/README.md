@@ -2,13 +2,13 @@
 
 ## Local audit and outbox database
 
-`pnpm dev:up` brings up the local PostgreSQL container and applies `AUD-001` migration 0001, `PLT-004`/`PLT-006` platform migrations 0001–0002, and the IDN-001 account migration before starting app shells. These are safe to rerun. To apply them separately to the local development database:
+`pnpm dev:up` brings up the local containers and runs `pnpm db:migrate`, which applies every domain's pending migrations (`scripts/migrate-local.mjs`) before starting the app shells. The domains and their migration files are both read from disk. `public.pss_schema_migration` records what has run, so a re-run applies only new files. A shipped migration whose content changed is reported, not re-run. To apply them to the local development database without starting anything:
 
 ```bash
-DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational' pnpm --filter @pss/audit db:migrate
-DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational' pnpm --filter @pss/platform db:migrate
-DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational' pnpm --filter @pss/identity db:migrate
+DATABASE_URL='postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational' pnpm db:migrate
 ```
+
+A database created before the ledger existed is bootstrapped once. Each file runs in a savepoint, and one whose effect is already present is recorded as already applied, with a warning naming it.
 
 The database integration test uses a temporary database and removes it after the test. Run it after starting PostgreSQL:
 
