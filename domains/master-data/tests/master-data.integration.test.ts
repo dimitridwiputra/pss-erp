@@ -443,7 +443,7 @@ describe('master-data getProduct and getProductSaleUnits', () => {
     expect(detail.units[0]).toMatchObject({ isBase: true, conversionFactor: '1.000000', barcode: '8996666666666' });
     expect(detail.units[1]).toMatchObject({ isBase: false, conversionFactor: '40.000000', barcode: '8996666666665' });
 
-    const forPos = await getProductSaleUnits(pool, undefined, { organizationId, productId: product.productId });
+    const forPos = await getProductSaleUnits(pool, { organizationId, productId: product.productId });
     expect(forPos).toEqual({
       productId: product.productId, sku: 'BRG-GET-1', name: 'Mie Instan', status: 'ACTIVE', orderCapture: 'PSS',
       units: [{ uom: 'PCS', barcode: '8996666666666' }, { uom: 'KARTON', barcode: '8996666666665' }],

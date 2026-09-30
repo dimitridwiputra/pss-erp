@@ -196,6 +196,94 @@ describe('inventory: releaseReservation', () => {
   });
 });
 
+describe('inventory: one product in two units in one sale (MVP-OD-12)', () => {
+  it('reserves and issues KARTON and PCS of the same product as two lines', async () => {
+    const productId = randomUUID();
+    await seedBalance(productId, 'KARTON', '20');
+    const referenceId = randomUUID();
+
+    // The reservation key is (reference, product, uom), so both units of one product are one
+    // reservation each. Before MVP-OD-12 the second line collided with the first and checkout failed.
+    const reserved = await reserveStock(pool, undefined, {
+      organizationId,
+      warehouseId,
+      referenceType: 'POS_SALE',
+      referenceId,
+      lines: [
+        { productId, uom: 'KARTON', qty: '2' },
+        { productId, uom: 'PCS', qty: '3' },
+      ],
+      ...auditMeta(),
+    });
+    expect(reserved.reservationIds).toHaveLength(2);
+
+    const reservations = await pool.query<{ uom: string; qty: string }>(
+      'SELECT uom, qty FROM inventory.stock_reservation WHERE reference_id = $1 ORDER BY uom',
+      [referenceId],
+    );
+    expect(reservations.rows).toEqual([{ uom: 'KARTON', qty: '2.000' }, { uom: 'PCS', qty: '3.000' }]);
+    expect((await balanceOf(productId)).qty_reserved).toBe('5.000');
+
+    // And the handover consumes each line for the unit it is handing over, not whichever came first.
+    await issueInventory(pool, undefined, {
+      organizationId,
+      warehouseId,
+      referenceType: 'POS_SALE',
+      referenceId,
+      lines: [
+        { productId, uom: 'KARTON', qty: '2' },
+        { productId, uom: 'PCS', qty: '3' },
+      ],
+    });
+
+    const consumed = await pool.query<{ uom: string; status: string }>(
+      `SELECT uom, status FROM inventory.stock_reservation WHERE reference_id = $1 ORDER BY uom`,
+      [referenceId],
+    );
+    expect(consumed.rows).toEqual([{ uom: 'KARTON', status: 'CONSUMED' }, { uom: 'PCS', status: 'CONSUMED' }]);
+    expect((await balanceOf(productId)).qty_on_hand).toBe('15.000');
+    expect((await balanceOf(productId)).qty_reserved).toBe('0.000');
+  });
+
+  it('refuses a second line for the same product and the same unit, which is one line already', async () => {
+    const productId = randomUUID();
+    await seedBalance(productId, 'KARTON', '20');
+    const referenceId = randomUUID();
+
+    await reserveStock(pool, undefined, {
+      organizationId, warehouseId, referenceType: 'POS_SALE', referenceId,
+      lines: [{ productId, uom: 'KARTON', qty: '2' }], ...auditMeta(),
+    });
+
+    const attempt = await reserveStock(pool, undefined, {
+      organizationId, warehouseId, referenceType: 'POS_SALE', referenceId,
+      lines: [{ productId, uom: 'KARTON', qty: '1' }], ...auditMeta(),
+    }).catch((error) => error);
+
+    // Not a raw constraint violation: a POS caller would show "Terjadi kendala" for a cart the
+    // cashier fixes by scanning once instead of twice.
+    expect((attempt as DomainError).code).toBe('VALIDATION_FAILED');
+    expect((attempt as DomainError).fieldErrors?.[0]?.path).toBe('lines[0].productId');
+    expect((await balanceOf(productId)).qty_reserved).toBe('2.000');
+  });
+
+  it('refuses a handover in a unit that was never reserved', async () => {
+    const productId = randomUUID();
+    await seedBalance(productId, 'KARTON', '20');
+    const referenceId = randomUUID();
+    await reserveStock(pool, undefined, {
+      organizationId, warehouseId, referenceType: 'POS_SALE', referenceId,
+      lines: [{ productId, uom: 'KARTON', qty: '2' }], ...auditMeta(),
+    });
+
+    const attempt = await issueInventory(pool, undefined, {
+      organizationId, warehouseId, referenceType: 'POS_SALE', referenceId,
+      lines: [{ productId, uom: 'PCS', qty: '1' }],
+    }).catch((error) => error);
+    expect((attempt as DomainError).code).toBe('NOT_FOUND');
+  });
+});
+
 describe('inventory: issueInventory', () => {
   it('decrements on-hand and reserved and inserts a movement row after a reservation', async () => {
     const productId = randomUUID();
