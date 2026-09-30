@@ -28,6 +28,7 @@ const warehouseA = randomUUID();
 const warehouseB = randomUUID();
 const warehouseX = randomUUID();
 const barcode = `BC-${randomUUID().slice(0, 8)}`;
+const productId = randomUUID();
 
 // One subject per negative case, each with exactly the assignment the case needs.
 const users = {
@@ -127,7 +128,6 @@ beforeAll(async () => {
   );
 
   // A sellable product with a barcode, a KONTER price, and stock in warehouse A only.
-  const productId = randomUUID();
   await pool.query(
     `INSERT INTO core.product (id, organization_id, sku, name, base_uom, order_capture, status)
      VALUES ($1, $2, 'SKU-001', 'Indomie Goreng', 'PCS', 'PSS', 'ACTIVE')`, [productId, organizationId],
@@ -285,6 +285,9 @@ describe('POS API: negative paths (RBAC-002, PLT-006, NEXT_IMPLEMENTATION_PLAN Â
       { barcode, organizationId: otherOrganizationId },
       { barcode, priceListScope: 'GROSIR' },
       { barcode, productId: randomUUID(), sku: 'X', name: 'Barang palsu' },
+      { barcode, productId, uom: 'KARTON' },
+      { productId, uom: 'KARTON', name: 'Barang palsu' },
+      { productId },
     ]) {
       const response = await call('POST', `/pos/sales/${sale.body.id as string}/lines`, { as: 'cashierA2', body });
       expect({ body, status: response.status }).toEqual({ body, status: 400 });
@@ -363,6 +366,23 @@ describe('POS API: negative paths (RBAC-002, PLT-006, NEXT_IMPLEMENTATION_PLAN Â
     const response = await call('POST', `/pos/sales/${saleId}/checkout`, { as: 'cashierA' });
     expect(response.body.code).toBe('POS_STOCK_INSUFFICIENT');
     expect((await call('GET', `/pos/sales/${saleId}`, { as: 'cashierA' })).body.status).toBe('CART');
+  });
+
+  it('adds a katalog pick by product and unit, priced on the server, into the same line as a scan (MVP-OD-27)', async () => {
+    const units = await call('GET', `/kasir/products/${productId}/units`, { as: 'cashierA' });
+    // PCS is the base unit but has no KONTER price, so only KARTON is offered.
+    expect(units.body).toEqual({ productId, sku: 'SKU-001', name: 'Indomie Goreng', units: [{ uom: 'KARTON', unitPrice: '118000.00' }] });
+    expect((await call('GET', `/kasir/products/${randomUUID()}/units`, { as: 'cashierA' })).body.code).toBe('NOT_FOUND');
+    expect((await call('GET', `/kasir/products/${productId}/units`, { as: 'gudangA' })).body.code).toBe('PERMISSION_DENIED');
+    expect((await call('GET', `/kasir/products/${productId}/units`, { as: 'foreign' })).body.code).toBe('NOT_FOUND');
+
+    const shiftId = ((await call('GET', '/kasir/shift-saya', { as: 'cashierA' })).body.shift as { id: string }).id;
+    const { saleId, lineId } = await saleWithLine('cashierA', shiftId, '1');
+    const picked = await call('POST', `/pos/sales/${saleId}/lines`, { as: 'cashierA', body: { productId, uom: 'KARTON' } });
+    expect(picked.body).toMatchObject({ id: lineId, name: 'Indomie Goreng', uom: 'KARTON', qty: '2.000', unitPrice: '118000.00', saleTotal: '236000.00' });
+    expect((await call('POST', `/pos/sales/${saleId}/lines`, { as: 'cashierA', body: { productId, uom: 'LUSIN' } })).body.code).toBe('NOT_FOUND');
+    expect((await call('POST', `/pos/sales/${saleId}/lines`, { as: 'cashierA', body: { productId: randomUUID(), uom: 'KARTON' } })).body.code).toBe('NOT_FOUND');
+    expect((await call('GET', `/pos/sales/${saleId}`, { as: 'cashierA' })).body.lines).toHaveLength(1);
   });
 
   it('rejects malformed ids and money before touching the database', async () => {

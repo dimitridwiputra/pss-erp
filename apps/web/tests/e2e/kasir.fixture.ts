@@ -9,6 +9,7 @@ const shiftId = '0199a000-0000-7000-8000-0000000000a1';
 const terminalId = '0199a000-0000-7000-8000-0000000000a2';
 const saleId = '0199a000-0000-7000-8000-0000000000a3';
 const lineId = '0199a000-0000-7000-8000-0000000000a4';
+const productId = '0199a000-0000-7000-8000-0000000000a5';
 
 const problem = (status: number, code: string, title: string, message: string) => ({
   type: `/errors/${code}`, title, status, detail: message, instance: '/test', code, message,
@@ -29,7 +30,7 @@ export async function mockKasirApi(page: Page, options: { canCount?: boolean; ca
   const total = () => `${118000 * state.qty}.00`;
   const sale = () => ({
     id: saleId, number: null, status: state.saleStatus, customerId: null,
-    lines: state.qty ? [{ id: lineId, productId: '0199a000-0000-7000-8000-0000000000a5', sku: 'DEMO-001', name: 'Mi Goreng 80g', uom: 'KARTON', qty: `${state.qty}.000`, unitPrice: '118000.00', lineTotal: total() }] : [],
+    lines: state.qty ? [{ id: lineId, productId, sku: 'DEMO-001', name: 'Mi Goreng 80g', uom: 'KARTON', qty: `${state.qty}.000`, unitPrice: '118000.00', lineTotal: total() }] : [],
     subtotal: total(), taxTotal: '0.00', total: total(), invoiceNumber: state.saleStatus === 'CART' ? null : 'INV-DMO-2026-000001', tender: null,
   });
 
@@ -50,9 +51,14 @@ export async function mockKasirApi(page: Page, options: { canCount?: boolean; ca
     if (path === '/pos/shifts' && method === 'POST') { state.shiftOpen = true; return json(201, { ...shift(), expectedCash: null }); }
     if (path === '/pos/sales' && method === 'POST') { state.saleExists = true; return json(201, { id: saleId, status: 'CART' }); }
     if (path === `/pos/sales/${saleId}` && method === 'GET') return json(200, sale());
+    if (path === '/kasir/products') return json(200, { items: [{ productId, sku: 'DEMO-001', name: 'Mi Goreng 80g', status: 'ACTIVE' }] });
+    if (path === `/kasir/products/${productId}/units`) {
+      return json(200, { productId, sku: 'DEMO-001', name: 'Mi Goreng 80g', units: [{ uom: 'KARTON', unitPrice: '118000.00' }] });
+    }
     if (path === `/pos/sales/${saleId}/lines` && method === 'POST') {
-      const body = request.postDataJSON() as { barcode: string };
-      if (body.barcode !== '8990001000012') return json(404, problem(404, 'NOT_FOUND', 'Barang tidak ditemukan', 'Barcode ini belum terdaftar.'));
+      const body = request.postDataJSON() as { barcode?: string; productId?: string; uom?: string };
+      const known = body.barcode === '8990001000012' || (body.productId === productId && body.uom === 'KARTON');
+      if (!known) return json(404, problem(404, 'NOT_FOUND', 'Barang tidak ditemukan', 'Barcode ini belum terdaftar.'));
       state.qty += 1;
       return json(201, { ...sale().lines[0], saleTotal: total() });
     }

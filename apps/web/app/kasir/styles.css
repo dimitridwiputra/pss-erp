@@ -60,6 +60,9 @@
 .pos-katalog-list, .pos-pickup-lines { list-style: none; margin: 8px 0 0; padding: 0; }
 .pos-katalog-list li, .pos-pickup-lines li { display: flex; flex-direction: column; padding: 10px 0; border-top: 1px solid var(--gray-100); }
 .pos-katalog-list small, .pos-pickup-lines small { color: var(--gray-600); }
+.pos-katalog-item { display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-height: 48px; padding: 6px 0; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.pos-katalog-units { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
+.pos-katalog-units .pos-outline { min-height: 48px; display: inline-flex; align-items: center; gap: 6px; }
 .pos-pickup-lines strong { font-variant-numeric: tabular-nums; }
 .pos-kasir .pos-definition { grid-template-columns: 1fr; }
 .pos-kasir .pos-definition div { display: flex; justify-content: space-between; gap: 12px; }

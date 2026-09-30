@@ -74,6 +74,24 @@ test('the counter answers F2 (scan) and F9 (pay) from the keyboard', async ({ pa
   await expect(page.getByRole('heading', { name: 'Terima Uang' })).toBeVisible();
 });
 
+test('the cashier adds a barang from the katalog by tapping its unit (MVP-OD-27)', async ({ page }) => {
+  const mock = await mockKasirApi(page);
+  await page.goto('/kasir');
+  await page.getByRole('button', { name: /Konter 1/ }).click();
+  await page.getByLabel('Modal laci').fill('500.000');
+  await page.getByRole('button', { name: 'Buka Shift' }).click();
+
+  await page.getByRole('textbox', { name: 'Cari produk' }).fill('mi goreng');
+  await page.getByRole('button', { name: /Mi Goreng 80g/ }).click();
+  await page.getByRole('button', { name: 'Tambah Mi Goreng 80g per KARTON' }).click();
+  await expect(page.locator('.pos-total-final')).toContainText('Rp 118.000');
+  await expect(page.getByRole('textbox', { name: 'Cari produk' })).toHaveValue('');
+  await expect(page.getByRole('textbox', { name: 'Scan barang' })).toBeFocused();
+  // The pick names the product and unit only; the server supplies the name and price.
+  const pick = mock.requests.find((request) => request.method === 'POST' && request.path.endsWith('/lines'));
+  expect(pick?.idempotencyKey).toBeTruthy();
+});
+
 test('the cashier view is absent for someone who may only hand over goods', async ({ page }) => {
   await mockKasirApi(page, { canCount: false, canPickup: true });
   await page.goto('/kasir');

@@ -3,7 +3,7 @@ import {
   AcceptPosTenderRequestSchema, AcceptPosTenderResponseSchema, AddPosSaleLineRequestSchema, AddPosSaleLineResponseSchema,
   CheckoutPosSaleResponseSchema, ClosePosShiftRequestSchema, ConfirmPosPickupHandoverRequestSchema,
   ConfirmPosPickupHandoverResponseSchema, CreatePosSaleRequestSchema, DeclarePosCashHandoverResponseSchema, DomainError,
-  KasirKatalogResponseSchema, KasirScanResponseSchema, KasirShiftSayaResponseSchema, KasirTerminalListResponseSchema,
+  KasirKatalogResponseSchema, KasirProductUnitsResponseSchema, KasirScanResponseSchema, KasirShiftSayaResponseSchema, KasirTerminalListResponseSchema,
   OpenPosShiftRequestSchema, PosCartTotalResponseSchema, PosPickupListResponseSchema, PosReceiptResponseSchema,
   PosSaleResponseSchema, PosShiftResponseSchema, PrintPosReceiptRequestSchema, UpdatePosSaleLineRequestSchema,
   type AcceptPosTenderRequest, type AddPosSaleLineRequest, type ClosePosShiftRequest, type ConfirmPosPickupHandoverRequest,
@@ -11,7 +11,7 @@ import {
   type UpdatePosSaleLineRequest,
 } from '@pss/contracts';
 import { readIdempotencyKey, ZodValidationPipe } from '@pss/http';
-import { findProductByBarcode, searchProducts } from '@pss/master-data';
+import { findProductByBarcode, getProductSaleUnits, searchProducts } from '@pss/master-data';
 import { resolvePrice } from '@pss/commercial';
 import type { ObservedRequest } from '@pss/observability';
 import {
@@ -147,6 +147,25 @@ export class PosService implements OnModuleDestroy {
     return KasirKatalogResponseSchema.parse({ items: items.filter((item) => item.status === 'ACTIVE') });
   }
 
+  /** A katalog pick's choices: the product's units that have a counter price (MVP-OD-27). */
+  async productUnits(context: CommandContext, productId: string) {
+    this.requireHeldPermission(context, 'pos.sale.create');
+    const organizationId = context.user.organizationId;
+    const product = await getProductSaleUnits(this.requirePool(), { organizationId, productId: uuidParam(productId, 'productId') });
+    if (product.orderCapture !== 'PSS' || product.status !== 'ACTIVE') throw new DomainError('POS_SKU_NOT_SELLABLE');
+    const units: Array<{ uom: string; unitPrice: string }> = [];
+    for (const uom of new Set(product.units.map((unit) => unit.uom))) {
+      try {
+        const price = await resolvePrice(this.requirePool(), { organizationId, productId: product.productId, uom, priceListScope: DEFAULT_PRICE_LIST_SCOPE });
+        units.push({ uom, unitPrice: price.unitPrice });
+      } catch (error) {
+        // A unit with no counter price cannot be sold here; the scan path refuses it the same way.
+        if (!(error instanceof DomainError && error.code === 'PRICE_NOT_FOUND')) throw error;
+      }
+    }
+    return KasirProductUnitsResponseSchema.parse({ productId: product.productId, sku: product.sku, name: product.name, units });
+  }
+
   async scan(context: CommandContext, barcode: string) {
     this.requireHeldPermission(context, 'pos.sale.create');
     const parsed = z.string().trim().min(1).max(64).safeParse(barcode);
@@ -189,7 +208,8 @@ export class PosService implements OnModuleDestroy {
     const sale = await this.cashierSale(context, saleId, 'pos.sale.create');
     return this.command(context, 'pos.addLine', idempotencyKey, { saleId: sale.id, ...input }, async (client) =>
       AddPosSaleLineResponseSchema.parse(await addPosSaleLine(this.requirePool(), client, {
-        saleId: sale.id, priceListScope: DEFAULT_PRICE_LIST_SCOPE, barcode: input.barcode,
+        saleId: sale.id, priceListScope: DEFAULT_PRICE_LIST_SCOPE,
+        ...('barcode' in input ? { barcode: input.barcode } : { productId: input.productId, uom: input.uom }),
         ...(input.qty ? { qty: input.qty } : {}), ...this.meta(context),
       })));
   }
@@ -314,6 +334,11 @@ export class PosController {
   @Get('kasir/products')
   async katalog(@Req() request: ApiRequest, @Query('q') query: string) {
     return this.pos.katalog(await this.currentUser(request), query ?? '');
+  }
+
+  @Get('kasir/products/:productId/units')
+  async productUnits(@Req() request: ApiRequest, @Param('productId') productId: string) {
+    return this.pos.productUnits(await this.currentUser(request), productId);
   }
 
   @Get('kasir/scan/:barcode')

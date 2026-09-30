@@ -2,20 +2,22 @@
 
 import type {
   AcceptPosTenderResponse, AddPosSaleLineResponse, CheckoutPosSaleResponse, DeclarePosCashHandoverResponse,
-  KasirKatalogResponse, KasirShiftSayaResponse, KasirTerminalListResponse, PosReceiptResponse, PosSaleResponse,
+  KasirShiftSayaResponse, KasirTerminalListResponse, PosReceiptResponse, PosSaleResponse,
 } from '@pss/contracts';
 import { EmptyState, LoadingState } from '@pss/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, CheckCircle2, Minus, Plus, Printer, ScanLine, Search, ShoppingCart, Trash2, Wallet } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Minus, Plus, Printer, ScanLine, ShoppingCart, Trash2, Wallet } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ProblemNotice } from './components/problem-notice';
 import { useCommand } from './hooks/use-command';
 import { useOnlineStatus } from './hooks/use-online-status';
 import { kasirFetch } from './lib/api-client';
+import { KatalogPick, type KatalogPickRequest } from './components/katalog-pick';
 import { MoneyField } from './components/money-field';
 import { cashPresets, difference, isAtLeast, quantity, rupiah, sum } from './lib/money';
 
 type Shift = NonNullable<KasirShiftSayaResponse['shift']>;
+type AddLineRequest = { barcode: string } | KatalogPickRequest;
 
 const post = <T,>(path: string, key: string, body: unknown = {}) =>
   kasirFetch<T>(path, { method: 'POST', idempotencyKey: key, body: JSON.stringify(body) });
@@ -121,21 +123,20 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
 }) {
   const online = useOnlineStatus();
   const [barcode, setBarcode] = useState('');
-  const [search, setSearch] = useState('');
   const scanRef = useRef<HTMLInputElement>(null);
   const lastScan = useRef<{ code: string; at: number } | null>(null);
   useEffect(() => { scanRef.current?.focus(); }, [sale?.lines.length]);
 
-  const pendingScans = useRef<string[]>([]);
+  const pendingScans = useRef<AddLineRequest[]>([]);
   const scanInFlight = useRef(false);
 
-  /** Scans are sent one at a time, in order: a scan made while the previous one is still on the network waits, never vanishes. */
+  /** Scans and katalog picks are sent one at a time, in order: one made while the previous is still on the network waits, never vanishes. */
   function drainScans() {
     if (scanInFlight.current) return;
     const next = pendingScans.current.shift();
     if (next === undefined) return;
     scanInFlight.current = true;
-    addLine.mutate({ barcode: next }, { onSettled: () => { scanInFlight.current = false; drainScans(); } });
+    addLine.mutate(next, { onSettled: () => { scanInFlight.current = false; drainScans(); } });
   }
 
   /** POS-003 idempotency: the same barcode read twice within 500 ms is one scan (a scanner double-read). */
@@ -144,20 +145,21 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
     setBarcode('');
     if (lastScan.current && lastScan.current.code === code && now - lastScan.current.at < 500) return;
     lastScan.current = { code, at: now };
-    pendingScans.current.push(code);
+    pendingScans.current.push({ barcode: code });
     drainScans();
   }
 
-  const katalog = useQuery({
-    queryKey: ['kasir-katalog', search.trim()], enabled: search.trim().length >= 2,
-    queryFn: () => kasirFetch<KasirKatalogResponse>(`/kasir/products?q=${encodeURIComponent(search.trim())}`),
-  });
+  function pickFromKatalog(request: KatalogPickRequest) {
+    pendingScans.current.push(request);
+    drainScans();
+    scanRef.current?.focus();
+  }
 
   // The sale a queued scan belongs to is known as soon as it is created, before the screen re-reads it.
   const currentSaleId = useRef<string | null>(sale?.id ?? null);
   useEffect(() => { if (sale?.id) currentSaleId.current = sale.id; }, [sale?.id]);
 
-  const addLine = useCommand(async (input: { barcode: string }, key) => {
+  const addLine = useCommand(async (input: AddLineRequest, key) => {
     let id = currentSaleId.current;
     if (!id) {
       const created = await post<{ id: string }>('/pos/sales', `${key}:sale`, { shiftId: shift.id });
@@ -165,7 +167,7 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
       currentSaleId.current = id;
       onSaleCreated(id);
     }
-    return post<AddPosSaleLineResponse>(`/pos/sales/${id}/lines`, key, { barcode: input.barcode });
+    return post<AddPosSaleLineResponse>(`/pos/sales/${id}/lines`, key, input);
   }, { onSuccess: async () => { await onChanged(); } });
 
   const setQty = useCommand((input: { lineId: string; qty: string }, key) => kasirFetch(`/pos/sales/${sale?.id}/lines/${input.lineId}`, {
@@ -209,17 +211,7 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
           <button className="pos-primary" type="submit" disabled={!barcode.trim() || !online}>Tambah</button>
         </form>
         <ProblemNotice error={addLine.error} />
-        <label className="pos-search pos-katalog-search"><Search size={20} />
-          <input aria-label="Cari produk" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama atau SKU produk" />
-        </label>
-        {katalog.isFetching && <LoadingState label="Mencari produk" rows={2} />}
-        {katalog.isError && <ProblemNotice error={katalog.error} />}
-        {katalog.data && (katalog.data.items.length === 0
-          ? <p className="pos-empty">Produk tidak ditemukan.</p>
-          : <>
-            <p className="pos-muted">Scan barcode di kemasan untuk menambahkan barang ke keranjang.</p>
-            <ul className="pos-katalog-list">{katalog.data.items.map((item) => <li key={item.productId}><strong>{item.name}</strong><small>{item.sku}</small></li>)}</ul>
-          </>)}
+        <KatalogPick disabled={!online} onPick={pickFromKatalog} />
       </section>
 
       <section className="pos-card pos-cart" aria-labelledby="cart-title">

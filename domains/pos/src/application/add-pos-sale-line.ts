@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { findProductByBarcode } from '@pss/master-data';
+import { findProductByBarcode, getProductSaleUnits } from '@pss/master-data';
 import { resolvePrice } from '@pss/commercial';
 import { DomainError } from '@pss/contracts';
 import { withConnection } from '@pss/platform';
@@ -10,8 +10,14 @@ import { parseOrThrow, QuantityInputSchema, RequestMetaShape } from './support/c
 
 const AddPosSaleLineSchema = z.strictObject({
   saleId: z.uuid(), priceListScope: z.string().min(1),
-  barcode: z.string().min(1).max(64), qty: QuantityInputSchema.default('1'),
+  barcode: z.string().min(1).max(64).optional(),
+  productId: z.uuid().optional(), uom: z.string().min(1).max(16).optional(),
+  qty: QuantityInputSchema.default('1'),
   ...RequestMetaShape,
+}).refine((input) => input.barcode !== undefined
+  ? input.productId === undefined && input.uom === undefined
+  : input.productId !== undefined && input.uom !== undefined, {
+  message: 'Give either a barcode, or a productId with its uom.', path: ['barcode'],
 });
 export type AddPosSaleLineInput = z.input<typeof AddPosSaleLineSchema>;
 
@@ -20,11 +26,11 @@ export interface AddedPosSaleLine {
 }
 
 /**
- * POS-003: resolves the product from the scanned barcode (master-data) and its price
- * (commercial), snapshots both onto the line (POS-003.BR02), then recomputes the cart total
- * server-side. The product identity is never taken from the caller: an earlier variant accepted
- * `productId`/`sku`/`name` from a katalog pick, which let a client put any name on a line.
- * A katalog pick waits for a master-data "product by id" query (MVP_PLAN §10, MVP-OD-27).
+ * POS-003: resolves the product from the scanned barcode, or from a katalog pick of a product id
+ * and one of its units (master-data, MVP-OD-27), and its price (commercial), snapshots both onto
+ * the line (POS-003.BR02), then recomputes the cart total server-side. The name and SKU are never
+ * taken from the caller: an earlier variant accepted them from a katalog pick, which let a client
+ * put any name on a line. A picked unit the product does not have is NOT_FOUND.
  *
  * The cart-time stock indicator (POS-003.BR03, informational only; reservation happens at
  * checkout) is not implemented: `domains/inventory` exposes no read-only availability query.
@@ -34,8 +40,7 @@ export async function addPosSaleLine(pool: Pool, client: PoolClient | undefined,
   return withConnection(pool, client, async ({ client, appendAuditEntry }) => {
     const cart = await lockCart(client, input.saleId);
 
-    const match = await findProductByBarcode(pool, { organizationId: cart.organizationId, barcode: input.barcode });
-    if (!match) throw new DomainError('NOT_FOUND');
+    const match = await resolveSaleProduct(pool, cart.organizationId, input);
     if (match.orderCapture !== 'PSS' || match.status !== 'ACTIVE') throw new DomainError('POS_SKU_NOT_SELLABLE');
 
     const price = await resolvePrice(pool, {
@@ -75,4 +80,21 @@ export async function addPosSaleLine(pool: Pool, client: PoolClient | undefined,
       qty: line.qty, unitPrice: line.unit_price, lineTotal: line.line_total, saleTotal: totals.total,
     };
   });
+}
+
+interface SaleProduct { productId: string; sku: string; name: string; uom: string; orderCapture: string; status: string }
+
+async function resolveSaleProduct(
+  pool: Pool, organizationId: string, input: { barcode?: string | undefined; productId?: string | undefined; uom?: string | undefined },
+): Promise<SaleProduct> {
+  const { barcode, productId, uom } = input;
+  if (barcode !== undefined) {
+    const match = await findProductByBarcode(pool, { organizationId, barcode });
+    if (!match) throw new DomainError('NOT_FOUND');
+    return match;
+  }
+  if (productId === undefined || uom === undefined) throw new DomainError('VALIDATION_FAILED');
+  const product = await getProductSaleUnits(pool, { organizationId, productId });
+  if (!product.units.some((unit) => unit.uom === uom)) throw new DomainError('NOT_FOUND');
+  return { productId: product.productId, sku: product.sku, name: product.name, uom, orderCapture: product.orderCapture, status: product.status };
 }
