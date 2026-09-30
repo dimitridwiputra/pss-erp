@@ -187,7 +187,7 @@ From stream C (back office):
 - **A price change needs no approval.** COM-001 requires one and rejects proposer = approver; the MVP activates a draft directly and audits the activation (MVP-OD-14).
 - **A stock correction needs no approval either.** `inventory.adjustment.approve` belongs to `BRANCH_MANAGER`, which no demo user holds, so a correction posted from Penyesuaian Stok is final.
 - **A goods receipt may leave stock unvalued.** Leaving the cost empty is a real state (a physical count has no invoice), and the movement is published with `unitCost: null` for Finance to resolve. There is no revaluation, so a later valued receipt does not value a balance that already holds unvalued stock (MVP-OD-16).
-- **The read permissions are gaps, recorded not hidden.** No registered code exists for reading the stock card or a customer, so those screens stand on the write grants the demo role holds (MVP-OD-20, MVP-OD-21).
+- **Two read permissions are still gaps, recorded not hidden.** The Stok screens use `inventory.stock_card.view`, the permission INV-001 names, since Identity registered it on 30 September. No registered code exists for reading a product or a customer, so Barang and Pelanggan stand on the steward write grant the demo role holds (MVP-OD-20, MVP-OD-21).
 - **A warehouse id cannot be fully validated.** A warehouse nobody has ever stocked is accepted, because no domain exposes a warehouse-by-id read yet (MVP-OD-22).
 - **The low-stock threshold is not configuration.** It is an input to the query, supplied by the BFF as `PSS_DASHBOARD_LOW_STOCK_MIN_QTY` (default 10) and shown beside the number (MVP-OD-17).
 

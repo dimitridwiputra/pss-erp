@@ -457,7 +457,9 @@ describe('inventory: receiveStock with costing and INVENTORY_RECEIVED', () => {
     const last = (await outboxPayloads('INVENTORY_RECEIVED', productId)).at(-1);
     expect(last).toMatchObject({
       warehouseId, productId, uom: 'KARTON', qty: '10.000',
-      unitCost: '120.00', totalCost: '1200.00', sourceType: 'GOODS_RECEIPT', businessDate: '2026-10-01',
+      // The wire carries the ledger's 4 places (MVP-OD-13), so a moving average of 110.0000 is not
+      // rounded to 110.00 on the way out.
+      unitCost: '120.0000', totalCost: '1200.00', sourceType: 'GOODS_RECEIPT', businessDate: '2026-10-01',
     });
   });
 
@@ -563,7 +565,7 @@ describe('inventory: a sale carries a cost (INVENTORY_ISSUED)', () => {
     expect((await balanceOf(productId)).avg_unit_cost).toBe('950.0000');
 
     expect((await outboxPayloads('INVENTORY_ISSUED', productId))[0]).toMatchObject({
-      qty: '5.000', unitCost: '950.00', totalCost: '4750.00',
+      qty: '5.000', unitCost: '950.0000', totalCost: '4750.00',
       sourceType: 'SALES_FULFILLMENT', sourceId: referenceId, businessDate: '2026-10-01',
     });
   });
@@ -646,7 +648,7 @@ describe('inventory: adjustStock reasons, costing and INVENTORY_ADJUSTED', () =>
 
     expect((await outboxPayloads('INVENTORY_ADJUSTED', productId))[0]).toEqual({
       adjustmentId: adjusted.movementIds[0], warehouseId, productId, uom: 'KARTON', qtyDelta: '-3.000',
-      unitCost: '2500.00', totalCostDelta: '-7500.00', reasonCode: 'RC-INV-DAMAGED', businessDate: '2026-10-02',
+      unitCost: '2500.0000', totalCostDelta: '-7500.00', reasonCode: 'RC-INV-DAMAGED', businessDate: '2026-10-02',
     });
 
     const audit = await pool.query(

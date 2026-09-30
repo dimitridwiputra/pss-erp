@@ -159,14 +159,15 @@ describe('MVP full chain: receipt → sale → handover → close → verify', (
 
     // 10 KARTON at Rp 95.000: the receipt is worth Rp 950.000 and the balance averages to its cost.
     expect(byType.INVENTORY_RECEIVED).toMatchObject({
-      productId, uom: 'KARTON', qty: '10.000', unitCost: '95000.00', totalCost: '950000.00',
+      // `unitCost` carries the ledger's 4 places since MVP-OD-13; `totalCost` stays 2-place money.
+      productId, uom: 'KARTON', qty: '10.000', unitCost: '95000.0000', totalCost: '950000.00',
       sourceType: 'GOODS_RECEIPT',
     });
 
     // The handover of 2 KARTON is what gives the sale a cost of goods sold: Rp 190.000 against the
     // invoice's Rp 236.000, so the demo's gross profit is a real number rather than revenue alone.
     expect(byType.INVENTORY_ISSUED).toMatchObject({
-      productId, uom: 'KARTON', qty: '2.000', unitCost: '95000.00', totalCost: '190000.00',
+      productId, uom: 'KARTON', qty: '2.000', unitCost: '95000.0000', totalCost: '190000.00',
       sourceType: 'SALES_FULFILLMENT',
     });
 

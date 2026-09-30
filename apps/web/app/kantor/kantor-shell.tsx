@@ -47,7 +47,7 @@ const NAV_GROUPS = [
   {
     heading: 'Gudang',
     items: [
-      { href: '/kantor/stok', label: 'Stok', icon: Boxes, permission: 'inventory.adjustment.request' },
+      { href: '/kantor/stok', label: 'Stok', icon: Boxes, permission: 'inventory.stock_card.view' },
       { href: '/kantor/terima', label: 'Terima Barang', icon: PackagePlus, permission: 'procurement.receipt.post' },
       { href: '/kantor/penyesuaian', label: 'Penyesuaian Stok', icon: ArrowLeftRight, permission: 'inventory.adjustment.request' },
     ],

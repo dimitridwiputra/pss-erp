@@ -494,7 +494,7 @@ describe('back office: Stok (inventory)', () => {
       [productId],
     );
     expect(events.rows[0]?.envelope.payload).toMatchObject({
-      unitCost: '9750.00', totalCost: '234000.00', sourceType: 'GOODS_RECEIPT', businessDate: '2026-10-01',
+      unitCost: '9750.0000', totalCost: '234000.00', sourceType: 'GOODS_RECEIPT', businessDate: '2026-10-01',
     });
   });
 
@@ -554,7 +554,7 @@ describe('back office: Stok (inventory)', () => {
       [productId],
     );
     expect(events.rows[0]?.envelope.payload).toMatchObject({
-      qtyDelta: '-2.000', unitCost: '9750.00', totalCostDelta: '-19500.00', reasonCode: 'RC-INV-DAMAGED',
+      qtyDelta: '-2.000', unitCost: '9750.0000', totalCostDelta: '-19500.00', reasonCode: 'RC-INV-DAMAGED',
     });
   });
 

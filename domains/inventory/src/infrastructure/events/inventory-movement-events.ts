@@ -8,6 +8,8 @@ import type { MovingAverageResult } from '../../domain/rules/moving-average-cost
 /** The published scales, from `MVP_PLAN.md` §5: money 2 places, quantity 3 places. */
 const MONEY_SCALE = 2;
 const QUANTITY_SCALE = 3;
+/** `UnitCostV1` since MVP-OD-13: the ledger's own `numeric(18,4)`, so the wire no longer rounds it. */
+const UNIT_COST_SCALE = 4;
 
 /**
  * The three inventory events, published from the movement's own transaction.
@@ -52,6 +54,18 @@ export type ReceiveSourceType = 'GOODS_RECEIPT' | 'WMS_RECEIPT';
 /** `MoneyV1` in the published contracts: exactly 2 places, never an exponent, never negative zero. */
 function money(value: string | null): string | null {
   return value === null ? null : fixed(new Decimal(value), MONEY_SCALE);
+}
+
+/**
+ * `UnitCostV1`: exactly 4 places, the ledger's own scale.
+ *
+ * This used to publish 2 places, one below `numeric(18,4)`, so a moving average of 95000.1234 left the
+ * producer as 95000.12 — a consumer that re-multiplied it by a quantity would book a fraction of a
+ * rupiah away from the ledger. The wire now carries what the ledger holds, and `totalCost` remains
+ * the amount Finance posts (MVP_PLAN §8).
+ */
+function unitCost(value: string | null): string | null {
+  return value === null ? null : fixed(new Decimal(value), UNIT_COST_SCALE);
 }
 
 /** `QuantityV1`: exactly 3 places. */
@@ -100,10 +114,10 @@ export async function publishInventoryReceived(
     await appendOutboxEvent(tx, envelope('INVENTORY_RECEIVED', context, 'InventoryMovement', fact.movementId, {
       movementId: fact.movementId, warehouseId: context.warehouseId, productId: fact.productId, uom: fact.uom,
       qty: quantity(fact.qty),
-      // `unitCost` is published at the payload's 2 places, one below the ledger's 4. `totalCost` is
-      // the authoritative amount — Finance posts it, never qty × unitCost (MVP_PLAN §8) — and it
-      // already carries the ledger's 2 places, so nothing the GL books loses a digit (MVP-OD-13).
-      unitCost: money(fact.movementUnitCost),
+      // `unitCost` is published at the ledger's own 4 places, and `totalCost` at money's 2. Finance
+      // posts `totalCost`, never qty × unitCost (MVP_PLAN §8), and both are now exactly what the
+      // ledger holds (MVP-OD-13).
+      unitCost: unitCost(fact.movementUnitCost),
       totalCost: money(fact.movementTotalCost),
       sourceType, sourceId: context.sourceId, businessDate: context.businessDate,
     }));
@@ -118,7 +132,7 @@ export async function publishInventoryIssued(
   for (const fact of facts) {
     await appendOutboxEvent(tx, envelope('INVENTORY_ISSUED', context, 'InventoryMovement', fact.movementId, {
       movementId: fact.movementId, warehouseId: context.warehouseId, productId: fact.productId, uom: fact.uom,
-      qty: quantity(fact.qty), unitCost: money(fact.movementUnitCost), totalCost: money(fact.movementTotalCost),
+      qty: quantity(fact.qty), unitCost: unitCost(fact.movementUnitCost), totalCost: money(fact.movementTotalCost),
       // The MVP has one issue source: a sale handed over at the counter. A transfer or a return would
       // need its own `sourceType` in the published contract before it could be published.
       sourceType: 'SALES_FULFILLMENT', sourceId: context.sourceId, businessDate: context.businessDate,
@@ -138,7 +152,7 @@ export async function publishInventoryAdjusted(
   for (const fact of facts) {
     await appendOutboxEvent(tx, envelope('INVENTORY_ADJUSTED', context, 'StockAdjustment', fact.movementId, {
       adjustmentId: fact.movementId, warehouseId: context.warehouseId, productId: fact.productId, uom: fact.uom,
-      qtyDelta: quantity(fact.qty), unitCost: money(fact.movementUnitCost),
+      qtyDelta: quantity(fact.qty), unitCost: unitCost(fact.movementUnitCost),
       totalCostDelta: money(fact.movementTotalCost),
       reasonCode: fact.reasonCode, businessDate: context.businessDate,
     }));

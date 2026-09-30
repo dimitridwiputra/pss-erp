@@ -89,8 +89,9 @@ business domain. `domains/pos` is the first consumer of the product reads.
 - **OD-06**: `CUSTOMER_CREATED`'s payload schema is unregistered, so publication is deferred.
 - **MVP-OD-20 / MVP-OD-21**: no read permission is registered for the product or the customer, so
   `listProducts`, `getProduct` and `listCustomers` stand on the steward write grant
-  `master_data.product.manage`. Identity has been asked to add `inventory.stock_card.view` and a
-  customer read code.
+  `master_data.product.manage`. Identity answered half of MVP-OD-20 on 30 September by registering
+  `inventory.stock_card.view` for the stock card, so only the product and the customer reads still
+  borrow a write grant. A registered read code for each is still requested.
 - CUS-003 (duplicate-person detection) and MDM-006 (merge/tombstone) are not implemented;
   `createCustomer` never flags `POSSIBLE_DUPLICATE`.
 - The full product attribute set (principal ownership, hierarchy) is not implemented.

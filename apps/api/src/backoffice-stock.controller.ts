@@ -21,19 +21,21 @@ import { IdentityService } from './identity.controller';
 type ApiRequest = ObservedRequest;
 
 /**
- * `inventory.adjustment.request` is held by WAREHOUSE_ADMIN (`gudang.demo` and `admin.demo` per
- * MVP_PLAN §7) and `procurement.receipt.post` by the same role, so one warehouse administrator can
- * receive goods and correct a discrepancy — and no demo user holds `inventory.adjustment.approve`,
- * because the INV-006 approval workflow is not built.
+ * The stock area's three permissions, and they are three because the PRD says so.
  *
- * **Reads are a gap, recorded rather than papered over.** The PRD names
- * `inventory.stock_card.view` (WAREHOUSE_ADMIN, FINANCE, scope WAREHOUSE/ORG) for reading the stock
- * card, but Identity grants it to no group, so no role resolves to it and gating on it would refuse
- * everyone including the demo users. The stock reads below therefore stand on
- * `inventory.adjustment.request` — the permission the demo role demonstrably holds for the stock
- * area — and MVP-OD-20 asks Identity to add the registered grant so the screen can use the
- * permission the PRD names. What is *not* done is pretending a different permission is the right one.
+ * - **Reads** stand on `inventory.stock_card.view`, which INV-001 names for the stock card at
+ *   WAREHOUSE_ADMIN (MVP-OD-20). Identity registered that grant on 30 September, so a read no longer
+ *   borrows a write permission. It is still the same warehouse scope the write is checked at, because a
+ *   value is scoped per warehouse (MVP-OD-4).
+ * - **A correction** is `inventory.adjustment.request` (`inventory.adjustment.approve` belongs to
+ *   BRANCH_MANAGER, which no demo user holds, so a correction posted here is final — MVP-OD-14's
+ *   sibling, and stated on the screen).
+ * - **A goods receipt** is `procurement.receipt.post`, also WAREHOUSE_ADMIN.
+ *
+ * One warehouse administrator therefore receives goods, corrects a discrepancy and reads the stock
+ * card, which is the PRD's own arrangement and not a convenience of the demo.
  */
+const STOCK_READ = 'inventory.stock_card.view';
 const STOCK_MANAGE = 'inventory.adjustment.request';
 /** How many products a name search may resolve to before the id set is truncated. */
 const PRODUCT_SEARCH_LIMIT = 200;
@@ -83,7 +85,7 @@ export class BackofficeStockService implements OnModuleDestroy {
   async balances(context: CommandContext, rawQuery: unknown) {
     const query = parseQuery(StockBalanceListQuerySchema, rawQuery);
     const warehouse = uuidParam(query.warehouseId, 'warehouseId');
-    this.authorize(context, STOCK_MANAGE, warehouse, true);
+    this.authorize(context, STOCK_READ, warehouse, true);
 
     const page = await listStockBalances(this.requirePool(), undefined, {
       organizationId: context.user.organizationId, warehouseId: warehouse,
@@ -105,7 +107,7 @@ export class BackofficeStockService implements OnModuleDestroy {
   async movements(context: CommandContext, rawQuery: unknown) {
     const query = parseQuery(StockMovementListQuerySchema, rawQuery);
     const warehouse = uuidParam(query.warehouseId, 'warehouseId');
-    this.authorize(context, STOCK_MANAGE, warehouse, true);
+    this.authorize(context, STOCK_READ, warehouse, true);
 
     const page = await listStockMovements(this.requirePool(), undefined, {
       organizationId: context.user.organizationId, warehouseId: warehouse,
@@ -144,10 +146,11 @@ export class BackofficeStockService implements OnModuleDestroy {
 
   /**
    * The reason picker's options. Held-permission rather than warehouse-scoped, because the vocabulary
-   * is platform-level (MVP-OD-15) and a caller picking a reason is not yet acting on a warehouse.
+   * is platform-level (MVP-OD-15) and a caller picking a reason is not yet acting on a warehouse. The
+   * permission is the read one: choosing a reason is choosing from a list, not correcting a balance.
    */
   async adjustmentReasons(context: CommandContext) {
-    requireHeldPermission(context, STOCK_MANAGE);
+    requireHeldPermission(context, STOCK_READ);
     return StockAdjustmentReasonListResponseSchema.parse({ items: await listAdjustmentReasons(this.requirePool()) });
   }
 
