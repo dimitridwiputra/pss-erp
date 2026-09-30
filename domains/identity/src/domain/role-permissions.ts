@@ -106,12 +106,15 @@ const groupPermissions: Readonly<Record<string, readonly string[]>> = {
  *   - Appendix D additions §46A and POS-010 "RBAC / SCOPE": `fulfillment.pickup.handover`
  *     (WAREHOUSE_ADMIN, WAREHOUSE_OPERATOR).
  *   - Appendix D additions §34 and BIL-001 "RBAC / SCOPE": `invoicing.invoice.print` (SALES_ADMIN).
+ *   - Appendix D additions §32 and INV-001 "RBAC / SCOPE": `inventory.stock_card.view`
+ *     (WAREHOUSE_ADMIN, FINANCE). "FINANCE" names no registered role, so only WAREHOUSE_ADMIN is
+ *     transcribed (MVP_PLAN §10, MVP-OD-23).
  */
 const roleAdditionalGroups: Readonly<Record<string, readonly string[]>> = {
   POS_CASHIER: ['CSH-DECLARE'],
 };
 const roleAdditionalPermissions: Readonly<Record<string, readonly string[]>> = {
-  WAREHOUSE_ADMIN: ['fulfillment.pickup.handover'],
+  WAREHOUSE_ADMIN: ['fulfillment.pickup.handover', 'inventory.stock_card.view'],
   WAREHOUSE_OPERATOR: ['fulfillment.pickup.handover'],
   SALES_ADMIN: ['invoicing.invoice.print'],
 };

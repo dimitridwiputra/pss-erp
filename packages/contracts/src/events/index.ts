@@ -72,18 +72,20 @@ export const ApprovalDecidedV1Schema = EventEnvelopeSchema.extend({
 });
 
 // MVP v1 payloads (docs/mvp/MVP_PLAN.md §5). The wire format is fixed-scale so a consumer never
-// re-rounds: money has exactly 2 places, quantity exactly 3, and only deltas and variances may be signed.
+// re-rounds: money has exactly 2 places, quantity exactly 3, a unit cost exactly 4 (the inventory
+// ledger's numeric(18,4), MVP-OD-13), and only deltas and variances may be signed.
 const MoneyV1 = z.string().regex(/^(?:0|[1-9]\d*)\.\d{2}$/, 'Money is a decimal string with 2 places.');
 const SignedMoneyV1 = z.string().regex(/^-?(?:0|[1-9]\d*)\.\d{2}$/, 'Money is a signed decimal string with 2 places.')
   .refine((value) => !/^-0\.00$/.test(value), 'Negative zero is not a money value.');
 const QuantityV1 = z.string().regex(/^(?:0|[1-9]\d*)\.\d{3}$/, 'Quantity is a decimal string with 3 places.');
 const SignedQuantityV1 = z.string().regex(/^-?(?:0|[1-9]\d*)\.\d{3}$/, 'Quantity is a signed decimal string with 3 places.')
   .refine((value) => !/^-0\.000$/.test(value), 'Negative zero is not a quantity value.');
+const UnitCostV1 = z.string().regex(/^(?:0|[1-9]\d*)\.\d{4}$/, 'Unit cost is a decimal string with 4 places.');
 
 // A null cost means the movement is unvalued; finance routes it to the exception queue (AGENTS.md §3.7).
 const inventoryMovementPayloadV1 = {
   movementId: z.uuid(), warehouseId: z.uuid(), productId: z.uuid(), uom: z.string().min(1),
-  qty: QuantityV1, unitCost: MoneyV1.nullable(), totalCost: MoneyV1.nullable(), sourceId: z.uuid(),
+  qty: QuantityV1, unitCost: UnitCostV1.nullable(), totalCost: MoneyV1.nullable(), sourceId: z.uuid(),
   businessDate: BusinessDateSchema,
 };
 
@@ -104,7 +106,7 @@ export const InventoryAdjustedV1Schema = EventEnvelopeSchema.extend({
   eventVersion: z.literal(1),
   payload: z.strictObject({
     adjustmentId: z.uuid(), warehouseId: z.uuid(), productId: z.uuid(), uom: z.string().min(1),
-    qtyDelta: SignedQuantityV1, unitCost: MoneyV1.nullable(), totalCostDelta: SignedMoneyV1.nullable(),
+    qtyDelta: SignedQuantityV1, unitCost: UnitCostV1.nullable(), totalCostDelta: SignedMoneyV1.nullable(),
     reasonCode: z.string().min(1), businessDate: BusinessDateSchema,
   }),
 });

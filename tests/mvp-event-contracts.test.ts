@@ -14,15 +14,15 @@ const ids = {
 const payloads: Record<string, Record<string, unknown>> = {
   INVENTORY_RECEIVED: {
     movementId: ids.a, warehouseId: ids.b, productId: ids.c, uom: 'KARTON', qty: '10.000',
-    unitCost: '95000.00', totalCost: '950000.00', sourceType: 'GOODS_RECEIPT', sourceId: ids.d, businessDate: '2026-10-01',
+    unitCost: '95000.0000', totalCost: '950000.00', sourceType: 'GOODS_RECEIPT', sourceId: ids.d, businessDate: '2026-10-01',
   },
   INVENTORY_ISSUED: {
     movementId: ids.a, warehouseId: ids.b, productId: ids.c, uom: 'KARTON', qty: '2.000',
-    unitCost: '95000.00', totalCost: '190000.00', sourceType: 'SALES_FULFILLMENT', sourceId: ids.d, businessDate: '2026-10-01',
+    unitCost: '95000.0000', totalCost: '190000.00', sourceType: 'SALES_FULFILLMENT', sourceId: ids.d, businessDate: '2026-10-01',
   },
   INVENTORY_ADJUSTED: {
     adjustmentId: ids.a, warehouseId: ids.b, productId: ids.c, uom: 'PCS', qtyDelta: '-3.000',
-    unitCost: '2375.00', totalCostDelta: '-7125.00', reasonCode: 'DAMAGED', businessDate: '2026-10-01',
+    unitCost: '2375.0000', totalCostDelta: '-7125.00', reasonCode: 'DAMAGED', businessDate: '2026-10-01',
   },
   INVOICE_ISSUED: {
     invoiceId: ids.a, invoiceNumber: 'INV-KSR-000001', customerId: ids.b, branchId: ids.c, salesOrderId: ids.d,
@@ -120,6 +120,13 @@ describe('MVP v1 event payload contracts (MVP_PLAN §5)', () => {
     expect(() => parseEventForPublication(envelope('INVENTORY_RECEIVED', unvalued))).not.toThrow();
     expect(() => parseEventForPublication(envelope('CASH_CUSTODY_VERIFIED', { ...payloads.CASH_CUSTODY_VERIFIED, varianceAmount: '1000.00' }))).not.toThrow();
     expect(() => parseEventForPublication(envelope('CASH_CUSTODY_VERIFIED', { ...payloads.CASH_CUSTODY_VERIFIED, varianceAmount: '-0.00' }))).toThrow();
+  });
+
+  it('carries a unit cost at the ledger scale of 4 places, never at the money scale (MVP-OD-13)', () => {
+    for (const eventType of ['INVENTORY_RECEIVED', 'INVENTORY_ISSUED', 'INVENTORY_ADJUSTED']) {
+      expect(() => parseEventForPublication(envelope(eventType, { ...payloads[eventType], unitCost: '2374.5833' }))).not.toThrow();
+      expect(() => parseEventForPublication(envelope(eventType, { ...payloads[eventType], unitCost: '2374.58' }))).toThrow();
+    }
   });
 
   it('rejects a negative amount where only a delta or variance may be signed', () => {

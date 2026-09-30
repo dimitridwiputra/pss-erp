@@ -42,7 +42,7 @@ const mustGrant: Record<string, string[]> = {
     'pos.shift.open', 'pos.sale.create', 'pos.sale.checkout', 'pos.tender.accept', 'pos.shift.close',
     'pos.receipt.reprint', 'payments.cash_handover.declare',
   ],
-  'gudang.demo': ['fulfillment.pickup.handover', 'procurement.receipt.post'],
+  'gudang.demo': ['fulfillment.pickup.handover', 'procurement.receipt.post', 'inventory.stock_card.view'],
   'admin.demo': [
     'master_data.product.manage', 'commercial.price_list.manage', 'inventory.adjustment.request',
     'pos.report.view', 'invoicing.invoice.print',
@@ -53,7 +53,7 @@ const mustGrant: Record<string, string[]> = {
 
 // The separations the demo story depends on (SOD-06, SOD-09, AGENTS.md §4.5).
 const mustDeny: Record<string, string[]> = {
-  'kasir.demo': ['payments.cash_custody.verify', 'fulfillment.pickup.handover', 'finance.journal.create'],
+  'kasir.demo': ['payments.cash_custody.verify', 'fulfillment.pickup.handover', 'finance.journal.create', 'inventory.stock_card.view'],
   'gudang.demo': ['pos.tender.accept', 'payments.cash_custody.verify'],
   'admin.demo': ['pos.tender.accept', 'pos.receipt.reprint', 'payments.cash_custody.verify', 'finance.journal.approve'],
   'keuangan.demo': ['finance.journal.approve', 'pos.tender.accept', 'payments.cash_handover.declare'],
