@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCustomer } from '../src/application/create-customer';
 import { findProductByBarcode } from '../src/application/find-product-by-barcode';
 import { getOrCreateWalkInCustomer } from '../src/application/get-or-create-walk-in-customer';
 import { searchProducts } from '../src/application/search-products';
-import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
+import { getCustomerTaxTreatment } from '../src/application/get-customer-tax-treatment';
+import { getProductTaxCodes } from '../src/application/get-product-tax-code';
+import { applyAuditMigrations, applyMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_master_data_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -23,11 +24,12 @@ beforeAll(async () => {
   pool = new pg.Pool({ connectionString: testUrl.toString() });
   // audit.audit_entry is a prerequisite: withAuditedTransaction (called by createCustomer /
   // getOrCreateWalkInCustomer) writes into it, and one test asserts on it directly.
-  const migration = await readFile(new URL('../infrastructure/database/migrations/0001_master_data.sql', import.meta.url), 'utf8');
   // The whole audit domain, not one file: a fixture that replays only
   // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
   await applyAuditMigrations(pool);
-  await pool.query(migration);
+  // Both of this domain's migrations, in order, for the same reason: `tax_treatment` and
+  // `tax_code` arrive in 0002, and a fixture that replayed only 0001 would report them missing.
+  await applyMigrations(pool, 'master-data');
 }, 30_000);
 
 afterAll(async () => {
@@ -169,5 +171,72 @@ describe('master-data product read model', () => {
 
     const noMatch = await searchProducts(pool, { organizationId, query: 'tidak-ada' });
     expect(noMatch).toHaveLength(0);
+  });
+});
+
+describe('master-data tax classification reads (TAX-001, TAX-002)', () => {
+  async function registerCustomer(organizationId: string, taxTreatment?: 'VAT_OUTPUT' | 'EXEMPT' | 'NON_VAT') {
+    return createCustomer(pool, {
+      organizationId,
+      name: 'Toko Pajak',
+      ...(taxTreatment === undefined ? {} : { taxTreatment }),
+      actor: { userId: randomUUID(), roles: ['MASTER_DATA_STEWARD'] },
+      requestId: randomUUID(), correlationId: randomUUID(), source: 'WEB',
+    });
+  }
+
+  it('records the tax treatment given at creation and reads it back', async () => {
+    const organizationId = randomUUID();
+    const exempt = await registerCustomer(organizationId, 'EXEMPT');
+    const nonVat = await registerCustomer(organizationId, 'NON_VAT');
+
+    expect(await getCustomerTaxTreatment(pool, undefined, {
+      customerId: exempt.id, organizationId,
+    })).toBe('EXEMPT');
+    expect(await getCustomerTaxTreatment(pool, undefined, {
+      customerId: nonVat.id, organizationId,
+    })).toBe('NON_VAT');
+  });
+
+  it('reports null — unresolved, not zero-taxed — for a customer created without a treatment', async () => {
+    const organizationId = randomUUID();
+    const customer = await registerCustomer(organizationId);
+
+    // The distinction the whole fail-closed design rests on: null must not read as NON_VAT.
+    expect(await getCustomerTaxTreatment(pool, undefined, {
+      customerId: customer.id, organizationId,
+    })).toBeNull();
+  });
+
+  it('refuses a customer that belongs to another organization rather than resolving it', async () => {
+    const customer = await registerCustomer(randomUUID(), 'EXEMPT');
+
+    await expect(getCustomerTaxTreatment(pool, undefined, {
+      customerId: customer.id, organizationId: randomUUID(),
+    })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('reads product tax codes in one batch and reports null for products that have none', async () => {
+    const organizationId = randomUUID();
+    const coded = randomUUID();
+    const uncoded = randomUUID();
+    const otherOrganization = randomUUID();
+
+    await pool.query(
+      `INSERT INTO core.product (id, organization_id, sku, name, base_uom, status, tax_code)
+       VALUES ($1, $2, 'SKU-TAX-1', 'Produk PPN', 'PCS', 'ACTIVE', 'VAT_OUTPUT'),
+              ($3, $2, 'SKU-TAX-2', 'Produk Tanpa Kode', 'PCS', 'ACTIVE', NULL),
+              ($4, $5, 'SKU-TAX-3', 'ProdukLainOrganisasi', 'PCS', 'ACTIVE', 'NON_VAT')`,
+      [coded, organizationId, uncoded, otherOrganization, otherOrganization],
+    );
+
+    const codes = await getProductTaxCodes(pool, undefined, {
+      productIds: [coded, uncoded, randomUUID()], organizationId,
+    });
+
+    expect(codes.get(coded)).toBe('VAT_OUTPUT');
+    expect(codes.get(uncoded)).toBeNull();
+    // A product of another organization is absent rather than leaking its code.
+    expect(codes.has(otherOrganization)).toBe(false);
   });
 });

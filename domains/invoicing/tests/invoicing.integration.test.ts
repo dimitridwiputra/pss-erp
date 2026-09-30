@@ -1,15 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DomainError } from '@pss/contracts';
 import { prepareInvoice } from '../src/application/prepare-invoice';
 import { issueInvoice } from '../src/application/issue-invoice';
-import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
+import {
+  applyInvoiceSchemas, createTestDatabase, seedActiveTaxRate, seedCustomer, seedProduct,
+  setTaxConfiguration,
+} from './fixture';
 
-const databaseName = `pss_invoicing_test_${randomUUID().replaceAll('-', '')}`;
-let admin: pg.Client;
 let pool: pg.Pool;
+let dropDatabase: () => Promise<void>;
+
+/** One business date far enough in the past that no fixture row's valid_from matters. */
+const BUSINESS_DATE = '2026-03-10';
 
 function actor() {
   return { userId: randomUUID(), roles: ['SALES_ADMIN'] };
@@ -19,59 +22,65 @@ function auditContext() {
   return { actor: actor(), requestId: randomUUID(), correlationId: randomUUID(), source: 'WEB' as const };
 }
 
+/**
+ * A VAT_OUTPUT customer selling a VAT_OUTPUT product at an approved 11% rate, with the rounding
+ * rule set. This is the ordinary taxable configuration every pricing assertion below builds on, so
+ * it is one function rather than repeated per test — and each call gets its own organization, so
+ * tests cannot leak rate rows or configuration into one another.
+ */
+async function seededTaxableSale(rate = '11.000000') {
+  const organizationId = randomUUID();
+  await setTaxConfiguration(pool, { organizationId, roundingRule: 'HALF_UP' });
+  await seedActiveTaxRate(pool, { organizationId, rate });
+  const customerId = await seedCustomer(pool, { organizationId, taxTreatment: 'VAT_OUTPUT' });
+  const productId = await seedProduct(pool, { organizationId, taxCode: 'VAT_OUTPUT' });
+  return { organizationId, customerId, productId };
+}
+
 beforeAll(async () => {
-  const baseUrl = process.env.PSS_TEST_DATABASE_URL;
-  if (!baseUrl) throw new Error('PSS_TEST_DATABASE_URL is required for PostgreSQL integration tests.');
-  admin = new pg.Client({ connectionString: baseUrl });
-  await admin.connect();
-  await admin.query(`CREATE DATABASE ${databaseName}`);
-  const testUrl = new URL(baseUrl);
-  testUrl.pathname = `/${databaseName}`;
-  pool = new pg.Pool({ connectionString: testUrl.toString() });
-
-  await pool.query(await readFile(
-    new URL('../infrastructure/database/migrations/0001_invoicing.sql', import.meta.url), 'utf8',
-  ));
-
-  // Every command audits through @pss/audit's withAuditedTransaction/runAuditedWork, which
-  // inserts into audit.audit_entry — so that table must exist here too. The whole audit domain
-  // is replayed, not one file: a fixture that applies only 0001 is what made amending a shipped
-  // migration look safe (MIG-RISK-AUD-001).
-  await applyAuditMigrations(pool);
-
-}, 30_000);
+  const created = await createTestDatabase('pss_invoicing_test');
+  pool = created.pool;
+  dropDatabase = created.drop;
+  await applyInvoiceSchemas(pool);
+}, 60_000);
 
 afterAll(async () => {
-  await pool?.end();
-  if (admin) {
-    await admin.query(`DROP DATABASE IF EXISTS ${databaseName}`);
-    await admin.end();
-  }
+  // `beforeAll` failing means there is no database to drop; guarding keeps the original failure as
+  // the reported one instead of a second error about a missing fixture.
+  if (dropDatabase) await dropDatabase();
 });
 
 describe('invoicing: prepareInvoice', () => {
   it('reserves a sequential number per organization/year and computes the correct subtotal/total', async () => {
-    const organizationId = randomUUID();
+    const { organizationId, customerId, productId } = await seededTaxableSale();
 
     const first = await prepareInvoice(pool, undefined, {
       organizationId,
       branchCode: 'CMH',
       salesOrderId: randomUUID(),
+      customerId,
+      businessDate: BUSINESS_DATE,
       lines: [
-        { productId: randomUUID(), uom: 'CTN', qty: '2.000', unitPrice: '50000.00' },
-        { productId: randomUUID(), uom: 'PCS', qty: '3.000', unitPrice: '20000.00' },
+        { productId, uom: 'CTN', qty: '2.000', unitPrice: '50000.00' },
+        { productId, uom: 'PCS', qty: '3.000', unitPrice: '20000.00' },
       ],
       ...auditContext(),
     });
 
-    expect(first.number).toMatch(/^INV-CMH-\d{4}-000001$/);
-    expect(first.total).toBe('160000.00');
+    expect(first.number).toMatch(/^INV-CMH-2026-000001$/);
+    expect(first.subtotal).toBe('160000.00');
+    // 11% of 160000.00 — the assertion that fails outright under the pre-fix behaviour, which stored
+    // tax_total as 0 for every line.
+    expect(first.taxTotal).toBe('17600.00');
+    expect(first.total).toBe('177600.00');
 
     const invoiceRow = await pool.query(
       `SELECT status, subtotal, tax_total, total FROM sales.invoice WHERE id = $1`,
       [first.invoiceId],
     );
-    expect(invoiceRow.rows[0]).toMatchObject({ status: 'PREPARED', subtotal: '160000.00', tax_total: '0.00', total: '160000.00' });
+    expect(invoiceRow.rows[0]).toMatchObject({
+      status: 'PREPARED', subtotal: '160000.00', tax_total: '17600.00', total: '177600.00',
+    });
 
     const lineCount = await pool.query(
       `SELECT count(*)::int AS count FROM sales.invoice_line WHERE invoice_id = $1`,
@@ -90,14 +99,16 @@ describe('invoicing: prepareInvoice', () => {
       organizationId,
       branchCode: 'CMH',
       salesOrderId: randomUUID(),
-      lines: [{ productId: randomUUID(), uom: 'CTN', qty: '1.000', unitPrice: '1000.00' }],
+      customerId,
+      businessDate: BUSINESS_DATE,
+      lines: [{ productId, uom: 'CTN', qty: '1.000', unitPrice: '1000.00' }],
       ...auditContext(),
     });
-    expect(second.number).toMatch(/^INV-CMH-\d{4}-000002$/);
+    expect(second.number).toMatch(/^INV-CMH-2026-000002$/);
   });
 
   it('never collides on the same number under concurrent calls for the same organization/year', async () => {
-    const organizationId = randomUUID();
+    const { organizationId, customerId, productId } = await seededTaxableSale();
     const callCount = 5;
 
     const results = await Promise.all(
@@ -105,7 +116,9 @@ describe('invoicing: prepareInvoice', () => {
         organizationId,
         branchCode: 'SBY',
         salesOrderId: randomUUID(),
-        lines: [{ productId: randomUUID(), uom: 'CTN', qty: '1.000', unitPrice: '1000.00' }],
+        customerId,
+        businessDate: BUSINESS_DATE,
+        lines: [{ productId, uom: 'CTN', qty: '1.000', unitPrice: '1000.00' }],
         ...auditContext(),
       })),
     );
@@ -120,31 +133,40 @@ describe('invoicing: prepareInvoice', () => {
 
 describe('invoicing: issueInvoice', () => {
   it('transitions PREPARED to ISSUED and keeps totals unchanged when fully delivered', async () => {
-    const productA = randomUUID();
-    const productB = randomUUID();
+    const { organizationId, customerId, productId } = await seededTaxableSale();
     const prepared = await prepareInvoice(pool, undefined, {
-      organizationId: randomUUID(),
+      organizationId,
       branchCode: 'JKT',
       salesOrderId: randomUUID(),
+      customerId,
+      businessDate: BUSINESS_DATE,
       lines: [
-        { productId: productA, uom: 'CTN', qty: '10.000', unitPrice: '1000.00' },
-        { productId: productB, uom: 'PCS', qty: '5.000', unitPrice: '2000.00' },
+        { productId, uom: 'CTN', qty: '10.000', unitPrice: '1000.00' },
+        { productId, uom: 'PCS', qty: '5.000', unitPrice: '2000.00' },
       ],
       ...auditContext(),
     });
-    expect(prepared.total).toBe('20000.00');
+    expect(prepared.subtotal).toBe('20000.00');
+    expect(prepared.taxTotal).toBe('2200.00');
 
     const issued = await issueInvoice(pool, {
       invoiceId: prepared.invoiceId,
       deliveredLines: [
-        { productId: productA, uom: 'CTN', qtyDelivered: '10.000' },
-        { productId: productB, uom: 'PCS', qtyDelivered: '5.000' },
+        { productId, uom: 'CTN', qtyDelivered: '10.000' },
+        { productId, uom: 'PCS', qtyDelivered: '5.000' },
       ],
-      invoiceDate: '2026-09-27',
+      invoiceDate: BUSINESS_DATE,
       ...auditContext(),
     });
 
-    expect(issued).toMatchObject({ invoiceId: prepared.invoiceId, number: prepared.number, total: '20000.00', status: 'ISSUED' });
+    expect(issued).toMatchObject({
+      invoiceId: prepared.invoiceId,
+      number: prepared.number,
+      subtotal: '20000.00',
+      taxTotal: '2200.00',
+      total: '22200.00',
+      status: 'ISSUED',
+    });
 
     const invoiceRow = await pool.query(
       `SELECT status, invoice_date, total FROM sales.invoice WHERE id = $1`,
@@ -165,44 +187,54 @@ describe('invoicing: issueInvoice', () => {
     expect(auditEntries.rowCount).toBe(1);
   });
 
-  it('recomputes totals to match delivered qty and removes a fully undelivered line on partial delivery', async () => {
-    const productA = randomUUID();
-    const productB = randomUUID();
+  it('recomputes subtotal, tax and total to the delivered qty and removes an undelivered line', async () => {
+    const { organizationId, customerId, productId } = await seededTaxableSale();
+    const undeliveredProductId = await seedProduct(pool, { organizationId, taxCode: 'VAT_OUTPUT' });
     const prepared = await prepareInvoice(pool, undefined, {
-      organizationId: randomUUID(),
+      organizationId,
       branchCode: 'JKT',
       salesOrderId: randomUUID(),
+      customerId,
+      businessDate: BUSINESS_DATE,
       lines: [
-        { productId: productA, uom: 'CTN', qty: '10.000', unitPrice: '1000.00' },
-        { productId: productB, uom: 'PCS', qty: '5.000', unitPrice: '2000.00' },
+        { productId, uom: 'CTN', qty: '10.000', unitPrice: '1000.00' },
+        { productId: undeliveredProductId, uom: 'PCS', qty: '5.000', unitPrice: '2000.00' },
       ],
       ...auditContext(),
     });
 
     const issued = await issueInvoice(pool, {
       invoiceId: prepared.invoiceId,
-      // Only product A is partially delivered (6 of 10); product B is entirely omitted.
-      deliveredLines: [{ productId: productA, uom: 'CTN', qtyDelivered: '6.000' }],
-      invoiceDate: '2026-09-27',
+      // Only the first product is partially delivered (6 of 10); the second is entirely omitted.
+      deliveredLines: [{ productId, uom: 'CTN', qtyDelivered: '6.000' }],
+      invoiceDate: BUSINESS_DATE,
       ...auditContext(),
     });
 
-    expect(issued.total).toBe('6000.00');
+    expect(issued.subtotal).toBe('6000.00');
+    // The tax follows the quantity actually handed over, computed from the snapshot the prepared
+    // line already carries — not from whatever rate is in force now.
+    expect(issued.taxTotal).toBe('660.00');
+    expect(issued.total).toBe('6660.00');
 
     const lines = await pool.query(
-      `SELECT product_id, qty, line_total FROM sales.invoice_line WHERE invoice_id = $1`,
+      `SELECT product_id, qty, line_total, tax_base, tax_amount FROM sales.invoice_line WHERE invoice_id = $1`,
       [prepared.invoiceId],
     );
     expect(lines.rowCount).toBe(1);
-    expect(lines.rows[0]).toMatchObject({ product_id: productA, qty: '6.000', line_total: '6000.00' });
+    expect(lines.rows[0]).toMatchObject({
+      product_id: productId, qty: '6.000', line_total: '6000.00', tax_base: '6000.00', tax_amount: '660.00',
+    });
   });
 
   it('throws INVALID_STATE_TRANSITION when the same invoice is issued twice', async () => {
-    const productId = randomUUID();
+    const { organizationId, customerId, productId } = await seededTaxableSale();
     const prepared = await prepareInvoice(pool, undefined, {
-      organizationId: randomUUID(),
+      organizationId,
       branchCode: 'JKT',
       salesOrderId: randomUUID(),
+      customerId,
+      businessDate: BUSINESS_DATE,
       lines: [{ productId, uom: 'CTN', qty: '1.000', unitPrice: '1000.00' }],
       ...auditContext(),
     });
@@ -210,13 +242,12 @@ describe('invoicing: issueInvoice', () => {
     const issueOnce = () => issueInvoice(pool, {
       invoiceId: prepared.invoiceId,
       deliveredLines: [{ productId, uom: 'CTN', qtyDelivered: '1.000' }],
-      invoiceDate: '2026-09-27',
+      invoiceDate: BUSINESS_DATE,
       ...auditContext(),
     });
 
     await issueOnce();
     const secondAttempt = issueOnce();
-    await expect(secondAttempt).rejects.toThrow(DomainError);
     await expect(secondAttempt).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
   });
 });
