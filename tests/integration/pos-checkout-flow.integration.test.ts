@@ -1,11 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { registerPosTerminal, openPosShift, createPosSale, addPosSaleLine, checkoutPosSale, acceptPosTender, confirmPosPickupHandover, declarePosCashHandover } from '../../domains/pos/src/index';
 import { verifyCashCustody } from '../../domains/payments/src/index';
-import { applyAuditMigrations } from '../../scripts/apply-migrations.mjs';
-import { applyAuditMigrations } from '../../scripts/apply-migrations.mjs';
+import { applyAuditMigrations, applyMigrations } from '../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_pos_e2e_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -17,10 +15,6 @@ const warehouseId = randomUUID();
 const cashierId = randomUUID();
 const productId = randomUUID();
 const barcode = `BC-${randomUUID().slice(0, 8)}`;
-
-async function applyMigration(relativePath: string): Promise<void> {
-  const sql = await readFile(new URL(relativePath, import.meta.url), 'utf8');
-}
 
 beforeAll(async () => {
   const baseUrl = process.env.PSS_TEST_DATABASE_URL;
@@ -35,16 +29,11 @@ beforeAll(async () => {
   // The whole audit domain, not one file: a fixture that replays only 0001 is what made
   // amending a shipped migration look safe (MIG-RISK-AUD-001).
   await applyAuditMigrations(pool);
-  await applyMigration('../../domains/platform/infrastructure/database/migrations/0001_outbox_event.sql');
-  await applyMigration('../../domains/platform/infrastructure/database/migrations/0002_idempotency_key.sql');
-  await applyMigration('../../domains/master-data/infrastructure/database/migrations/0001_master_data.sql');
-  await applyMigration('../../domains/commercial/infrastructure/database/migrations/0001_commercial.sql');
-  await applyMigration('../../domains/inventory/infrastructure/database/migrations/0001_inventory.sql');
-  await applyMigration('../../domains/orders/infrastructure/database/migrations/0001_orders.sql');
-  await applyMigration('../../domains/fulfillment/infrastructure/database/migrations/0001_fulfillment.sql');
-  await applyMigration('../../domains/invoicing/infrastructure/database/migrations/0001_invoicing.sql');
-  await applyMigration('../../domains/payments/infrastructure/database/migrations/0001_payments.sql');
-  await applyMigration('../../domains/pos/infrastructure/database/migrations/0001_pos.sql');
+  // Each domain's full ordered list, not one file per domain: a hardcoded `0001` silently stops
+  // replaying the domain's later migrations (inventory 0002 was already missing here).
+  for (const domain of ['platform', 'master-data', 'commercial', 'inventory', 'orders', 'fulfillment', 'invoicing', 'payments', 'pos']) {
+    await applyMigrations(pool, domain);
+  }
 
   // Seed a sellable product with a karton barcode and an ACTIVE price list (POS-003 preconditions).
   await pool.query(
@@ -76,8 +65,6 @@ beforeAll(async () => {
      VALUES ($1, $2, $3, $4, 'KARTON', 25, 0)`,
     [randomUUID(), organizationId, warehouseId, productId],
   );
-  await applyAuditMigrations(pool);
-
 }, 60_000);
 
 afterAll(async () => {
