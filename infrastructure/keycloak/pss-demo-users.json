@@ -1,0 +1,45 @@
+{
+  "$comment": "MVP demo users (docs/mvp/MVP_PLAN.md §7). Synthetic, local only. No credentials here: scripts/setup-local-identity.mjs generates each password into .local/pss-demo-login.txt (gitignored). Role codes are PRD Appendix D; scope IDs are fixed so every stream's demo seed uses the same organization, branch and warehouse.",
+  "organization": { "id": "0199a000-0000-7000-8000-00000000d001", "name": "PSS Demo" },
+  "branch": { "id": "0199a000-0000-7000-8000-00000000d002", "code": "DMO", "name": "Cabang Demo" },
+  "warehouse": { "id": "0199a000-0000-7000-8000-00000000d003", "code": "GDG-DMO", "name": "Gudang Demo" },
+  "users": [
+    {
+      "username": "kasir.demo",
+      "userId": "0199a000-0000-7000-8000-00000000d101",
+      "displayName": "Kasir Demo",
+      "roles": [{ "roleCode": "POS_CASHIER", "scopeType": "WAREHOUSE" }]
+    },
+    {
+      "username": "gudang.demo",
+      "userId": "0199a000-0000-7000-8000-00000000d102",
+      "displayName": "Staf Gudang Demo",
+      "roles": [{ "roleCode": "WAREHOUSE_ADMIN", "scopeType": "WAREHOUSE" }]
+    },
+    {
+      "username": "admin.demo",
+      "userId": "0199a000-0000-7000-8000-00000000d103",
+      "displayName": "Admin Back Office Demo",
+      "roles": [
+        { "roleCode": "MASTER_DATA_STEWARD", "scopeType": "ORGANIZATION" },
+        { "roleCode": "COMMERCIAL_ADMIN", "scopeType": "ORGANIZATION" },
+        { "roleCode": "WAREHOUSE_ADMIN", "scopeType": "WAREHOUSE" }
+      ]
+    },
+    {
+      "username": "keuangan.demo",
+      "userId": "0199a000-0000-7000-8000-00000000d104",
+      "displayName": "Staf Keuangan Demo",
+      "roles": [
+        { "roleCode": "CASHIER", "scopeType": "BRANCH" },
+        { "roleCode": "FINANCE_MAKER", "scopeType": "ORGANIZATION" }
+      ]
+    },
+    {
+      "username": "kepala.keuangan.demo",
+      "userId": "0199a000-0000-7000-8000-00000000d105",
+      "displayName": "Kepala Keuangan Demo",
+      "roles": [{ "roleCode": "CONTROLLER", "scopeType": "ORGANIZATION" }]
+    }
+  ]
+}

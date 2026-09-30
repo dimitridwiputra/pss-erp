@@ -11,6 +11,8 @@ const adminBase = 'http://127.0.0.1:8080/admin/realms/pss-local';
 const root = new URL('../', import.meta.url);
 const webEnvironmentPath = new URL('apps/web/.env.local', root);
 const loginPath = new URL('.local/pss-demo-login.txt', root);
+const mvpDemoLoginPath = new URL('.local/pss-mvp-demo-logins.txt', root);
+const mvpDemoSeedPath = new URL('infrastructure/keycloak/pss-demo-users.json', root);
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required to create the synthetic local account.');
 
@@ -164,6 +166,70 @@ async function ensurePssMapping(subject) {
   }
 }
 
+/**
+ * MVP demo users (docs/mvp/MVP_PLAN.md §7) from `infrastructure/keycloak/pss-demo-users.json`.
+ * The seed file carries identities and role assignments only; each password is generated here once
+ * and written to `.local/pss-mvp-demo-logins.txt`, so no credential is ever committed. Re-running
+ * keeps existing passwords and is safe: every write is keyed by a fixed user ID or by the unique
+ * active-assignment index. This is a local fixture, like the account above; IDN-003 owns the
+ * audited assignment command for real accounts.
+ */
+async function ensureMvpDemoUsers(token) {
+  const seed = JSON.parse(await readFile(mvpDemoSeedPath, 'utf8'));
+  const scopeIds = { ORGANIZATION: seed.organization.id, BRANCH: seed.branch.id, WAREHOUSE: seed.warehouse.id };
+  const recorded = await readFile(mvpDemoLoginPath, 'utf8').catch(() => '');
+  const newLogins = [];
+  const pool = new pg.Pool({ connectionString: databaseUrl });
+  try {
+    for (const user of seed.users) {
+      const usersPath = `/users?username=${encodeURIComponent(user.username)}&exact=true`;
+      let users = await (await keycloakRequest(usersPath, token)).json();
+      if (!users.length) {
+        const [firstName, ...rest] = user.displayName.split(' ');
+        const created = await keycloakRequest('/users', token, {
+          method: 'POST',
+          body: JSON.stringify({
+            username: user.username, enabled: true, emailVerified: true,
+            firstName, lastName: rest.join(' ') || firstName, email: `${user.username}@example.test`,
+          }),
+        });
+        if (created.status !== 201) throw new Error(`Demo user ${user.username} creation returned HTTP ${created.status}.`);
+        users = await (await keycloakRequest(usersPath, token)).json();
+      }
+      const subject = users[0]?.id;
+      if (!subject) throw new Error(`Demo user ${user.username} has no subject.`);
+      if (!new RegExp(`^Username: ${user.username.replaceAll('.', '\\.')}$`, 'm').test(recorded)) {
+        const password = randomBytes(18).toString('base64url');
+        const reset = await keycloakRequest(`/users/${subject}/reset-password`, token, {
+          method: 'PUT', body: JSON.stringify({ type: 'password', value: password, temporary: false }),
+        });
+        if (reset.status !== 204) throw new Error(`Demo password setup for ${user.username} returned HTTP ${reset.status}.`);
+        newLogins.push(`Username: ${user.username}\nPassword: ${password}\n`);
+      }
+      await pool.query(
+        `INSERT INTO identity.user_account (id, organization_id, idp_subject, display_name, primary_branch_id, status)
+         VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+         ON CONFLICT (id) DO UPDATE SET idp_subject = EXCLUDED.idp_subject, status = 'ACTIVE', updated_at = now()`,
+        [user.userId, seed.organization.id, subject, user.displayName, seed.branch.id],
+      );
+      for (const role of user.roles) {
+        await pool.query(
+          `INSERT INTO identity.role_assignment (id, user_id, role_code, scope_type, scope_id)
+           VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
+          [randomUUID(), user.userId, role.roleCode, role.scopeType, scopeIds[role.scopeType]],
+        );
+      }
+    }
+  } finally {
+    await pool.end();
+  }
+  if (newLogins.length) {
+    await mkdir(new URL('.local/', root), { recursive: true });
+    const header = recorded ? '' : 'Synthetic local MVP demo accounts only (docs/mvp/MVP_PLAN.md §7)\n\n';
+    await writeFile(mvpDemoLoginPath, `${recorded}${header}${newLogins.join('\n')}`, { mode: 0o600 });
+  }
+}
+
 async function ensureWebEnvironment() {
   const existing = await readFile(webEnvironmentPath, 'utf8').catch(() => '');
   const values = {
@@ -172,6 +238,7 @@ async function ensureWebEnvironment() {
     AUTH_KEYCLOAK_ISSUER: issuer,
     AUTH_TRUST_HOST: 'true',
     PSS_API_BASE_URL: 'http://127.0.0.1:4000',
+    PSS_FINANCE_API_BASE_URL: 'http://127.0.0.1:4001',
   };
   const missing = Object.entries(values).filter(([key]) => !new RegExp(`^${key}=`, 'm').test(existing));
   if (missing.length) {
@@ -186,5 +253,6 @@ const token = await adminToken();
 await ensureApiAudience(token);
 const subject = await ensureDemoUser(token);
 await ensurePssMapping(subject);
+await ensureMvpDemoUsers(token);
 await ensureWebEnvironment();
-process.stdout.write('Local PSS identity ready. Demo sign-in details are in .local/pss-demo-login.txt.\n');
+process.stdout.write('Local PSS identity ready. Demo sign-in details are in .local/pss-demo-login.txt and .local/pss-mvp-demo-logins.txt.\n');
