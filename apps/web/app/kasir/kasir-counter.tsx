@@ -12,7 +12,8 @@ import { ProblemNotice } from './components/problem-notice';
 import { useCommand } from './hooks/use-command';
 import { useOnlineStatus } from './hooks/use-online-status';
 import { kasirFetch } from './lib/api-client';
-import { cashPresets, difference, isAtLeast, moneyInput, quantity, rupiah, sum } from './lib/money';
+import { MoneyField } from './components/money-field';
+import { cashPresets, difference, isAtLeast, quantity, rupiah, sum } from './lib/money';
 
 type Shift = NonNullable<KasirShiftSayaResponse['shift']>;
 
@@ -73,9 +74,7 @@ function OpenShift() {
           </div>
         </fieldset>
       )}
-      <label className="pos-field">Modal laci (Rp)
-        <input inputMode="numeric" value={openingFloat} onChange={(event) => setOpeningFloat(moneyInput(event.target.value))} placeholder="0" />
-      </label>
+      <MoneyField label="Modal laci" value={openingFloat} onChange={setOpeningFloat} />
       <ProblemNotice error={open.error} />
       <button className="pos-primary" type="button" disabled={!terminalId || openingFloat === '' || open.isPending}
         onClick={() => open.mutate({ terminalId, openingFloat })}>
@@ -124,7 +123,16 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
   const [barcode, setBarcode] = useState('');
   const [search, setSearch] = useState('');
   const scanRef = useRef<HTMLInputElement>(null);
+  const lastScan = useRef<{ code: string; at: number } | null>(null);
   useEffect(() => { scanRef.current?.focus(); }, [sale?.lines.length]);
+
+  /** POS-003 idempotency: the same barcode read twice within 500 ms is one scan (a scanner double-read). */
+  function scan(code: string) {
+    const now = Date.now();
+    if (lastScan.current && lastScan.current.code === code && now - lastScan.current.at < 500) { setBarcode(''); return; }
+    lastScan.current = { code, at: now };
+    addLine.mutate({ barcode: code });
+  }
 
   const katalog = useQuery({
     queryKey: ['kasir-katalog', search.trim()], enabled: search.trim().length >= 2,
@@ -158,7 +166,7 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
         <div className="pos-card-title"><h2 id="scan-title">Scan Barang</h2>
           <button className="pos-outline" type="button" onClick={onCloseShift} disabled={lines.length > 0}>Tutup Shift</button>
         </div>
-        <form className="pos-toolbar" onSubmit={(event) => { event.preventDefault(); if (barcode.trim()) addLine.mutate({ barcode: barcode.trim() }); }}>
+        <form className="pos-toolbar" onSubmit={(event) => { event.preventDefault(); if (barcode.trim()) scan(barcode.trim()); }}>
           <label className="pos-search pos-scan-field"><ScanLine size={22} />
             <input ref={scanRef} aria-label="Scan barang" value={barcode} onChange={(event) => setBarcode(event.target.value)}
               placeholder="Scan atau ketik barcode" autoComplete="off" disabled={!online} />
@@ -223,9 +231,7 @@ function Payment({ sale, onPaid }: { sale: PosSaleResponse; onPaid: (receipt: Po
       <h2 id="payment-title">Terima Uang</h2>
       <small>Total belanja · {sale.invoiceNumber}</small>
       <strong className="pos-mobile-checkout-total">{rupiah(sale.total)}</strong>
-      <label className="pos-field">Uang diterima (Rp)
-        <input inputMode="numeric" value={received} onChange={(event) => setReceived(moneyInput(event.target.value))} placeholder="0" autoFocus />
-      </label>
+      <MoneyField label="Uang diterima" value={received} onChange={setReceived} autoFocus />
       <div className="pos-presets">
         {cashPresets(sale.total).map((value) => <button type="button" key={value} onClick={() => setReceived(value)}>{rupiah(value)}</button>)}
       </div>
@@ -301,12 +307,10 @@ function CloseShift({ shift, onCancel }: { shift: Shift; onCancel: () => void })
         <div><dt>Penjualan tunai ({shift.paidSaleCount} transaksi)</dt><dd>{rupiah(shift.cashSalesTotal)}</dd></div>
         <div><dt>Seharusnya di laci</dt><dd><strong>{rupiah(expected)}</strong></dd></div>
       </dl>
-      <label className="pos-field">Uang di laci setelah dihitung (Rp)
-        <input inputMode="numeric" value={counted} onChange={(event) => setCounted(moneyInput(event.target.value))} placeholder="0" autoFocus />
-      </label>
+      <MoneyField label="Uang di laci setelah dihitung" value={counted} onChange={setCounted} autoFocus />
       {differs && variance && (
         <fieldset className="pos-field">
-          <legend>Ada selisih {rupiah(variance)}. Kenapa?</legend>
+          <legend>Uang {variance.startsWith('-') ? 'kurang' : 'lebih'} {rupiah(variance.replace(/^-/, ''))} dari seharusnya. Kenapa?</legend>
           <div className="pos-methods">
             {closeReasons.map((reason) => (
               <button key={reason.code} type="button" aria-pressed={reasonCode === reason.code}
@@ -334,8 +338,15 @@ function CashHandover({ shift, onDone }: { shift: Shift; onDone: (result: Declar
   return (
     <section className="pos-card pos-kasir-narrow" aria-labelledby="handover-title">
       <h2 id="handover-title">Serah Kas</h2>
-      <p className="pos-instruction">Serahkan {rupiah(shift.cashSalesTotal)} ke Kasir Keuangan. Modal laci {rupiah(shift.openingFloat)} tetap di laci.</p>
-      {shift.variance && shift.variance !== '0.00' && <p className="pos-muted">Selisih saat tutup shift: {rupiah(shift.variance)}. Keuangan akan memeriksanya saat menghitung.</p>}
+      {shift.variance && shift.variance !== '0.00' && shift.countedCash ? (
+        <>
+          {/* MVP-OD-11: the declaration is the recorded sales; the cashier hands over what is actually there. */}
+          <p className="pos-instruction">Serahkan semua uang penjualan, {rupiah(difference(shift.countedCash, shift.openingFloat))}, ke Kasir Keuangan. Modal laci {rupiah(shift.openingFloat)} tetap di laci.</p>
+          <p className="pos-muted">Penjualan tunai tercatat {rupiah(shift.cashSalesTotal)}; uang {shift.variance.startsWith('-') ? 'kurang' : 'lebih'} {rupiah(shift.variance.replace(/^-/, ''))}. Keuangan mencatat selisihnya saat menghitung.</p>
+        </>
+      ) : (
+        <p className="pos-instruction">Serahkan {rupiah(shift.cashSalesTotal)} ke Kasir Keuangan. Modal laci {rupiah(shift.openingFloat)} tetap di laci.</p>
+      )}
       <ProblemNotice error={declare.error} />
       <button className="pos-primary" type="button" disabled={declare.isPending} onClick={() => declare.mutate({ shiftId: shift.id })}>
         {declare.isPending ? 'Sedang memproses…' : 'Serahkan Kas'}

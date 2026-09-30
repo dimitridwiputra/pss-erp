@@ -12,4 +12,6 @@ export PSS_OIDC_ISSUER='http://127.0.0.1:8080/realms/pss-local'
 export PSS_OIDC_AUDIENCE='pss-api'
 export PSS_OIDC_JWKS_URI='http://127.0.0.1:8080/realms/pss-local/protocol/openid-connect/certs'
 export PSS_DEMO_POS_ENABLED=true
-exec apps/api/node_modules/.bin/tsx apps/api/src/main.ts
+# From apps/api, so tsx reads its tsconfig (decorators), as `pnpm dev` does.
+cd apps/api
+exec node_modules/.bin/tsx src/main.ts

@@ -69,7 +69,7 @@ export function PickupQueue() {
     <>
       {done && <div className="pos-inline-success" role="status"><CheckCircle2 size={20} /> Barang untuk struk {done.invoiceNumber} sudah diserahkan.</div>}
       <section className="pos-card" aria-labelledby="queue-title">
-        <div className="pos-card-title"><h2 id="queue-title">Menunggu Diambil <b>{items.length}</b></h2></div>
+        <div className="pos-card-title"><h2 id="queue-title">Menunggu Diambil{items.length > 0 && <span className="pos-count">{items.length}</span>}</h2></div>
         <form className="pos-toolbar" onSubmit={(event) => { event.preventDefault(); pickByCode(); }}>
           <label className="pos-search"><ScanLine size={20} />
             <input aria-label="Scan nomor struk" value={code} onChange={(event) => setCode(event.target.value)} placeholder="Scan atau ketik nomor struk" autoFocus />

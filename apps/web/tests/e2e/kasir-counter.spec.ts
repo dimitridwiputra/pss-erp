@@ -10,7 +10,7 @@ test('the cashier opens a shift, scans, takes cash with change shown, and gets a
   await expect(page.getByRole('heading', { name: 'Buka Shift' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Serah Barang' })).toHaveCount(0);
   await page.getByRole('button', { name: /Konter 1/ }).click();
-  await page.getByLabel('Modal laci (Rp)').fill('500.000');
+  await page.getByLabel('Modal laci').fill('500.000');
   await page.getByRole('button', { name: 'Buka Shift' }).click();
 
   const scan = page.getByRole('textbox', { name: 'Scan barang' });
@@ -22,16 +22,22 @@ test('the cashier opens a shift, scans, takes cash with change shown, and gets a
   await scan.fill('8990001000012');
   await scan.press('Enter');
   await expect(page.getByText('Mi Goreng 80g')).toBeVisible();
+  const scannedAt = Date.now();
+  // POS-003: the same barcode read again within 500 ms is a scanner double-read, one scan.
+  await scan.fill('8990001000012');
+  await scan.press('Enter');
+  await expect(page.locator('.pos-total-final')).toContainText('Rp 118.000');
+  await page.waitForTimeout(Math.max(0, 600 - (Date.now() - scannedAt)));
   await scan.fill('8990001000012');
   await scan.press('Enter');
   await expect(page.locator('.pos-total-final')).toContainText('Rp 236.000');
 
   await page.getByRole('button', { name: /Bayar/ }).click();
   await expect(page.getByRole('heading', { name: 'Terima Uang' })).toBeVisible();
-  await page.getByLabel('Uang diterima (Rp)').fill('200000');
+  await page.getByLabel('Uang diterima').fill('200000');
   await expect(page.getByText(/Uang kurang Rp\s36\.000/)).toBeVisible();
   await expect(page.getByRole('button', { name: /Terima Uang/ })).toBeDisabled();
-  await page.getByLabel('Uang diterima (Rp)').fill('250000');
+  await page.getByLabel('Uang diterima').fill('250000');
   await expect(page.locator('.pos-change')).toContainText('Rp 14.000');
   await page.getByRole('button', { name: /Terima Uang/ }).click();
 

@@ -18,9 +18,10 @@
 .pos-kasir .pos-methods { flex-wrap: wrap; }
 .pos-kasir .pos-methods button { min-height: 56px; min-width: 140px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .pos-kasir .pos-methods button small { font-weight: 500; color: var(--gray-600); }
-.pos-kasir .pos-methods button.selected { border: 2px solid var(--pss-navy-900); background: var(--info-100); }
+.pos-kasir .pos-methods button.selected { border: 2px solid var(--pss-navy-900); background: var(--info-100); color: var(--pss-navy-950); }
+.pos-kasir .pos-methods button.selected small { color: var(--pss-navy-900); }
 .pos-kasir .pos-qty button { width: 48px; height: 48px; }
-.pos-kasir .pos-qty span { min-width: 72px; text-align: center; font-variant-numeric: tabular-nums; }
+.pos-kasir .pos-qty span { min-width: 96px; padding: 0 8px; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pos-kasir .pos-presets button { min-height: 48px; font-size: 15px; font-variant-numeric: tabular-nums; }
 .pos-kasir .pos-change strong { font-size: 26px; font-variant-numeric: tabular-nums; }
 .pos-kasir .pos-mobile-checkout-total, .pos-kasir .pos-total strong { font-variant-numeric: tabular-nums; }
@@ -35,6 +36,10 @@
 .pos-kasir .pos-bottom-nav a, .pos-kasir .pos-bottom-nav button { flex-direction: column; gap: 2px; font-size: 12px; color: var(--pss-navy-950); }
 .pos-kasir .pos-bottom-nav .active { font-weight: 700; color: var(--pss-navy-900); }
 
+.pos-money-input { display: flex; align-items: center; gap: 8px; border: 1px solid var(--gray-300); border-radius: 7px; padding-left: 12px; background: var(--pss-white); color: var(--gray-600); font-size: 18px; }
+.pos-money-input:focus-within { outline: 3px solid var(--info-700); outline-offset: 2px; }
+.pos-kasir .pos-money-input input { border: 0; flex: 1; outline: 0 !important; }
+.pos-count { display: inline-flex; margin-left: 8px; min-width: 28px; justify-content: center; border-radius: 999px; padding: 2px 8px; background: var(--info-100); color: var(--info-700); font-size: 15px; }
 .pos-kasir-narrow { max-width: 620px; margin: 0 auto; }
 .pos-kasir-narrow .pos-primary { width: 100%; margin-top: 8px; }
 .pos-kasir .pos-footer-actions .pos-primary { width: auto; margin-top: 0; }
