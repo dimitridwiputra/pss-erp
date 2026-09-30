@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post, Query, Req } from '@nestjs/common';
 import { DomainError, registryCatalog, type CurrentUserResponse } from '@pss/contracts';
-import { checkAccess, loadActiveRoleAssignments } from '@pss/identity';
+import {
+  checkAccess, evaluateConfigWrite, loadActiveRoleAssignments, technicalConfigPermission,
+} from '@pss/identity';
 import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
 import {
   configGateReport, IdempotencyError, listConfigValues, listFeatureFlags, listFlagTargeting,
-  loadConfigRows, loadFlagRows, proposeConfigValue, runCommand, setFeatureFlag, setFlagTargeting,
-  staleFeatureFlags,
+  loadConfigKeyPolicy, loadConfigRows, loadFlagRows, proposeConfigValue, runCommand, setFeatureFlag,
+  setFlagTargeting, staleFeatureFlags,
 } from '@pss/platform';
 import type { AuditedTransaction } from '@pss/platform';
 import { Pool } from 'pg';
@@ -16,25 +18,16 @@ import { IdentityService } from './identity.controller';
 type AuthedRequest = { headers: { authorization?: string; 'x-request-id'?: string; 'idempotency-key'?: string } };
 
 /**
- * PLT-009 / PLT-010 write permission. The value is read from the generated registry instead of
- * being written as a literal, so a registry change moves the gate with it (AGENTS.md §18).
+ * PLT-009 / PLT-010 write permission. Read from the generated registry rather than written as a
+ * literal, so a registry change moves the gate with it (AGENTS.md §18).
  *
- * The registry grants SYS-ADMIN a `configuration.*.manage` wildcard, while `@pss/identity`'s
- * `checkAccess` matches permission codes exactly and resolves them from a hand-transcribed
- * group table that does not contain that wildcard. This gate is therefore fail-closed: it denies
- * every caller until the wildcard is transcribed. That is the correct outcome under AGENTS.md
- * §15 — a system admin holds technical permissions, not implicit mutation permission, and a
- * configuration change is the clearest case of a change that must never happen by accident.
- * Transcribing the wildcard is an `@pss/identity` change, reported rather than made here.
+ * Appendix D.3 grants SYS-ADMIN a `configuration.*.manage` wildcard. It is deliberately not
+ * transcribed: the owner decided SYSTEM_ADMIN manages TECHNICAL configuration only, with
+ * BUSINESS configuration proposed by each key's owner role, and a wildcard would both grant
+ * blanket business reach and make SOD-07 unsatisfiable. The concrete technical permission is
+ * used here, and the per-key business owner is resolved from `platform.config_key`.
  */
-const CONFIG_MANAGE_PERMISSION = (() => {
-  const group = registryCatalog.permissionGroups.find((entry) => entry.group === 'SYS-ADMIN');
-  const permission = group?.permissions.find((code) => code.startsWith('configuration.'));
-  if (!permission) {
-    throw new Error('The SYS-ADMIN registry group no longer grants a configuration permission.');
-  }
-  return permission;
-})();
+const CONFIG_TECHNICAL_PERMISSION = technicalConfigPermission(registryCatalog.permissionGroups);
 
 const ScopeSchema = z.strictObject({
   branchId: z.uuid().optional(),
@@ -102,14 +95,33 @@ export class ConfigAdminService implements OnModuleDestroy {
     return this.identity.getCurrentUser(authorizationHeader);
   }
 
-  private async requireConfigurationWrite(authorizationHeader: string | undefined): Promise<CurrentUserResponse> {
+  /**
+   * PLT-009 write gate, now a real path rather than a permanent denial.
+   *
+   * The owner decided SYSTEM_ADMIN may manage TECHNICAL configuration and that BUSINESS
+   * configuration is proposed by the configured owner role for that key, with SYSTEM_ADMIN
+   * receiving no general business-mutation authority. So this is evaluated per key: an actor who
+   * may write one key may be denied another, and the answer comes from `platform.config_key`
+   * rather than from one static permission.
+   *
+   * Deciding the resulting approval stays separate. `evaluateConfigWrite` reports whether approval
+   * is required; it never approves anything, and holding write permission never implies approval
+   * permission.
+   */
+  private async requireConfigurationWrite(
+    authorizationHeader: string | undefined, key: string,
+  ): Promise<CurrentUserResponse> {
     const user = await this.requireUser(authorizationHeader);
     const assignments = await loadActiveRoleAssignments(this.requirePool(), user.id);
-    const allowed = checkAccess({
+    const holdsTechnicalManage = checkAccess({
       actorId: user.id, organizationId: user.organizationId, assignments,
-      permission: CONFIG_MANAGE_PERMISSION, resource: { organizationId: user.organizationId },
+      permission: CONFIG_TECHNICAL_PERMISSION, resource: { organizationId: user.organizationId },
     });
-    if (!allowed) throw new DomainError('PERMISSION_DENIED');
+    const decision = evaluateConfigWrite(key, assignments, {
+      holdsTechnicalManage,
+      policy: await loadConfigKeyPolicy(this.requirePool(), key),
+    });
+    if (!decision.allowed) throw new DomainError('PERMISSION_DENIED');
     return user;
   }
 
@@ -140,15 +152,39 @@ export class ConfigAdminService implements OnModuleDestroy {
   async proposeConfig(
     authorizationHeader: string | undefined, body: ProposeConfigBody, idempotencyKey: string, requestId: string,
   ) {
-    const user = await this.requireConfigurationWrite(authorizationHeader);
+    const user = await this.requireConfigurationWrite(authorizationHeader, body.key);
     return this.withIdempotency(user, 'platform.proposeConfigValue', idempotencyKey, body, ({ client }) =>
       proposeConfigValue(this.requirePool(), { ...body, organizationId: user.organizationId, requestId }, user.id, client));
+  }
+
+  /**
+   * PLT-010 feature flags are gated on the technical permission, not on per-key ownership.
+   *
+   * The owner's decision covered configuration keys, and `platform.config_key` seeds those. Flags
+   * come from a different registry (Appendix N.2) and were not classified, so choosing an owner
+   * role for each of the eighteen would be inventing a business fact.
+   *
+   * This is a known gap, not a considered answer: `finance.posting_enabled`,
+   * `tax.direct_integration_enabled`, and `credit.sub_limit_enabled` are financial controls, and a
+   * system administrator being able to toggle them alone does not meet the intent that
+   * SYSTEM_ADMIN holds no business-mutation authority. Recorded as an open decision against
+   * PLT-010 rather than silently resolved here.
+   */
+  private async requireFlagWrite(authorizationHeader: string | undefined): Promise<CurrentUserResponse> {
+    const user = await this.requireUser(authorizationHeader);
+    const assignments = await loadActiveRoleAssignments(this.requirePool(), user.id);
+    const allowed = checkAccess({
+      actorId: user.id, organizationId: user.organizationId, assignments,
+      permission: CONFIG_TECHNICAL_PERMISSION, resource: { organizationId: user.organizationId },
+    });
+    if (!allowed) throw new DomainError('PERMISSION_DENIED');
+    return user;
   }
 
   async setFlag(
     authorizationHeader: string | undefined, body: SetFlagBody, idempotencyKey: string, requestId: string,
   ) {
-    const user = await this.requireConfigurationWrite(authorizationHeader);
+    const user = await this.requireFlagWrite(authorizationHeader);
     return this.withIdempotency(user, 'platform.setFeatureFlag', idempotencyKey, body, (transaction) =>
       setFeatureFlag(this.requirePool(), { ...body, organizationId: user.organizationId, requestId }, user.id, transaction));
   }
@@ -156,7 +192,7 @@ export class ConfigAdminService implements OnModuleDestroy {
   async setFlagTargeting(
     authorizationHeader: string | undefined, body: SetFlagTargetingBody, idempotencyKey: string, requestId: string,
   ) {
-    const user = await this.requireConfigurationWrite(authorizationHeader);
+    const user = await this.requireFlagWrite(authorizationHeader);
     return this.withIdempotency(user, 'platform.setFlagTargeting', idempotencyKey, body, (transaction) =>
       setFlagTargeting(this.requirePool(), { ...body, organizationId: user.organizationId, requestId }, user.id, transaction));
   }

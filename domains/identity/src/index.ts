@@ -13,3 +13,7 @@ export {
   checkForbiddenRoleCombinations, checkSystemAdministratorSod, evaluateAssignmentSod,
   type RoleAssignmentView, type SodViolation,
 } from './domain/segregation-of-duties';
+export {
+  CONFIG_TECHNICAL_MANAGE, evaluateConfigWrite, technicalConfigPermission,
+} from './application/config-key-permissions';
+export type { ConfigKeyPolicy, ConfigWriteDecision } from './application/config-key-permissions';

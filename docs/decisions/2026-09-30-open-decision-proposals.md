@@ -1,14 +1,90 @@
-# Open business decisions — proposals for review
+# Open business decisions — proposals and decisions
 
 Date: 30 September 2026
-Status: **Proposed. Nothing here is in effect.** No migration, config value, or label has
-been written from these drafts.
+Status: **Five accepted, one pending (GAP-16).** The accepted decisions are recorded in
+[Accepted decisions](#accepted-decisions) at the end of this file; the proposals below are
+retained as the reasoning behind them.
 
-Six decisions from `docs/releases/F0.md` remain open. Three of them I can propose
-concretely; the other three (GAP-16 document numbering, branch business calendar,
-`configuration.*.manage` grant) are not included here because they need your subject-matter
-input before a proposal would be meaningful rather than invented. GAP-16 in particular is a
-fiscal document format — I will not draft a number that looks like a decision.
+Six decisions from `docs/releases/F0.md` were open. Five are now answered by the repository
+owner. The sixth, GAP-16 document numbering, is pending a template from the owner.
+
+<a id="accepted-decisions"></a>
+
+## Accepted decisions
+
+### OD-19 — audit retention
+
+**10 years total retention, 24 months hot in the primary database. ~820M audit rows must not
+be kept in the primary database for 10 years.**
+
+- Retention policy is configuration, not schema, so the period changes without a migration.
+- Rows older than 24 months move to cold archive storage; they are not dropped. The 10-year
+  obligation is met by the archive, not by the hot table.
+- The monthly range-partitioned table becomes live and the swap is authorised. A partition is
+  dropped only after its rows are archived and only when every row in it is past the period
+  for its class — never on a clock alone.
+- The unmeasured "~3 audit rows per mutation" assumption must be measured against real
+  traffic, because it sets the archive volume and therefore the bill.
+
+### GAP-23 — status vocabulary
+
+**Keep all 22 states in `pendingStatusLabels`.**
+
+- When labels are written they are Indonesian and human-readable, per `docs/DESIGN_SYSTEM.md`.
+- **`Menunggu persetujuan` is the generic label for any pending-approval state.**
+- The `ui:check` guard stays as it is. The mechanism that makes a deliberate gap visible
+  rather than silent is the point of `pendingStatusLabels`, so shrinking it to make the gate
+  look better would be the wrong trade.
+
+### Configuration-change approval
+
+**Until a specific approval level is configured for a key, route to the highest approval
+level. Do not auto-approve. Maker/requester ≠ approver remains mandatory.**
+
+- This is the fail-safe direction and matches Appendix N's own note that
+  `approval.<type>.levels` is KOSONG and therefore resolves to the highest level.
+- Write permission and approval permission are separate. Holding one never implies the other.
+- `identity.sod_exception` and `approval.<type>.levels` are themselves sensitive: a control
+  that can rewrite who must approve it cannot be changed without approval.
+
+### Branch business calendar and delivery promise
+
+**Working week is Monday–Saturday. Sunday is a non-working day.**
+
+- SLA computation uses `Asia/Jakarta` and the branch-specific calendar. The PRD already
+  requires `platform.business_calendar` per branch.
+- Official Indonesian national holidays are preloaded as non-working.
+- Operations may override an individual branch as **OPEN** on a day PSS actually operates.
+- **Cuti bersama follows the PSS annual operational calendar**, not an automatic closed rule.
+- Exceptional branch closures and openings are allowed as dated overrides.
+- **Normal delivery promise is H+1 operational working day from the order/fulfillment cut-off.**
+- If delivery waits for route capacity, stock, or truck availability, the SLA is **not
+  silently paused** — the operational delay and its reason are recorded.
+- If the customer explicitly requests a later delivery date, that requested date is the
+  delivery commitment.
+
+### Configuration write permission
+
+**The write path is supposed to exist. Fix the identity registry and register concrete
+configuration-management permissions.**
+
+- **SYSTEM_ADMIN may manage technical configuration.**
+- **Business configuration may be proposed by the configured owner role for that key.**
+- **SYSTEM_ADMIN does not receive general business-mutation authority.**
+- **Sensitive configuration still goes through `config_change` approval. Write permission does
+  not equal approval permission.**
+
+This supersedes the earlier proposal to grant `configuration.*.manage` to SYSTEM_ADMIN. A
+wildcard would have given a technical administrator blanket business reach, which is the
+outcome SOD-07 exists to prevent. Two concrete permissions replace it, and the write path
+resolves which one applies from the key's own classification.
+
+---
+
+# Proposals (superseded by the decisions above)
+
+Retained for the reasoning and the measurements. The values in these sections are **not**
+in effect where the accepted decisions differ.
 
 Each proposal below states the value, the reasoning, what changes in code, and the options
 with their cost. **A decision block is at the end of each section** for you to fill in.

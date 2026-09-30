@@ -568,10 +568,10 @@ export const registryCatalog = {
       "permissions": [
         "identity.user.manage",
         "identity.role.assign",
-        "configuration.*.manage",
+        "configuration.technical.manage",
         "integration.connector.manage"
       ],
-      "sourceText": "`identity.user.manage`, `identity.role.assign`, `configuration.*.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis"
+      "sourceText": "`identity.user.manage`, `identity.role.assign`, `configuration.technical.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis"
     }
   ],
   "permissionAdditions": [
@@ -3194,7 +3194,14 @@ export const registryCatalog = {
       "validationGate": "F4"
     },
     {
-      "keyExpression": "tax.vat_output_rate` / `tax.vat_input_rate",
+      "keyExpression": "tax.vat_output_rate",
+      "defaultText": "KOSONG → invoice tidak bisa diterbitkan sampai tarif diisi",
+      "scope": "effective-dated",
+      "owner": "Finance/Tax",
+      "validationGate": "F4"
+    },
+    {
+      "keyExpression": "tax.vat_input_rate",
       "defaultText": "KOSONG → invoice tidak bisa diterbitkan sampai tarif diisi",
       "scope": "effective-dated",
       "owner": "Finance/Tax",
@@ -3465,8 +3472,7 @@ export const registryCatalog = {
       "keys": [
         "tax.rounding_rule",
         "tax.input_vat_tolerance",
-        "tax.invoice_deadline_days",
-        "tax_export_format_version"
+        "tax.invoice_deadline_days"
       ]
     },
     {
@@ -3758,10 +3764,7 @@ export const registryCatalog = {
       "kind": "Config",
       "item": "`approval.<type>.expiry_hours` (per tipe; default 48 ASM) · `approval.<type>.bulk_allowed` (false)",
       "section": "§60",
-      "keys": [
-        "approval.<type>.expiry_hours",
-        "approval.<type>.bulk_allowed"
-      ]
+      "keys": []
     },
     {
       "kind": "Config",
@@ -3777,7 +3780,6 @@ export const registryCatalog = {
       "section": "§62",
       "keys": [
         "media.url_ttl_seconds",
-        "media.policy.<purpose>",
         "media.max_image_kb"
       ]
     },
@@ -3844,9 +3846,7 @@ export const registryCatalog = {
       "kind": "Config",
       "item": "`privacy.retention.<category>` (KOSONG kecuali raw 180 hari; Legal)",
       "section": "§77",
-      "keys": [
-        "privacy.retention.<category>"
-      ]
+      "keys": []
     },
     {
       "kind": "Config",
@@ -3997,8 +3997,7 @@ export const registryCatalog = {
       "item": "`integration.outbound_enabled` (off); policy flag `allow_manual_pending_match` (per principal/cabang, default off)",
       "section": "§59",
       "keys": [
-        "integration.outbound_enabled",
-        "allow_manual_pending_match"
+        "integration.outbound_enabled"
       ]
     },
     {
@@ -4021,10 +4020,7 @@ export const registryCatalog = {
       "kind": "Policy field",
       "item": "`warehouse_id`, `pss_mode`; proses tambahan FULFILLMENT, INVENTORY, PROCUREMENT, DELIVERY_EXECUTION",
       "section": "§26",
-      "keys": [
-        "warehouse_id",
-        "pss_mode"
-      ]
+      "keys": []
     }
   ],
   "queueSeeds": [

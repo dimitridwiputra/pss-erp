@@ -69,9 +69,17 @@ const groupPermissions: Readonly<Record<string, readonly string[]>> = {
   'FLT-SUPERVISE': ['fleet.shipment.view'],
   'MDM-MERGE-REQUEST': ['master_data.merge.request'],
   'DQ-WORK': ['platform.exception.work'],
+  // `configuration.*.manage` from Appendix D.3 is deliberately NOT transcribed as a wildcard.
+  // The owner decided SYSTEM_ADMIN may manage TECHNICAL configuration and that business
+  // configuration is proposed by the configured owner role for each key. A wildcard would grant
+  // blanket business reach and would make SOD-07 unsatisfiable, because holding a business
+  // mutation role is a hard violation with no exception path. The concrete technical permission
+  // is transcribed here; the per-key business owner is data in platform.config_key, resolved by
+  // evaluateConfigWrite rather than by a static permission list.
   'SYS-ADMIN': [
     'identity.user.manage', 'identity.role.assign', 'identity.session.revoke',
     'identity.mfa.reset', 'identity.device.revoke', 'integration.connector.manage',
+    'configuration.technical.manage',
   ],
   'AUDIT-READ-ALL': ['audit.entry.read', 'audit.export'],
 };

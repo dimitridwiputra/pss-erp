@@ -20,6 +20,7 @@ class ConfigAdminTestModule {}
 const databaseName = `pss_config_admin_api_test_${randomUUID().replaceAll('-', '')}`;
 const organizationId = randomUUID();
 const branchId = randomUUID();
+const controllerUserId = randomUUID();
 const issuer = 'http://localhost/realms/pss-config-test';
 const audience = 'pss-api';
 let admin: pg.Client;
@@ -59,7 +60,7 @@ beforeAll(async () => {
       await setup.query(await readFile(new URL(`../../../domains/identity/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
     }
     await setup.query(await readFile(new URL('../../../domains/audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8'));
-    for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql', '0004_configuration.sql', '0009_config_flag_admin.sql']) {
+    for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql', '0003_approval.sql', '0004_configuration.sql', '0009_config_flag_admin.sql', '0010_config_key_registry.sql']) {
       await setup.query(await readFile(new URL(`../../../domains/platform/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
     }
     await setup.query(
@@ -77,6 +78,18 @@ beforeAll(async () => {
       `INSERT INTO identity.role_assignment (id, user_id, role_code, scope_type, scope_id)
        VALUES ($1, $2, 'SYSTEM_ADMIN', 'ORGANIZATION', $3)`,
       [randomUUID(), adminUserId, organizationId],
+    );
+    // A business owner, to prove the per-key split: this user owns tax keys and nothing else.
+    await setup.query(
+      `INSERT INTO identity.user_account (id, organization_id, idp_subject, display_name, status)
+       VALUES ($1, $2, 'controller-subject', 'Controller', 'ACTIVE')
+       ON CONFLICT DO NOTHING`,
+      [controllerUserId, organizationId],
+    );
+    await setup.query(
+      `INSERT INTO identity.role_assignment (id, user_id, role_code, scope_type, scope_id)
+       VALUES ($1, $2, 'CONTROLLER', 'ORGANIZATION', $3)`,
+      [randomUUID(), controllerUserId, organizationId],
     );
   } finally {
     await setup.end();
@@ -190,14 +203,11 @@ describe('PLT-009 configuration admin route boundary', () => {
     expect(denied.status).toBe(403);
     expect(await denied.json()).toMatchObject({ code: 'PERMISSION_DENIED' });
 
-    // A SYSTEM_ADMIN is also denied, and that is the measured current behaviour rather than an
-    // assumption. The registry grants SYS-ADMIN the wildcard `configuration.*.manage`, while
-    // `checkAccess` matches permission codes exactly against `groupPermissions['SYS-ADMIN']`,
-    // which does not contain it. So no role can write configuration today. That is the correct
-    // direction of failure under AGENTS.md §15 -- a system admin holds technical permissions,
-    // not implicit mutation permission, and configuration is the change that must never happen
-    // by accident -- but it does mean the write is unreachable until @pss/identity transcribes
-    // the grant. This assertion is expected to flip to 200 at that point.
+    // A SYSTEM_ADMIN is denied this BUSINESS key. The owner decided SYSTEM_ADMIN manages
+    // TECHNICAL configuration and that business configuration is proposed by the configured owner
+    // role, so `invoicing.recognition_point` is owned by FINANCE_MAKER, which this actor does
+    // not hold. This is the whole point of the per-key split: the write path exists and is
+    // reachable, but not by everyone.
     const adminAttempt = await fetch(`${baseUrl}/platform/config/values`, {
       method: 'POST',
       headers: { ...(await auth('sysadmin-subject')), 'idempotency-key': randomUUID() },
@@ -209,14 +219,101 @@ describe('PLT-009 configuration admin route boundary', () => {
     expect(adminAttempt.status).toBe(403);
     expect(await adminAttempt.json()).toMatchObject({ code: 'PERMISSION_DENIED' });
 
-    // Nothing was written, and nothing consumed the idempotency key: the gate runs first, so a
-    // denied write leaves no trace to confuse a later retry.
-    const stored = await new pg.Client({ connectionString: testDatabaseUrl });
+    // The same actor CAN write a TECHNICAL key. Without this the suite would still pass while
+    // the write path was simply closed to everyone again, which is the failure the decision was
+    // made to end.
+    const technicalWrite = await fetch(`${baseUrl}/platform/config/values`, {
+      method: 'POST',
+      headers: { ...(await auth('sysadmin-subject')), 'idempotency-key': randomUUID() },
+      body: JSON.stringify({
+        key: 'idempotency.retention_days', value: 14, validFrom: '2026-01-01',
+        reason: 'Perpanjang retensi idempotensi',
+      }),
+    });
+    expect(technicalWrite.status).toBe(201);
+    expect(await technicalWrite.json()).toMatchObject({ status: 'SCHEDULED' });
+
+    // A business owner reaches their own key, and only their own. CONTROLLER's whole remit is
+    // SENSITIVE, so a successful owner write is necessarily one held for approval — which is the
+    // point: ownership is what grants access, and approval is a separate gate on top of it.
+    // `fulfillment.cutoff_time` belongs to WAREHOUSE_ADMIN and must stay closed to them.
+    const crossOwnerWrite = await fetch(`${baseUrl}/platform/config/values`, {
+      method: 'POST',
+      headers: { ...(await auth('controller-subject')), 'idempotency-key': randomUUID() },
+      body: JSON.stringify({
+        key: 'fulfillment.cutoff_time', value: '16:00', validFrom: '2026-01-01',
+        reason: 'Batas pemrosesan',
+      }),
+    });
+    expect(crossOwnerWrite.status).toBe(403);
+    expect(await crossOwnerWrite.json()).toMatchObject({ code: 'PERMISSION_DENIED' });
+
+    // A SENSITIVE key is held at PENDING_APPROVAL and cannot be written straight to SCHEDULED
+    // even by its own owner. `requiresOwnerApproval: false` in the body must not be able to
+    // override the registry's classification.
+    const sensitiveWithoutApproval = await fetch(`${baseUrl}/platform/config/values`, {
+      method: 'POST',
+      headers: { ...(await auth('controller-subject')), 'idempotency-key': randomUUID() },
+      body: JSON.stringify({
+        key: 'tax.vat_output_rate', value: 11, validFrom: '2026-01-01',
+        reason: 'Tarif PPN', requiresOwnerApproval: false,
+      }),
+    });
+    expect(sensitiveWithoutApproval.status).toBe(422);
+    expect(await sensitiveWithoutApproval.json()).toMatchObject({ code: 'VALIDATION_FAILED' });
+
+    // The same key with an approval id is accepted, still PENDING_APPROVAL, and the approval
+    // routed to the HIGHEST level because no per-key level is configured. Never auto-approved.
+    const sensitiveWithApproval = await fetch(`${baseUrl}/platform/config/values`, {
+      method: 'POST',
+      headers: { ...(await auth('controller-subject')), 'idempotency-key': randomUUID() },
+      body: JSON.stringify({
+        key: 'tax.vat_output_rate', value: 11, validFrom: '2026-01-01',
+        reason: 'Tarif PPN', approvalId: randomUUID(),
+      }),
+    });
+    expect(sensitiveWithApproval.status).toBe(201);
+    expect(await sensitiveWithApproval.json()).toMatchObject({ status: 'PENDING_APPROVAL' });
+
+    // Two writes landed: one technical by SYSTEM_ADMIN, one sensitive by its business owner and
+    // held for approval. The denials consumed no idempotency key, because the
+    // gate runs before the command opens its transaction, so a denied write leaves no trace to
+    // confuse a later retry.
+    const stored = new pg.Client({ connectionString: testDatabaseUrl });
     await stored.connect();
-    const rows = await stored.query('SELECT count(*)::int AS n FROM platform.config_value');
+    const rows = await stored.query<{ key: string; status: string }>(
+      'SELECT key, status FROM platform.config_value ORDER BY key',
+    );
     const keys = await stored.query('SELECT count(*)::int AS n FROM platform.idempotency_key');
     await stored.end();
-    expect([rows.rows[0].n, keys.rows[0].n]).toEqual([0, 0]);
+    expect(rows.rows).toEqual([
+      { key: 'idempotency.retention_days', status: 'SCHEDULED' },
+      { key: 'tax.vat_output_rate', status: 'PENDING_APPROVAL' },
+    ]);
+    expect(keys.rows[0].n).toBe(2);
+
+    // The config_change approval type exists with two levels and is routed to the highest, so
+    // nothing can auto-approve a sensitive change while the per-key level is unconfigured.
+    const approvals = new pg.Client({ connectionString: testDatabaseUrl });
+    await approvals.connect();
+    const type = await approvals.query<{ expiry_hours: number; reason_required: boolean }>(
+      'SELECT expiry_hours, reason_required FROM platform.approval_type WHERE code = $1', ['config_change'],
+    );
+    const levels = await approvals.query<{ level: number; role_code: string }>(
+      `SELECT l.level, l.role_code FROM platform.approval_level l
+       JOIN platform.approval_policy p ON p.id = l.policy_id
+       WHERE p.type_code = 'config_change' ORDER BY l.level`,
+    );
+    const unconfigured = await approvals.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM platform.config_key WHERE approval_level IS NOT NULL',
+    );
+    await approvals.end();
+    expect(type.rows[0]).toEqual({ expiry_hours: 72, reason_required: true });
+    expect(levels.rows).toEqual([
+      { level: 1, role_code: 'FINANCE_APPROVER' },
+      { level: 2, role_code: 'CFO' },
+    ]);
+    expect(unconfigured.rows[0].n).toBe(0);
   });
 });
 

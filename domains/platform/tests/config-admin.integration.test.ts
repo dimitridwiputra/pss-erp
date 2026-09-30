@@ -27,8 +27,13 @@ beforeAll(async () => {
   for (const relativePath of [
     '../../audit/infrastructure/database/migrations/0001_audit_entry.sql',
     '../infrastructure/database/migrations/0001_outbox_event.sql',
+    '../infrastructure/database/migrations/0003_approval.sql',
     '../infrastructure/database/migrations/0004_configuration.sql',
     '../infrastructure/database/migrations/0009_config_flag_admin.sql',
+    // Seeds the per-key classification and the config_change approval type. Required before any
+    // write, since an unclassified key raises CONFIG_KEY_UNKNOWN rather than defaulting, and it
+    // depends on 0003_approval.sql for platform.approval_type.
+    '../infrastructure/database/migrations/0010_config_key_registry.sql',
   ]) {
     await pool.query(await readFile(new URL(relativePath, import.meta.url), 'utf8'));
   }
@@ -42,27 +47,50 @@ afterAll(async () => {
   }
 });
 
+/**
+ * Every fixture key in this file is SENSITIVE in platform.config_key, so a proposal for one is held
+ * at PENDING_APPROVAL rather than SCHEDULED — and an unapproved value is deliberately invisible to
+ * `loadConfigRows`, since the whole point of that status is that it does not take effect.
+ *
+ * These tests are about effective-dating, scope resolution and the audit trail, so each proposal is
+ * followed by the approval that promotes it. Without that step every read would legitimately return
+ * UNSET and the tests would be asserting the wrong thing. The SENSITIVE routing itself is asserted
+ * in apps/api/tests/config-admin.integration.test.ts, at the HTTP boundary.
+ */
 function proposal(overrides: Record<string, unknown> = {}) {
   return {
     organizationId, key: 'invoicing.recognition_point', scope: {}, value: 'AT_DELIVERY',
     validFrom: '2026-01-01', reason: 'Nilai awal recognition point', requiresOwnerApproval: false,
-    requestId: randomUUID(), ...overrides,
+    approvalId: randomUUID(), requestId: randomUUID(), ...overrides,
   };
+}
+
+/** Promote a PENDING_APPROVAL row to SCHEDULED, as decideApproval would after a decision. */
+async function approve(valueId: string): Promise<void> {
+  const promoted = await pool.query(
+    `UPDATE platform.config_value SET status = 'SCHEDULED', approved_by = $2
+     WHERE id = $1 AND status = 'PENDING_APPROVAL'`,
+    [valueId, adminId],
+  );
+  if (promoted.rowCount !== 1) throw new Error(`Value ${valueId} was not awaiting approval.`);
 }
 
 describe('PLT-009 effective-dated configuration registry', () => {
   it('resolves by business date and most specific scope, and supersedes rather than deletes', async () => {
-    await proposeConfigValue(pool, proposal(), adminId);
+    const organizationValue = await proposeConfigValue(pool, proposal(), adminId);
+    await approve(organizationValue.id);
     // A first branch-scoped value, then a second one that supersedes it. The organization value
     // is a different scope, so it is not superseded by the branch value and vice versa.
     const firstBranchValue = await proposeConfigValue(pool, proposal({
       scope: { branchId }, value: 'AT_DELIVERY', validFrom: '2026-01-01',
       reason: 'Nilai awal cabang',
     }), adminId);
+    await approve(firstBranchValue.id);
     const branchScoped = await proposeConfigValue(pool, proposal({
       scope: { branchId }, value: 'AT_DISPATCH', validFrom: '2026-11-01',
       reason: 'Principal X recognise at dispatch',
     }), adminId);
+    await approve(branchScoped.id);
 
     const readRows = async (scope: Record<string, string>, businessDate: string) =>
       getConfig(await loadConfigRows(pool, { key: 'invoicing.recognition_point', organizationId, scope }),
@@ -90,7 +118,8 @@ describe('PLT-009 effective-dated configuration registry', () => {
   it('fails closed on an empty value and never substitutes a default that grants something', async () => {
     // PLT-009.AC02 / BR04 / NC02: a KOSONG value reads as UNSET, and the caller sees no value at
     // all rather than a zero, a false, or the key's registered default text.
-    await proposeConfigValue(pool, proposal({ key: 'tax.rounding_rule', value: null }), adminId);
+    const emptyValue = await proposeConfigValue(pool, proposal({ key: 'tax.rounding_rule', value: null }), adminId);
+    await approve(emptyValue.id);
     const rows = await loadConfigRows(pool, { key: 'tax.rounding_rule', organizationId, scope: {} });
     expect(getConfig(rows, 'tax.rounding_rule', { organizationId, businessDate: '2026-03-01' }))
       .toMatchObject({ kind: 'UNSET', reason: 'EMPTY_VALUE' });
@@ -118,15 +147,20 @@ describe('PLT-009 effective-dated configuration registry', () => {
   it('refuses an unregistered key, a missing approval, a cross-organization read, and an inverted validity', async () => {
     await expect(proposeConfigValue(pool, proposal({ key: 'not.a.registered.key' }), adminId))
       .rejects.toThrow('CONFIG_KEY_UNKNOWN');
-    await expect(proposeConfigValue(pool, proposal({
+    // The helper supplies an approvalId, so the missing-approval case has to remove it explicitly.
+    // Deleting the key is what a client omitting the field actually sends.
+    const withoutApproval: Record<string, unknown> = proposal({
       key: 'invoicing.grouping_rule', requiresOwnerApproval: true,
-    }), adminId)).rejects.toThrow('VALIDATION_FAILED');
+    });
+    delete withoutApproval.approvalId;
+    await expect(proposeConfigValue(pool, withoutApproval, adminId)).rejects.toThrow('VALIDATION_FAILED');
     await expect(proposeConfigValue(pool, proposal({
       key: 'invoicing.grouping_rule', validFrom: '2026-05-01', validTo: '2026-05-01',
     }), adminId)).rejects.toThrow('VALIDATION_FAILED');
 
     // A value written by one organization is invisible to another (AGENTS.md §3.1 scope).
-    await proposeConfigValue(pool, proposal({ key: 'inventory.costing_method', value: 'FIFO' }), adminId);
+    const costing = await proposeConfigValue(pool, proposal({ key: 'inventory.costing_method', value: 'FIFO' }), adminId);
+    await approve(costing.id);
     const foreign = await loadConfigRows(pool, {
       key: 'inventory.costing_method', organizationId: otherOrganizationId, scope: {},
     });
@@ -138,6 +172,7 @@ describe('PLT-009 effective-dated configuration registry', () => {
     const first = await proposeConfigValue(pool, proposal({
       key: 'finance.post_discount_separately', value: true, reason: 'Diskon dicatat terpisah',
     }), adminId);
+    await approve(first.id);
     const audit = await pool.query<{
       action: string; actor_user_id: string; reason_code: string; changes: Array<{ path: string; after: string }>;
     }>(
@@ -151,10 +186,11 @@ describe('PLT-009 effective-dated configuration registry', () => {
     expect(audit.rows[0]?.changes.find((change) => change.path === 'value')?.after).toBe('SET');
 
     // A superseding proposal records both sides, so the history explains itself (PLT-009.R04).
-    await proposeConfigValue(pool, proposal({
+    const superseding = await proposeConfigValue(pool, proposal({
       key: 'finance.post_discount_separately', value: false, validFrom: '2027-01-01',
       reason: 'Diskon digabung ke satu baris',
     }), adminId);
+    await approve(superseding.id);
     const superseded = await pool.query<{ changes: Array<{ path: string; before?: string; after?: string }> }>(
       `SELECT changes FROM audit.audit_entry
        WHERE action = 'CONFIG_VALUE_SUPERSEDED' AND entity_id = $1`,
@@ -323,10 +359,11 @@ describe('PLT-010 feature flag administration', () => {
 
 describe('configuration registry tenancy', () => {
   it('keeps a principal-scoped value ahead of the branch value for that principal only', async () => {
-    await proposeConfigValue(pool, proposal({
+    const principalValue = await proposeConfigValue(pool, proposal({
       key: 'invoicing.top_start_basis', scope: { principalId }, value: 'ORDER_DATE',
       validFrom: '2026-01-01', reason: 'Principal X memakai order date',
     }), adminId);
+    await approve(principalValue.id);
     const rows = await loadConfigRows(pool, { key: 'invoicing.top_start_basis', organizationId, scope: { principalId } });
     expect(getConfig(rows, 'invoicing.top_start_basis', { organizationId, principalId, businessDate: '2026-06-01' }))
       .toMatchObject({ kind: 'VALUE', value: 'ORDER_DATE' });
