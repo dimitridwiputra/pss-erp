@@ -1,11 +1,27 @@
 import { z } from 'zod';
 import { MoneyAmountSchema } from '../primitives';
 import { PosSaleResponseSchema } from './pos-sale';
-import { PosShiftResponseSchema } from './pos-shift';
+import { PosShiftStatusSchema } from './pos-shift';
 
-/** GET /kasir/shift-saya */
+/**
+ * GET /kasir/shift-saya — the caller's current shift: the OPEN one, or else a closed one whose cash
+ * is not yet handed over (so the screen can offer Serah Kas), plus any unfinished sale.
+ */
 export const KasirShiftSayaResponseSchema = z.strictObject({
-  shift: PosShiftResponseSchema.nullable(),
+  shift: z.strictObject({
+    id: z.uuid(),
+    terminalId: z.uuid(),
+    terminalCode: z.string(),
+    terminalName: z.string(),
+    status: PosShiftStatusSchema,
+    openingFloat: MoneyAmountSchema,
+    expectedCash: MoneyAmountSchema.nullable(),
+    countedCash: MoneyAmountSchema.nullable(),
+    variance: MoneyAmountSchema.nullable(),
+    cashSalesTotal: MoneyAmountSchema,
+    paidSaleCount: z.int().nonnegative(),
+    openedAt: z.iso.datetime(),
+  }).nullable(),
   openSales: z.array(PosSaleResponseSchema),
 });
 export type KasirShiftSayaResponse = z.infer<typeof KasirShiftSayaResponseSchema>;
@@ -21,7 +37,7 @@ export const KasirScanResponseSchema = z.strictObject({
 });
 export type KasirScanResponse = z.infer<typeof KasirScanResponseSchema>;
 
-/** GET /kasir/katalog?q= */
+/** GET /kasir/products?q= — katalog search by SKU or name. */
 export const KasirKatalogItemSchema = z.strictObject({
   productId: z.uuid(),
   sku: z.string(),

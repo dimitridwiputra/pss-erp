@@ -24,9 +24,14 @@ Record tendered payments as PENDING_VERIFICATION facts and, for cash specificall
 
 ## Commands
 
-- `recordPayment(pool, client, input)` — inserts a `payments.payment` row with `status = 'PENDING_VERIFICATION'`. Accepts an optional shared `client` (`PoolClient`): when provided, folds into the caller's already-open transaction via `runAuditedWork`; when omitted, opens its own transaction via `withAuditedTransaction`. Audited as `PAYMENT_RECEIVED`.
-- `declareCashHandover(pool, input)` — sums the `amount` of the given `paymentIds` (SQL-side `SUM`), restricted to `method = 'TUNAI'` and `status = 'PENDING_VERIFICATION'`; throws `VALIDATION_FAILED` if any given id doesn't match that filter. Creates one `cash_custody_record` (`DECLARED`) plus one `cash_custody_payment` row per payment. Idempotent per the caller's exact `paymentIds`: if any of them is already linked to a `DECLARED`/`VERIFIED` record, returns that existing record instead of inserting a duplicate. Audited as `CASH_HANDED_OVER`.
-- `verifyCashCustody(pool, input)` — loads the custody record `FOR UPDATE`; throws `CUSTODY_ALREADY_VERIFIED` if its status isn't `DECLARED`; throws `SEGREGATION_OF_DUTIES` (SOD-06) if `verifiedBy` is the record's collector. Computes `variance = countedAmount - declaredAmount` server-side (`numeric`, never a JS float). A zero variance sets the record `VERIFIED` and cascades every linked payment to `VERIFIED` (with `verified_by`/`verified_at`, and `version` incremented); a non-zero variance sets `DISCREPANCY` and leaves linked payments untouched. Audited as `CASH_CUSTODY_VERIFIED` or `CASH_CUSTODY_DISCREPANCY_RECORDED`.
+- `recordPayment(pool, client, input)` inserts a `payments.payment` row with `status = 'PENDING_VERIFICATION'`, through `@pss/platform`'s `withConnection`. It joins the caller's open transaction when `client` is given; otherwise it opens its own. A POS cash payment (`channel: 'POS'`, `method: 'TUNAI'`) must carry `referenceType: 'POS_SALE'`, `customerId`, `cashLocation` (the shift) and `businessDate`. Those facts, and an optional `invoiceId`, are stored on the payment, and `PAYMENT_RECEIVED` v1 is published in the same transaction. Audited as `PAYMENT_RECEIVED`.
+- `declareCashHandover(pool, client, input)` — sums the `amount` of the given `paymentIds` (SQL-side `SUM`), restricted to `method = 'TUNAI'` and `status = 'PENDING_VERIFICATION'`; throws `VALIDATION_FAILED` if any given id doesn't match that filter. Creates one `cash_custody_record` (`DECLARED`) plus one `cash_custody_payment` row per payment. Idempotent per the caller's exact `paymentIds`: if any of them is already linked to a `DECLARED`/`VERIFIED` record, returns that existing record instead of inserting a duplicate, and traces that no-op as `CASH_HANDOVER_DECLARE_NOOP` (ADR-0013 4b). A `POS_SHIFT` declaration names its shift in `sourceId`. Audited as `CASH_HANDED_OVER`.
+- `verifyCashCustody(pool, client, input)` — loads the custody record `FOR UPDATE`; throws `CUSTODY_ALREADY_VERIFIED` if its status isn't `DECLARED`; throws `SEGREGATION_OF_DUTIES` (SOD-06) if `verifiedBy` is the record's collector. Computes `variance = countedAmount - declaredAmount` server-side (`numeric`, never a JS float). Outcomes:
+  - A zero variance sets the record `VERIFIED` and cascades every linked payment to `VERIFIED`.
+  - A non-zero variance with a registered `RC-CSH-*` `reasonCode` is also `VERIFIED`. The reason is stored and the variance is carried for posting (MVP-OD-9, demo default).
+  - A non-zero variance without a reason sets `DISCREPANCY` and leaves linked payments untouched, for CSH-002.
+
+  A `VERIFIED` `POS_SHIFT` record publishes `CASH_CUSTODY_VERIFIED` v1 in the same transaction, with the signed variance and the verification business date (Asia/Jakarta). Audited as `CASH_CUSTODY_VERIFIED` or `CASH_CUSTODY_DISCREPANCY_RECORDED`.
 
 ## Queries
 
@@ -34,7 +39,11 @@ None implemented. Reading a payment or custody record for a UI is deferred to th
 
 ## Events produced and consumed
 
-None implemented yet. `PAYMENT_RECEIVED` exists as an AGENTS.md §10 event name and as this domain's audit `action`, but no outbox event is published from these commands — only the audit trail records the fact. Publishing a real `PAYMENT_RECEIVED`/`CASH_HANDED_OVER` event (via `@pss/platform`'s outbox) is open decision OD-PAY-1 below.
+Produced, through `appendOutboxEvent` in the same transaction as the fact (MVP_PLAN §5), each built from the stored row:
+- `PAYMENT_RECEIVED` v1, for a POS TUNAI payment;
+- `CASH_CUSTODY_VERIFIED` v1, for a verified POS-shift custody record.
+
+Other channels and methods, `CASH_HANDED_OVER` and `CASH_CUSTODY_DISCREPANCY_RECORDED` have no v1 payload and are audited only. Nothing is consumed.
 
 ## Tables
 
@@ -58,13 +67,14 @@ PostgreSQL `pg`; `@pss/contracts` (`DomainError`, `MoneyAmountSchema`, registere
 
 ## Open decisions
 
-- **OD-PAY-1 (event publication):** no `PAYMENT_RECEIVED`/`CASH_HANDED_OVER`/`CASH_CUSTODY_VERIFIED` outbox event is published yet. Downstream consumers (e.g. `ar`, `finance`) must poll or be given a query until this is added.
+- **OD-PAY-1 (event publication):** resolved for the POS cash path (see Events). Non-POS channels still publish nothing until their payloads are contracted.
+- **MVP-OD-9 (variance at verification):** the demo default is described under `verifyCashCustody`. CSH-002's approval by `CSH-DISCREPANCY-APPROVE` is not built.
 - **QRIS/TRANSFER/GIRO/CEK verification (PAY-002/005/006/007/008):** deferred. The schema accepts these `method`/`source` values so a payment can at least be *recorded*, but no verification command exists for them.
 - **Bank reconciliation (PAY-006/009):** deferred entirely; no table or command in this domain addresses it.
 - **Payment application / AR allocation (PAY-003 `ApplyPayment`, PAY-004 `TransferToCustomerCredit`):** deferred entirely; this domain never allocates a payment against an invoice or customer credit balance.
 - **Discrepancy resolution (CSH-002):** a `DISCREPANCY` custody record has no `resolveCashDiscrepancy` command yet to move it to `RESOLVED` (e.g. after a supervisor accepts a shortage/overage). Its linked payments stay `PENDING_VERIFICATION` indefinitely until that command exists.
-- **`recordPayment` has no idempotency-key parameter.** AGENTS.md §3.6 requires an idempotency key for cross-domain boundary commands; this slice's signature is exactly `{ organizationId, channel, method, amount, referenceType, referenceId, acceptedBy }` per the initial spec. `domains/pos` is currently responsible for not calling it twice for the same tender; a `referenceType`+`referenceId` (or explicit key) dedupe check should be added before this is exposed over an HTTP boundary.
-- **No caller-supplied `requestId`/`correlationId`/`actor.roles` audit context.** Unlike `domains/inventory`'s commands (which thread `actor`/`requestId`/`correlationId`/`source` through their input so a real request's identifiers reach the audit trail), all three commands here synthesize a fresh `requestId`/`correlationId` internally (`source: 'API'`, actor derived from the id already in the input — `acceptedBy`/`collectorId`/`verifiedBy`) because the given command signatures don't carry that context. This satisfies the mandatory audit trail but loses correlation back to the caller's own request/trace id. Should be revisited (mirroring `domains/inventory/src/application/support/audit-context.ts`'s pattern) once these commands are wired to an HTTP boundary.
+- **`recordPayment` has no idempotency key of its own.** It runs inside the caller's `runCommand` transaction: the POS tender route holds the `Idempotency-Key`, and a replay returns the stored response without calling it again. A direct caller outside that pipeline must not retry it.
+- **Audit context.** All three commands accept an optional `requestId`/`correlationId` (and `branchId`) from the caller, and generate them only when absent. The actor is the id already in the input (`acceptedBy`/`collectorId`/`verifiedBy`).
 
 ## Acceptance tests
 

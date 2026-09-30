@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DomainError } from '@pss/contracts';
 import { prepareInvoice } from '../src/application/prepare-invoice';
 import { issueInvoice } from '../src/application/issue-invoice';
-import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
+import { applyAuditMigrations, applyMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_invoicing_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -29,9 +28,9 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
 
-  await pool.query(await readFile(
-    new URL('../infrastructure/database/migrations/0001_invoicing.sql', import.meta.url), 'utf8',
-  ));
+  // The domain's full ordered list, plus platform for the outbox INVOICE_ISSUED is written to.
+  await applyMigrations(pool, 'platform');
+  await applyMigrations(pool, 'invoicing');
 
   // Every command audits through @pss/audit's withAuditedTransaction/runAuditedWork, which
   // inserts into audit.audit_entry — so that table must exist here too. The whole audit domain
@@ -134,7 +133,7 @@ describe('invoicing: issueInvoice', () => {
     });
     expect(prepared.total).toBe('20000.00');
 
-    const issued = await issueInvoice(pool, {
+    const issued = await issueInvoice(pool, undefined, {
       invoiceId: prepared.invoiceId,
       deliveredLines: [
         { productId: productA, uom: 'CTN', qtyDelivered: '10.000' },
@@ -179,7 +178,7 @@ describe('invoicing: issueInvoice', () => {
       ...auditContext(),
     });
 
-    const issued = await issueInvoice(pool, {
+    const issued = await issueInvoice(pool, undefined, {
       invoiceId: prepared.invoiceId,
       // Only product A is partially delivered (6 of 10); product B is entirely omitted.
       deliveredLines: [{ productId: productA, uom: 'CTN', qtyDelivered: '6.000' }],
@@ -207,7 +206,7 @@ describe('invoicing: issueInvoice', () => {
       ...auditContext(),
     });
 
-    const issueOnce = () => issueInvoice(pool, {
+    const issueOnce = () => issueInvoice(pool, undefined, {
       invoiceId: prepared.invoiceId,
       deliveredLines: [{ productId, uom: 'CTN', qtyDelivered: '1.000' }],
       invoiceDate: '2026-09-27',

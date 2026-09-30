@@ -1,30 +1,65 @@
-import { randomUUID } from 'node:crypto';
-import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Injectable, OnModuleDestroy, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import {
-  AcceptPosTenderRequestSchema, CheckoutPosSaleResponseSchema, DomainError,
-  KasirScanResponseSchema, KasirShiftSayaResponseSchema, OpenPosShiftRequestSchema,
-  PosShiftResponseSchema, PosTerminalResponseSchema, RegisterPosTerminalRequestSchema,
-  SyncPosOfflineBatchRequestSchema, type AcceptPosTenderResponse, type CheckoutPosSaleResponse,
-  type CurrentUserResponse, type KasirScanResponse, type KasirShiftSayaResponse,
-  type PosShiftResponse, type PosTerminalResponse, type SyncPosOfflineBatchResponse,
+  AcceptPosTenderRequestSchema, AcceptPosTenderResponseSchema, AddPosSaleLineRequestSchema, AddPosSaleLineResponseSchema,
+  CheckoutPosSaleResponseSchema, ClosePosShiftRequestSchema, ConfirmPosPickupHandoverRequestSchema,
+  ConfirmPosPickupHandoverResponseSchema, CreatePosSaleRequestSchema, DeclarePosCashHandoverResponseSchema, DomainError,
+  KasirKatalogResponseSchema, KasirScanResponseSchema, KasirShiftSayaResponseSchema, KasirTerminalListResponseSchema,
+  OpenPosShiftRequestSchema, PosCartTotalResponseSchema, PosPickupListResponseSchema, PosReceiptResponseSchema,
+  PosSaleResponseSchema, PosShiftResponseSchema, PrintPosReceiptRequestSchema, UpdatePosSaleLineRequestSchema,
+  type AcceptPosTenderRequest, type AddPosSaleLineRequest, type ClosePosShiftRequest, type ConfirmPosPickupHandoverRequest,
+  type CreatePosSaleRequest, type CurrentUserResponse, type OpenPosShiftRequest, type PrintPosReceiptRequest,
+  type UpdatePosSaleLineRequest,
 } from '@pss/contracts';
 import { hashRequestBody, readIdempotencyKey, ZodValidationPipe } from '@pss/http';
-import {
-  acceptPosTender, addPosSaleLine, checkoutPosSale, closePosShift, confirmPosPickupHandover,
-  createPosSale, declarePosCashHandover, getShiftSaya, openPosShift, registerPosTerminal,
-  syncPosOfflineBatch,
-} from '@pss/pos';
-import { findProductByBarcode } from '@pss/master-data';
+import { checkAccess, loadActiveRoleAssignments, requireAccess, resolveRolePermissions, type RoleAssignment } from '@pss/identity';
+import { findProductByBarcode, searchProducts } from '@pss/master-data';
 import { resolvePrice } from '@pss/commercial';
-import { Pool } from 'pg';
+import { requestContextFrom, type ObservedRequest } from '@pss/observability';
+import { IdempotencyError, runCommand } from '@pss/platform';
+import {
+  acceptPosTender, addPosSaleLine, checkoutPosSale, closePosShift, confirmPosPickupHandover, createPosSale,
+  declarePosCashHandover, getPosSale, getPosSaleScope, getPosShiftScope, getPosTerminalScope, getShiftSaya,
+  listPickupsAwaitingHandover, listPosTerminals, openPosShift, printPosReceipt, removePosSaleLine, updatePosSaleLine,
+  type PosSaleScope, type PosShiftScope,
+} from '@pss/pos';
+import { Pool, type PoolClient } from 'pg';
+import { z } from 'zod';
 import { DemoPosFeatureGuard } from './demo-pos-guard';
 import { IdentityService } from './identity.controller';
 
-type AuthedRequest = { headers: { authorization?: string; 'idempotency-key'?: string } };
+type ApiRequest = ObservedRequest;
 
 /** Price list scope is a config value (PLT-009) not yet wired; a single default is used until then. */
 const DEFAULT_PRICE_LIST_SCOPE = 'KONTER';
 
+interface CommandContext {
+  user: CurrentUserResponse;
+  assignments: RoleAssignment[];
+  requestId: string;
+  correlationId: string;
+}
+
+interface Scoped { organizationId: string; branchId: string; warehouseId: string }
+
+function uuidParam(value: string, path: string): string {
+  if (!z.uuid().safeParse(value).success) {
+    throw new DomainError('VALIDATION_FAILED', [], [{ path, code: 'invalid_format', message: 'Periksa nilai ini.' }]);
+  }
+  return value;
+}
+
+/**
+ * Every POS rule lives in `@pss/pos` and the domains it calls. This service is the API boundary
+ * only, and each route does the same four things in order (RBAC-002, PLT-006, Appendix L.3–L.4):
+ *
+ *   1. resolve the caller from the session, never from the body;
+ *   2. resolve the canonical owner of every supplied id through a `@pss/pos` scope query — an id
+ *      from another organization is `NOT_FOUND`, so its existence is not disclosed;
+ *   3. check the Appendix D permission at that record's warehouse scope, and for cashier work,
+ *      that the shift is the caller's own (POS_CASHIER scope "WAREHOUSE + OWN (shift)");
+ *   4. run the command through `runCommand` under the caller's `Idempotency-Key`, so the
+ *      mutation, its audit entry and its outbox events commit once, and a retry replays.
+ */
 @Injectable()
 export class PosService implements OnModuleDestroy {
   private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
@@ -34,95 +69,251 @@ export class PosService implements OnModuleDestroy {
     return this.pool;
   }
 
-  async registerTerminal(user: CurrentUserResponse, input: { warehouseId: string; code: string; name: string; deviceId?: string }): Promise<PosTerminalResponse> {
-    if (!user.primaryBranchId) throw new DomainError('VALIDATION_FAILED');
-    const terminal = await registerPosTerminal(this.requirePool(), {
-      organizationId: user.organizationId, branchId: user.primaryBranchId, warehouseId: input.warehouseId,
-      code: input.code, name: input.name, deviceId: input.deviceId,
-      actor: { userId: user.id, roles: [] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+  async context(user: CurrentUserResponse, request: ApiRequest): Promise<CommandContext> {
+    const { requestId, correlationId } = requestContextFrom(request);
+    return { user, assignments: await loadActiveRoleAssignments(this.requirePool(), user.id), requestId, correlationId };
+  }
+
+  private actor(context: CommandContext) {
+    return { userId: context.user.id, roles: [...new Set(context.assignments.map((assignment) => assignment.roleCode))] };
+  }
+
+  private meta(context: CommandContext) {
+    return { actor: this.actor(context), requestId: context.requestId, correlationId: context.correlationId, source: 'WEB' as const };
+  }
+
+  /** A record outside the caller's organization is reported as absent, never as forbidden. */
+  private inOrganization<T extends { organizationId: string }>(context: CommandContext, record: T | null): T {
+    if (!record || record.organizationId !== context.user.organizationId) throw new DomainError('NOT_FOUND');
+    return record;
+  }
+
+  private authorize(context: CommandContext, permission: string, scope: Scoped, isRead = false): void {
+    requireAccess({
+      actorId: context.user.id, organizationId: context.user.organizationId, assignments: context.assignments, permission,
+      resource: { organizationId: scope.organizationId, branchId: scope.branchId, warehouseId: scope.warehouseId },
+    }, isRead);
+  }
+
+  private canAt(context: CommandContext, permission: string, scope: Scoped): boolean {
+    return checkAccess({
+      actorId: context.user.id, organizationId: context.user.organizationId, assignments: context.assignments, permission,
+      resource: { organizationId: scope.organizationId, branchId: scope.branchId, warehouseId: scope.warehouseId },
     });
-    return PosTerminalResponseSchema.parse(terminal);
   }
 
-  async openShift(user: CurrentUserResponse, input: { terminalId: string; openingFloat: string }): Promise<PosShiftResponse> {
-    const shift = await openPosShift(this.requirePool(), {
-      organizationId: user.organizationId, terminalId: input.terminalId, cashierUserId: user.id, openingFloat: input.openingFloat,
-      actor: { userId: user.id, roles: [] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+  /** For reads with no single record to scope yet (the caller's own shift, product lookup). */
+  private requireHeldPermission(context: CommandContext, permission: string): void {
+    if (!context.assignments.some((assignment) => resolveRolePermissions(assignment.roleCode).permissions.includes(permission))) {
+      throw new DomainError('PERMISSION_DENIED');
+    }
+  }
+
+  private async shiftScope(context: CommandContext, shiftId: string): Promise<PosShiftScope> {
+    return this.inOrganization(context, await getPosShiftScope(this.requirePool(), uuidParam(shiftId, 'shiftId')));
+  }
+
+  private async saleScope(context: CommandContext, saleId: string): Promise<PosSaleScope> {
+    return this.inOrganization(context, await getPosSaleScope(this.requirePool(), uuidParam(saleId, 'saleId')));
+  }
+
+  /** POS-000 own-shift rule: a cashier works only on the shift they opened. */
+  private requireOwnShift(context: CommandContext, cashierUserId: string): void {
+    if (cashierUserId !== context.user.id) throw new DomainError('PERMISSION_DENIED');
+  }
+
+  private async command<T>(
+    context: CommandContext, commandName: string, idempotencyKey: string, requestBody: unknown,
+    execute: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
+    try {
+      const result = await runCommand(
+        this.requirePool(),
+        {
+          organizationId: context.user.organizationId, identityId: context.user.id, commandName,
+          key: idempotencyKey, requestHash: hashRequestBody(requestBody),
+        },
+        async ({ client }) => ({ code: 200, body: await execute(client) }),
+      );
+      return result.body as T;
+    } catch (error) {
+      if (error instanceof IdempotencyError) throw new DomainError(error.code);
+      throw error;
+    }
+  }
+
+  async terminals(context: CommandContext) {
+    const terminals = await listPosTerminals(this.requirePool(), context.user.organizationId);
+    return KasirTerminalListResponseSchema.parse({
+      items: terminals
+        .filter((terminal) => this.canAt(context, 'pos.shift.open', terminal))
+        .map((terminal) => ({
+          id: terminal.id, branchId: terminal.branchId, warehouseId: terminal.warehouseId, code: terminal.code,
+          name: terminal.name, status: terminal.status, inUse: terminal.inUse,
+        })),
     });
-    return PosShiftResponseSchema.parse({ ...shift, openingFloat: input.openingFloat, expectedCash: null, countedCash: null, variance: null });
   }
 
-  async closeShift(user: CurrentUserResponse, shiftId: string, input: { countedCash: string; denominations?: Record<string, number>; reasonCode?: string; note?: string }) {
-    return closePosShift(this.requirePool(), {
-      shiftId, countedCash: input.countedCash, denominations: input.denominations, reasonCode: input.reasonCode, note: input.note,
-      actor: { userId: user.id, roles: [] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+  async openShift(context: CommandContext, input: OpenPosShiftRequest, idempotencyKey: string) {
+    const terminal = this.inOrganization(context, await getPosTerminalScope(this.requirePool(), input.terminalId));
+    this.authorize(context, 'pos.shift.open', terminal);
+    return this.command(context, 'pos.openShift', idempotencyKey, input, async (client) => {
+      const shift = await openPosShift(this.requirePool(), client, {
+        organizationId: terminal.organizationId, terminalId: terminal.id, cashierUserId: context.user.id,
+        openingFloat: input.openingFloat, ...this.meta(context),
+      });
+      return PosShiftResponseSchema.parse({
+        id: shift.id, terminalId: shift.terminalId, status: shift.status, openingFloat: shift.openingFloat,
+        expectedCash: null, countedCash: null, variance: null,
+      });
     });
   }
 
-  async declareCashHandover(shiftId: string) {
-    return declarePosCashHandover(this.requirePool(), { shiftId });
+  async closeShift(context: CommandContext, shiftId: string, input: ClosePosShiftRequest, idempotencyKey: string) {
+    const shift = await this.shiftScope(context, shiftId);
+    this.authorize(context, 'pos.shift.close', shift);
+    this.requireOwnShift(context, shift.cashierUserId);
+    return this.command(context, 'pos.closeShift', idempotencyKey, { shiftId: shift.id, ...input }, async (client) => {
+      const closed = await closePosShift(this.requirePool(), client, { shiftId: shift.id, ...input, ...this.meta(context) });
+      return PosShiftResponseSchema.parse({
+        id: closed.id, terminalId: shift.terminalId, status: closed.status, openingFloat: closed.openingFloat,
+        expectedCash: closed.expectedCash, countedCash: closed.countedCash, variance: closed.variance,
+      });
+    });
   }
 
-  async shiftSaya(user: CurrentUserResponse): Promise<KasirShiftSayaResponse> {
-    const result = await getShiftSaya(this.requirePool(), user.id);
-    return KasirShiftSayaResponseSchema.parse(result);
+  async declareCashHandover(context: CommandContext, shiftId: string, idempotencyKey: string) {
+    const shift = await this.shiftScope(context, shiftId);
+    this.authorize(context, 'payments.cash_handover.declare', shift);
+    this.requireOwnShift(context, shift.cashierUserId);
+    return this.command(context, 'pos.declareCashHandover', idempotencyKey, { shiftId: shift.id }, async (client) =>
+      DeclarePosCashHandoverResponseSchema.parse(await declarePosCashHandover(this.requirePool(), client, { shiftId: shift.id, ...this.meta(context) })));
   }
 
-  async scan(user: CurrentUserResponse, barcode: string): Promise<KasirScanResponse> {
-    const match = await findProductByBarcode(this.requirePool(), { organizationId: user.organizationId, barcode });
+  async shiftSaya(context: CommandContext) {
+    this.requireHeldPermission(context, 'pos.shift.open');
+    return KasirShiftSayaResponseSchema.parse(await getShiftSaya(this.requirePool(), context.user.id));
+  }
+
+  async katalog(context: CommandContext, query: string) {
+    this.requireHeldPermission(context, 'pos.sale.create');
+    const parsed = z.string().trim().min(2).max(100).safeParse(query);
+    if (!parsed.success) throw new DomainError('VALIDATION_FAILED', [], [{ path: 'q', code: 'too_small', message: 'Ketik minimal 2 huruf.' }]);
+    const items = await searchProducts(this.requirePool(), { organizationId: context.user.organizationId, query: parsed.data, limit: 20 });
+    return KasirKatalogResponseSchema.parse({ items: items.filter((item) => item.status === 'ACTIVE') });
+  }
+
+  async scan(context: CommandContext, barcode: string) {
+    this.requireHeldPermission(context, 'pos.sale.create');
+    const parsed = z.string().trim().min(1).max(64).safeParse(barcode);
+    if (!parsed.success) throw new DomainError('VALIDATION_FAILED', [], [{ path: 'barcode', code: 'invalid_format', message: 'Periksa barcode.' }]);
+    const match = await findProductByBarcode(this.requirePool(), { organizationId: context.user.organizationId, barcode: parsed.data });
     if (!match) throw new DomainError('NOT_FOUND');
+    if (match.orderCapture !== 'PSS' || match.status !== 'ACTIVE') throw new DomainError('POS_SKU_NOT_SELLABLE');
     const price = await resolvePrice(this.requirePool(), {
-      organizationId: user.organizationId, productId: match.productId, uom: match.uom, priceListScope: DEFAULT_PRICE_LIST_SCOPE,
+      organizationId: context.user.organizationId, productId: match.productId, uom: match.uom, priceListScope: DEFAULT_PRICE_LIST_SCOPE,
     });
     return KasirScanResponseSchema.parse({
-      productId: match.productId, sku: match.sku, name: match.name, uom: match.uom,
-      unitPrice: price.unitPrice, qtyAvailable: null,
+      productId: match.productId, sku: match.sku, name: match.name, uom: match.uom, unitPrice: price.unitPrice, qtyAvailable: null,
     });
   }
 
-  async createSale(user: CurrentUserResponse, input: { terminalId: string; shiftId: string }) {
-    return createPosSale(this.requirePool(), { organizationId: user.organizationId, terminalId: input.terminalId, shiftId: input.shiftId });
+  async createSale(context: CommandContext, input: CreatePosSaleRequest, idempotencyKey: string) {
+    const shift = await this.shiftScope(context, input.shiftId);
+    this.authorize(context, 'pos.sale.create', shift);
+    this.requireOwnShift(context, shift.cashierUserId);
+    return this.command(context, 'pos.createSale', idempotencyKey, input, (client) =>
+      createPosSale(this.requirePool(), client, { shiftId: shift.id, ...this.meta(context) }));
   }
 
-  async addLine(user: CurrentUserResponse, saleId: string, input: Record<string, unknown>) {
-    return addPosSaleLine(this.requirePool(), {
-      organizationId: user.organizationId, saleId, priceListScope: DEFAULT_PRICE_LIST_SCOPE, ...input,
-    } as Parameters<typeof addPosSaleLine>[1]);
+  /** Cashier-side sale work: the sale's warehouse scope, and the caller's own shift. */
+  private async cashierSale(context: CommandContext, saleId: string, permission: string): Promise<PosSaleScope> {
+    const sale = await this.saleScope(context, saleId);
+    this.authorize(context, permission, sale);
+    this.requireOwnShift(context, sale.cashierUserId);
+    return sale;
   }
 
-  async checkout(user: CurrentUserResponse, saleId: string): Promise<CheckoutPosSaleResponse> {
-    const result = await checkoutPosSale(this.requirePool(), {
-      saleId, actor: { userId: user.id, roles: [] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+  async saleDetail(context: CommandContext, saleId: string) {
+    const sale = await this.saleScope(context, saleId);
+    const ownSale = sale.cashierUserId === context.user.id && this.canAt(context, 'pos.sale.create', sale);
+    if (!ownSale && !this.canAt(context, 'fulfillment.pickup.handover', sale)) throw new DomainError('NOT_FOUND');
+    return PosSaleResponseSchema.parse(await getPosSale(this.requirePool(), sale.id));
+  }
+
+  async addLine(context: CommandContext, saleId: string, input: AddPosSaleLineRequest, idempotencyKey: string) {
+    const sale = await this.cashierSale(context, saleId, 'pos.sale.create');
+    return this.command(context, 'pos.addLine', idempotencyKey, { saleId: sale.id, ...input }, async (client) =>
+      AddPosSaleLineResponseSchema.parse(await addPosSaleLine(this.requirePool(), client, {
+        saleId: sale.id, priceListScope: DEFAULT_PRICE_LIST_SCOPE, barcode: input.barcode,
+        ...(input.qty ? { qty: input.qty } : {}), ...this.meta(context),
+      })));
+  }
+
+  async updateLine(context: CommandContext, saleId: string, lineId: string, input: UpdatePosSaleLineRequest, idempotencyKey: string) {
+    const sale = await this.cashierSale(context, saleId, 'pos.sale.create');
+    const line = uuidParam(lineId, 'lineId');
+    return this.command(context, 'pos.updateLine', idempotencyKey, { saleId: sale.id, lineId: line, ...input }, async (client) =>
+      PosCartTotalResponseSchema.parse(await updatePosSaleLine(this.requirePool(), client, { saleId: sale.id, lineId: line, qty: input.qty, ...this.meta(context) })));
+  }
+
+  async removeLine(context: CommandContext, saleId: string, lineId: string, idempotencyKey: string) {
+    const sale = await this.cashierSale(context, saleId, 'pos.sale.create');
+    const line = uuidParam(lineId, 'lineId');
+    return this.command(context, 'pos.removeLine', idempotencyKey, { saleId: sale.id, lineId: line }, async (client) =>
+      PosCartTotalResponseSchema.parse(await removePosSaleLine(this.requirePool(), client, { saleId: sale.id, lineId: line, ...this.meta(context) })));
+  }
+
+  async checkout(context: CommandContext, saleId: string, idempotencyKey: string) {
+    const sale = await this.cashierSale(context, saleId, 'pos.sale.checkout');
+    return this.command(context, 'pos.checkout', idempotencyKey, { saleId: sale.id }, async (client) => {
+      const result = await checkoutPosSale(this.requirePool(), client, { saleId: sale.id, ...this.meta(context) });
+      return CheckoutPosSaleResponseSchema.parse({
+        id: result.id, status: result.status, salesOrderId: result.salesOrderId, invoiceNumber: result.invoiceNumber, total: result.total,
+      });
     });
-    return CheckoutPosSaleResponseSchema.parse({
-      id: result.id, status: result.status, salesOrderId: result.salesOrderId, invoiceNumber: result.invoiceNumber, total: result.total,
+  }
+
+  async acceptTender(context: CommandContext, saleId: string, input: AcceptPosTenderRequest, idempotencyKey: string) {
+    const sale = await this.cashierSale(context, saleId, 'pos.tender.accept');
+    return this.command(context, 'pos.acceptTender', idempotencyKey, { saleId: sale.id, ...input }, async (client) => {
+      const result = await acceptPosTender(this.requirePool(), client, {
+        saleId: sale.id, method: input.method, cashReceived: input.cashReceived, acceptedBy: context.user.id, ...this.meta(context),
+      });
+      return AcceptPosTenderResponseSchema.parse({
+        tender: { id: result.tenderId, method: 'TUNAI', status: 'ACCEPTED', amount: result.amount, cashReceived: result.cashReceived, changeAmount: result.changeAmount },
+        sale: { id: sale.id, status: result.saleStatus },
+      });
     });
   }
 
-  async acceptTender(user: CurrentUserResponse, saleId: string, input: { method: 'TUNAI'; cashReceived: string }): Promise<AcceptPosTenderResponse> {
-    const result = await acceptPosTender(this.requirePool(), {
-      saleId, method: input.method, cashReceived: input.cashReceived, acceptedBy: user.id,
-      requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
-    });
-    return {
-      tender: { id: result.tenderId, method: 'TUNAI', status: 'ACCEPTED', amount: result.amount, changeAmount: result.changeAmount },
-      sale: { id: saleId, status: result.saleStatus },
-    };
+  /** POS-011: copy 1 is part of taking payment; any later copy is a reprint and needs `pos.receipt.reprint`. */
+  async printReceipt(context: CommandContext, saleId: string, input: PrintPosReceiptRequest, idempotencyKey: string) {
+    const sale = await this.cashierSale(context, saleId, input.reprintReason ? 'pos.receipt.reprint' : 'pos.tender.accept');
+    return this.command(context, 'pos.printReceipt', idempotencyKey, { saleId: sale.id, ...input }, async (client) =>
+      PosReceiptResponseSchema.parse(await printPosReceipt(this.requirePool(), client, {
+        saleId: sale.id, printedBy: context.user.id, reprintReason: input.reprintReason, ...this.meta(context),
+      })));
   }
 
-  async confirmHandover(user: CurrentUserResponse, saleId: string, receiverName: string) {
-    return confirmPosPickupHandover(this.requirePool(), {
-      saleId, actorId: user.id, receiverName, sodCashierNotHandoverEnabled: true,
-      businessDate: new Date().toISOString().slice(0, 10),
-      actor: { userId: user.id, roles: [] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+  async pickups(context: CommandContext) {
+    this.requireHeldPermission(context, 'fulfillment.pickup.handover');
+    const pickups = await listPickupsAwaitingHandover(this.requirePool(), context.user.organizationId);
+    return PosPickupListResponseSchema.parse({
+      items: pickups
+        .filter((pickup) => this.canAt(context, 'fulfillment.pickup.handover', { organizationId: context.user.organizationId, ...pickup }))
+        .map((pickup) => ({ saleId: pickup.saleId, invoiceNumber: pickup.invoiceNumber, total: pickup.total, paidAt: pickup.paidAt, lines: pickup.lines })),
     });
   }
 
-  async sync(user: CurrentUserResponse, input: { terminalId: string; sales: unknown[] }): Promise<SyncPosOfflineBatchResponse> {
-    return syncPosOfflineBatch(this.requirePool(), {
-      organizationId: user.organizationId, terminalId: input.terminalId, priceListScope: DEFAULT_PRICE_LIST_SCOPE, actorId: user.id,
-      sales: input.sales,
-    } as Parameters<typeof syncPosOfflineBatch>[1]);
+  /** POS-010: warehouse staff, any shift. SOD-09 (not the cashier who took the money) is enforced in `fulfillment`. */
+  async confirmPickupHandover(context: CommandContext, saleId: string, input: ConfirmPosPickupHandoverRequest, idempotencyKey: string) {
+    const sale = await this.saleScope(context, saleId);
+    this.authorize(context, 'fulfillment.pickup.handover', sale);
+    return this.command(context, 'pos.confirmPickupHandover', idempotencyKey, { saleId: sale.id, ...input }, async (client) =>
+      ConfirmPosPickupHandoverResponseSchema.parse(await confirmPosPickupHandover(this.requirePool(), client, {
+        saleId: sale.id, actorId: context.user.id, receiverName: input.receiverName, ...this.meta(context),
+      })));
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -131,10 +322,9 @@ export class PosService implements OnModuleDestroy {
 }
 
 /**
- * `/pos/*` (commands) and `/kasir/*` (BFF reads for PSS Kasir) per §46A. Every write
- * resolves the acting user from the session (never trusts a client-supplied
- * organizationId/userId), matching `IdentityController`'s auth pattern — this
- * controller has no independent auth of its own.
+ * `/pos/*` (commands) and `/kasir/*` (reads for PSS Kasir) per §46A, behind the MVP-OD-5 demo
+ * switch. Every route resolves the caller from the session; every mutating route validates its
+ * body and requires an `Idempotency-Key` (scripts/check-command-fitness.mjs).
  */
 @Controller()
 @UseGuards(DemoPosFeatureGuard)
@@ -144,80 +334,110 @@ export class PosController {
     @Inject(IdentityService) private readonly identity: IdentityService,
   ) {}
 
-  private currentUser(request: AuthedRequest): Promise<CurrentUserResponse> {
-    return this.identity.getCurrentUser(request.headers.authorization);
+  private async currentUser(request: ApiRequest) {
+    const user = await this.identity.getCurrentUser(request.headers.authorization);
+    return this.pos.context(user, request);
   }
 
-  @Post('pos/terminals')
-  async registerTerminal(@Req() request: AuthedRequest, @Body(new ZodValidationPipe(RegisterPosTerminalRequestSchema)) body: unknown) {
-    readIdempotencyKey(request as never);
-    hashRequestBody(body);
-    const user = await this.currentUser(request);
-    return this.pos.registerTerminal(user, body as { warehouseId: string; code: string; name: string; deviceId?: string });
+  @Get('kasir/terminals')
+  async terminals(@Req() request: ApiRequest) {
+    return this.pos.terminals(await this.currentUser(request));
   }
 
   @Post('pos/shifts')
-  async openShift(@Req() request: AuthedRequest, @Body(new ZodValidationPipe(OpenPosShiftRequestSchema)) body: { terminalId: string; openingFloat: string }) {
-    const user = await this.currentUser(request);
-    return this.pos.openShift(user, body);
+  async openShift(@Req() request: ApiRequest, @Body(new ZodValidationPipe(OpenPosShiftRequestSchema)) body: OpenPosShiftRequest) {
+    const key = readIdempotencyKey(request);
+    return this.pos.openShift(await this.currentUser(request), body, key);
   }
 
   @Post('pos/shifts/:id/close')
-  async closeShift(@Req() request: AuthedRequest, @Param('id') shiftId: string, @Body() body: { countedCash: string; denominations?: Record<string, number>; reasonCode?: string; note?: string }) {
-    const user = await this.currentUser(request);
-    return this.pos.closeShift(user, shiftId, body);
+  async closeShift(@Req() request: ApiRequest, @Param('id') shiftId: string, @Body(new ZodValidationPipe(ClosePosShiftRequestSchema)) body: ClosePosShiftRequest) {
+    const key = readIdempotencyKey(request);
+    return this.pos.closeShift(await this.currentUser(request), shiftId, body, key);
   }
 
   @Post('pos/shifts/:id/cash-handover')
-  async declareCashHandover(@Param('id') shiftId: string) {
-    return this.pos.declareCashHandover(shiftId);
+  async declareCashHandover(@Req() request: ApiRequest, @Param('id') shiftId: string) {
+    const key = readIdempotencyKey(request);
+    return this.pos.declareCashHandover(await this.currentUser(request), shiftId, key);
   }
 
   @Get('kasir/shift-saya')
-  async shiftSaya(@Req() request: AuthedRequest) {
-    const user = await this.currentUser(request);
-    return this.pos.shiftSaya(user);
+  async shiftSaya(@Req() request: ApiRequest) {
+    return this.pos.shiftSaya(await this.currentUser(request));
+  }
+
+  @Get('kasir/products')
+  async katalog(@Req() request: ApiRequest, @Query('q') query: string) {
+    return this.pos.katalog(await this.currentUser(request), query ?? '');
   }
 
   @Get('kasir/scan/:barcode')
-  async scan(@Req() request: AuthedRequest, @Param('barcode') barcode: string) {
-    const user = await this.currentUser(request);
-    return this.pos.scan(user, barcode);
+  async scan(@Req() request: ApiRequest, @Param('barcode') barcode: string) {
+    return this.pos.scan(await this.currentUser(request), barcode);
   }
 
   @Post('pos/sales')
-  async createSale(@Req() request: AuthedRequest, @Body() body: { terminalId: string; shiftId: string }) {
-    const user = await this.currentUser(request);
-    return this.pos.createSale(user, body);
+  async createSale(@Req() request: ApiRequest, @Body(new ZodValidationPipe(CreatePosSaleRequestSchema)) body: CreatePosSaleRequest) {
+    const key = readIdempotencyKey(request);
+    return this.pos.createSale(await this.currentUser(request), body, key);
+  }
+
+  @Get('pos/sales/:id')
+  async saleDetail(@Req() request: ApiRequest, @Param('id') saleId: string) {
+    return this.pos.saleDetail(await this.currentUser(request), saleId);
   }
 
   @Post('pos/sales/:id/lines')
-  async addLine(@Req() request: AuthedRequest, @Param('id') saleId: string, @Body() body: Record<string, unknown>) {
-    const user = await this.currentUser(request);
-    return this.pos.addLine(user, saleId, body);
+  async addLine(@Req() request: ApiRequest, @Param('id') saleId: string, @Body(new ZodValidationPipe(AddPosSaleLineRequestSchema)) body: AddPosSaleLineRequest) {
+    const key = readIdempotencyKey(request);
+    return this.pos.addLine(await this.currentUser(request), saleId, body, key);
+  }
+
+  @Patch('pos/sales/:id/lines/:lineId')
+  async updateLine(
+    @Req() request: ApiRequest, @Param('id') saleId: string, @Param('lineId') lineId: string,
+    @Body(new ZodValidationPipe(UpdatePosSaleLineRequestSchema)) body: UpdatePosSaleLineRequest,
+  ) {
+    const key = readIdempotencyKey(request);
+    return this.pos.updateLine(await this.currentUser(request), saleId, lineId, body, key);
+  }
+
+  @Delete('pos/sales/:id/lines/:lineId')
+  async removeLine(@Req() request: ApiRequest, @Param('id') saleId: string, @Param('lineId') lineId: string) {
+    const key = readIdempotencyKey(request);
+    return this.pos.removeLine(await this.currentUser(request), saleId, lineId, key);
   }
 
   @Post('pos/sales/:id/checkout')
-  async checkout(@Req() request: AuthedRequest, @Param('id') saleId: string) {
-    const user = await this.currentUser(request);
-    return this.pos.checkout(user, saleId);
+  async checkout(@Req() request: ApiRequest, @Param('id') saleId: string) {
+    const key = readIdempotencyKey(request);
+    return this.pos.checkout(await this.currentUser(request), saleId, key);
   }
 
   @Post('pos/sales/:id/tenders')
-  async acceptTender(@Req() request: AuthedRequest, @Param('id') saleId: string, @Body(new ZodValidationPipe(AcceptPosTenderRequestSchema)) body: { method: 'TUNAI'; cashReceived: string }) {
-    const user = await this.currentUser(request);
-    return this.pos.acceptTender(user, saleId, body);
+  async acceptTender(@Req() request: ApiRequest, @Param('id') saleId: string, @Body(new ZodValidationPipe(AcceptPosTenderRequestSchema)) body: AcceptPosTenderRequest) {
+    const key = readIdempotencyKey(request);
+    return this.pos.acceptTender(await this.currentUser(request), saleId, body, key);
+  }
+
+  @Post('pos/sales/:id/receipt-prints')
+  async printReceipt(@Req() request: ApiRequest, @Param('id') saleId: string, @Body(new ZodValidationPipe(PrintPosReceiptRequestSchema)) body: PrintPosReceiptRequest) {
+    const key = readIdempotencyKey(request);
+    return this.pos.printReceipt(await this.currentUser(request), saleId, body, key);
+  }
+
+  @Get('pos/pickups')
+  async pickups(@Req() request: ApiRequest) {
+    return this.pos.pickups(await this.currentUser(request));
   }
 
   @Post('pos/sales/:id/pickup-handover')
-  async confirmHandover(@Req() request: AuthedRequest, @Param('id') saleId: string, @Body() body: { receiverName: string }) {
-    const user = await this.currentUser(request);
-    return this.pos.confirmHandover(user, saleId, body.receiverName);
-  }
-
-  @Post('kasir/sync')
-  async sync(@Req() request: AuthedRequest, @Body(new ZodValidationPipe(SyncPosOfflineBatchRequestSchema)) body: { terminalId: string; sales: unknown[] }) {
-    const user = await this.currentUser(request);
-    return this.pos.sync(user, body);
+  async confirmPickupHandover(
+    @Req() request: ApiRequest, @Param('id') saleId: string,
+    @Body(new ZodValidationPipe(ConfirmPosPickupHandoverRequestSchema)) body: ConfirmPosPickupHandoverRequest,
+  ) {
+    const key = readIdempotencyKey(request);
+    return this.pos.confirmPickupHandover(await this.currentUser(request), saleId, body, key);
   }
 }

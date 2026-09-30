@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { registerPosTerminal, openPosShift, createPosSale, addPosSaleLine, checkoutPosSale, acceptPosTender, confirmPosPickupHandover, declarePosCashHandover } from '../../domains/pos/src/index';
+import { registerPosTerminal, openPosShift, closePosShift, createPosSale, addPosSaleLine, checkoutPosSale, acceptPosTender, confirmPosPickupHandover, declarePosCashHandover } from '../../domains/pos/src/index';
+import { parseEventForPublication } from '../../packages/contracts/src/events';
 import { verifyCashCustody } from '../../domains/payments/src/index';
 import { applyAuditMigrations, applyMigrations } from '../../scripts/apply-migrations.mjs';
 
@@ -15,6 +16,14 @@ const warehouseId = randomUUID();
 const cashierId = randomUUID();
 const productId = randomUUID();
 const barcode = `BC-${randomUUID().slice(0, 8)}`;
+const meta = (userId: string) => ({ actor: { userId, roles: ['POS_CASHIER'] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API' as const });
+
+async function outboxFor(aggregateId: string) {
+  const result = await pool.query<{ event_type: string; envelope: unknown }>(
+    'SELECT event_type, envelope FROM platform.outbox_event WHERE aggregate_id = $1 ORDER BY created_at', [aggregateId],
+  );
+  return result.rows;
+}
 
 beforeAll(async () => {
   const baseUrl = process.env.PSS_TEST_DATABASE_URL;
@@ -77,68 +86,83 @@ afterAll(async () => {
 
 describe('W-14 PSS Kasir counter sale (cash, full happy path)', () => {
   it('walks Buka Shift → keranjang → Bayar → Terima Uang → serah barang → serah kas → verifikasi', async () => {
-    const terminal = await registerPosTerminal(pool, {
-      organizationId, branchId, warehouseId, code: 'KSR-01', name: 'Konter 1',
-      actor: { userId: cashierId, roles: ['POS_CASHIER'] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+    const terminal = await registerPosTerminal(pool, undefined, {
+      organizationId, branchId, warehouseId, code: 'KSR-01', name: 'Konter 1', ...meta(cashierId),
     });
     expect(terminal.status).toBe('ACTIVE');
 
-    const shift = await openPosShift(pool, {
-      organizationId, terminalId: terminal.id, cashierUserId: cashierId, openingFloat: '500000.00',
-      actor: { userId: cashierId, roles: ['POS_CASHIER'] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+    const shift = await openPosShift(pool, undefined, {
+      organizationId, terminalId: terminal.id, cashierUserId: cashierId, openingFloat: '500000.00', ...meta(cashierId),
     });
     expect(shift.status).toBe('OPEN');
 
-    const sale = await createPosSale(pool, { organizationId, terminalId: terminal.id, shiftId: shift.id });
+    const sale = await createPosSale(pool, undefined, { shiftId: shift.id, ...meta(cashierId) });
     expect(sale.status).toBe('CART');
 
-    const line = await addPosSaleLine(pool, {
-      organizationId, saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '2',
+    const line = await addPosSaleLine(pool, undefined, {
+      saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '2', ...meta(cashierId),
     });
     expect(line.lineTotal).toBe('236000.00'); // 2 karton x Rp118.000
 
-    const checkedOut = await checkoutPosSale(pool, {
-      saleId: sale.id, actor: { userId: cashierId, roles: ['POS_CASHIER'] },
-      requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
-    });
+    const checkedOut = await checkoutPosSale(pool, undefined, { saleId: sale.id, ...meta(cashierId) });
     expect(checkedOut.status).toBe('PENDING_PAYMENT');
     expect(checkedOut.total).toBe('236000.00');
     expect(checkedOut.invoiceNumber).toMatch(/^INV-/);
 
     // Checking out twice (idempotency.R02) must not create a second SalesOrder or reserve stock again.
-    await expect(checkoutPosSale(pool, {
-      saleId: sale.id, actor: { userId: cashierId, roles: ['POS_CASHIER'] },
-      requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
-    })).rejects.toThrow();
+    await expect(checkoutPosSale(pool, undefined, { saleId: sale.id, ...meta(cashierId) }))
+      .rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
 
-    const tender = await acceptPosTender(pool, {
-      saleId: sale.id, method: 'TUNAI', cashReceived: '250000.00', acceptedBy: cashierId,
-      requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+    // Float money is compared in Postgres: 235999.99 is refused, not rounded up.
+    await expect(acceptPosTender(pool, undefined, {
+      saleId: sale.id, method: 'TUNAI', cashReceived: '235999.99', acceptedBy: cashierId, ...meta(cashierId),
+    })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+
+    const tender = await acceptPosTender(pool, undefined, {
+      saleId: sale.id, method: 'TUNAI', cashReceived: '250000.00', acceptedBy: cashierId, ...meta(cashierId),
     });
     expect(tender.saleStatus).toBe('PAID');
     expect(tender.changeAmount).toBe('14000.00');
 
-    const handedOver = await confirmPosPickupHandover(pool, {
-      saleId: sale.id, actorId: randomUUID() /* warehouse staff, distinct from the cashier */, receiverName: 'Budi Santoso',
-      sodCashierNotHandoverEnabled: true, businessDate: '2027-01-15',
-      actor: { userId: cashierId, roles: [] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+    // SOD-09: the cashier who took the money cannot also hand over the goods.
+    await expect(confirmPosPickupHandover(pool, undefined, {
+      saleId: sale.id, actorId: cashierId, receiverName: 'Budi Santoso', ...meta(cashierId),
+    })).rejects.toMatchObject({ code: 'SEGREGATION_OF_DUTIES' });
+
+    const warehouseStaffId = randomUUID();
+    const handedOver = await confirmPosPickupHandover(pool, undefined, {
+      saleId: sale.id, actorId: warehouseStaffId, receiverName: 'Budi Santoso', ...meta(warehouseStaffId),
     });
     expect(handedOver.status).toBe('HANDED_OVER');
 
-    const closed = await import('../../domains/pos/src/application/pos-shift').then((mod) => mod.closePosShift(pool, {
-      shiftId: shift.id, countedCash: '736000.00' /* 500000 float + 236000 sale */,
-      actor: { userId: cashierId, roles: [] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
-    }));
+    const closed = await closePosShift(pool, undefined, {
+      shiftId: shift.id, countedCash: '736000.00' /* 500000 float + 236000 sale */, ...meta(cashierId),
+    });
     expect(closed.status).toBe('CLOSED');
 
-    const handover = await declarePosCashHandover(pool, { shiftId: shift.id });
+    const handover = await declarePosCashHandover(pool, undefined, { shiftId: shift.id, ...meta(cashierId) });
     expect(handover.declaredAmount).toBe('236000.00'); // excludes the opening float, POS-014.BR01
 
     const financeCashierId = randomUUID();
-    const verified = await verifyCashCustody(pool, {
+    const verified = await verifyCashCustody(pool, undefined, {
       cashCustodyRecordId: handover.cashCustodyRecordId, countedAmount: '236000.00', verifiedBy: financeCashierId,
     });
     expect(verified.status).toBe('VERIFIED');
+
+    // MVP_PLAN §5: each fact published once, in the same transaction, and valid for publication.
+    const payment = await pool.query<{ id: string }>('SELECT id FROM payments.payment WHERE reference_id = $1', [sale.id]);
+    const invoice = await pool.query<{ id: string }>('SELECT id FROM sales.invoice WHERE number = $1', [checkedOut.invoiceNumber]);
+    const events = [
+      ...(await outboxFor(payment.rows[0]!.id)),
+      ...(await outboxFor(invoice.rows[0]!.id)),
+      ...(await outboxFor(handover.cashCustodyRecordId)),
+    ];
+    expect(events.map((event) => event.event_type)).toEqual(['PAYMENT_RECEIVED', 'INVOICE_ISSUED', 'CASH_CUSTODY_VERIFIED']);
+    for (const event of events) expect(() => parseEventForPublication(event.envelope)).not.toThrow();
+    const [paymentEvent, invoiceEvent, custodyEvent] = events.map((event) => (event.envelope as { payload: Record<string, unknown> }).payload);
+    expect(paymentEvent).toMatchObject({ amount: '236000.00', cashLocationType: 'POS_SHIFT', cashLocationId: shift.id, receivedBy: cashierId, referenceId: sale.id });
+    expect(invoiceEvent).toMatchObject({ invoiceNumber: checkedOut.invoiceNumber, channel: 'POS', subtotal: '236000.00', taxAmount: '0.00', total: '236000.00', branchId });
+    expect(custodyEvent).toMatchObject({ declaredAmount: '236000.00', countedAmount: '236000.00', varianceAmount: '0.00', sourceId: shift.id, verifiedBy: financeCashierId });
 
     const finalSale = await pool.query('SELECT status FROM pos.pos_sale WHERE id = $1', [sale.id]);
     expect(finalSale.rows[0].status).toBe('HANDED_OVER');
@@ -153,21 +177,18 @@ describe('W-14 PSS Kasir counter sale (cash, full happy path)', () => {
   });
 
   it('rejects checkout when stock is insufficient and leaves the sale in CART', async () => {
-    const terminal = await registerPosTerminal(pool, {
-      organizationId, branchId, warehouseId, code: 'KSR-02', name: 'Konter 2',
-      actor: { userId: cashierId, roles: ['POS_CASHIER'] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+    const secondCashierId = randomUUID();
+    const terminal = await registerPosTerminal(pool, undefined, {
+      organizationId, branchId, warehouseId, code: 'KSR-02', name: 'Konter 2', ...meta(secondCashierId),
     });
-    const shift = await openPosShift(pool, {
-      organizationId, terminalId: terminal.id, cashierUserId: randomUUID(), openingFloat: '200000.00',
-      actor: { roles: [], serviceIdentity: 'test' }, requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
+    const shift = await openPosShift(pool, undefined, {
+      organizationId, terminalId: terminal.id, cashierUserId: secondCashierId, openingFloat: '200000.00', ...meta(secondCashierId),
     });
-    const sale = await createPosSale(pool, { organizationId, terminalId: terminal.id, shiftId: shift.id });
-    await addPosSaleLine(pool, { organizationId, saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '999' });
+    const sale = await createPosSale(pool, undefined, { shiftId: shift.id, ...meta(secondCashierId) });
+    await addPosSaleLine(pool, undefined, { saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '999', ...meta(secondCashierId) });
 
-    await expect(checkoutPosSale(pool, {
-      saleId: sale.id, actor: { userId: randomUUID(), roles: [] },
-      requestId: randomUUID(), correlationId: randomUUID(), source: 'API',
-    })).rejects.toThrow();
+    await expect(checkoutPosSale(pool, undefined, { saleId: sale.id, ...meta(secondCashierId) }))
+      .rejects.toMatchObject({ code: 'POS_STOCK_INSUFFICIENT' });
 
     const stillCart = await pool.query('SELECT status FROM pos.pos_sale WHERE id = $1', [sale.id]);
     expect(stillCart.rows[0].status).toBe('CART');

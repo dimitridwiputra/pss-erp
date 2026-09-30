@@ -1,7 +1,7 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { withAuditedTransaction } from '@pss/audit';
-import { BusinessDateSchema, DomainError } from '@pss/contracts';
+import { BusinessDateSchema, DomainError, newEventId } from '@pss/contracts';
+import { appendOutboxEvent, withConnection } from '@pss/platform';
 import { ActorInputSchema, SourceSchema } from './support/audit-context';
 
 const DeliveredLineInputSchema = z.strictObject({
@@ -51,14 +51,18 @@ function parseOrThrow<T>(schema: z.ZodType<T>, raw: unknown): T {
  * delivered amount. Issued invoices are immutable afterward (DEC-106): no
  * further command in this slice mutates an ISSUED invoice.
  *
- * This command always manages its own transaction (no shared-client overload):
- * issuance is the terminal step of the flow and is never expected to compose
- * inside a caller's own transaction the way `prepareInvoice` does.
+ * Pass an open transaction's `client` to compose with the caller: POS pickup handover issues the
+ * invoice in the same commit as the delivery and the stock issue (POS-010.R02), so a failure in
+ * any step leaves none of them applied.
+ *
+ * A POS-channel invoice publishes INVOICE_ISSUED v1 through the outbox in this same transaction,
+ * built from the stored invoice. Other channels have no v1 payload yet (MVP_PLAN §5 is POS-only)
+ * and publish nothing; see DOMAIN.md.
  */
-export async function issueInvoice(pool: Pool, rawInput: IssueInvoiceInput): Promise<IssuedInvoice> {
+export async function issueInvoice(pool: Pool, client: PoolClient | undefined, rawInput: IssueInvoiceInput): Promise<IssuedInvoice> {
   const input = parseOrThrow(IssueInvoiceInputSchema, rawInput);
 
-  return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+  return withConnection(pool, client, async ({ client, appendAuditEntry }) => {
     const invoiceResult = await client.query<{ organization_id: string; status: string }>(
       `SELECT organization_id, status FROM sales.invoice WHERE id = $1 FOR UPDATE`,
       [input.invoiceId],
@@ -78,7 +82,7 @@ export async function issueInvoice(pool: Pool, rawInput: IssueInvoiceInput): Pro
     );
     for (const row of existingLines.rows) {
       const qtyDelivered = delivered.get(`${row.product_id}::${row.uom}`);
-      if (qtyDelivered === undefined || Number(qtyDelivered) <= 0) {
+      if (qtyDelivered === undefined || /^0+(\.0+)?$/.test(qtyDelivered)) {
         await client.query(`DELETE FROM sales.invoice_line WHERE id = $1`, [row.id]);
         continue;
       }
@@ -89,7 +93,10 @@ export async function issueInvoice(pool: Pool, rawInput: IssueInvoiceInput): Pro
       );
     }
 
-    const updated = await client.query<{ number: string; total: string; version: number }>(
+    const updated = await client.query<{
+      number: string; total: string; version: number; subtotal: string; tax_total: string;
+      channel: string | null; customer_id: string | null; branch_id: string | null; sales_order_id: string;
+    }>(
       `UPDATE sales.invoice
        SET status = 'ISSUED',
            invoice_date = $2,
@@ -98,7 +105,7 @@ export async function issueInvoice(pool: Pool, rawInput: IssueInvoiceInput): Pro
            version = version + 1,
            updated_at = now()
        WHERE id = $1
-       RETURNING number, total, version`,
+       RETURNING number, total, version, subtotal, tax_total, channel, customer_id, branch_id, sales_order_id`,
       [input.invoiceId, input.invoiceDate],
     );
     const result = updated.rows[0];
@@ -114,6 +121,23 @@ export async function issueInvoice(pool: Pool, rawInput: IssueInvoiceInput): Pro
       correlationId: input.correlationId,
       source: input.source,
     });
+
+    if (result.channel === 'POS') {
+      if (!result.customer_id || !result.branch_id) throw new Error('A POS invoice was stored without its customer or branch.');
+      await appendOutboxEvent(client, {
+        eventId: newEventId(), eventType: 'INVOICE_ISSUED', eventVersion: 1,
+        occurredAt: new Date().toISOString(), businessDate: input.invoiceDate,
+        organizationId: invoice.organization_id, branchId: result.branch_id,
+        aggregateType: 'Invoice', aggregateId: input.invoiceId, aggregateVersion: result.version,
+        producer: 'invoicing', actor: input.actor,
+        correlationId: input.correlationId, causationId: input.requestId,
+        payload: {
+          invoiceId: input.invoiceId, invoiceNumber: result.number, customerId: result.customer_id,
+          branchId: result.branch_id, salesOrderId: result.sales_order_id, channel: 'POS', currency: 'IDR',
+          subtotal: result.subtotal, taxAmount: result.tax_total, total: result.total, businessDate: input.invoiceDate,
+        },
+      });
+    }
 
     return { invoiceId: input.invoiceId, number: result.number, total: result.total, status: 'ISSUED' as const };
   });

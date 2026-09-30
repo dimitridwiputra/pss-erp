@@ -24,7 +24,7 @@ const PrepareInvoiceLineInputSchema = z.strictObject({
   productId: z.uuid(),
   uom: z.string().min(1),
   // Matches sales.invoice_line.qty: numeric(18,3), CHECK (qty > 0).
-  qty: z.string().regex(/^\d+(\.\d{1,3})?$/).refine((value) => Number(value) > 0, 'Qty must be greater than zero.'),
+  qty: z.string().regex(/^\d+(\.\d{1,3})?$/).refine((value) => !/^0+(\.0+)?$/.test(value), 'Qty must be greater than zero.'),
   // Matches sales.invoice_line.unit_price: numeric(18,2).
   unitPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
 });
@@ -33,11 +33,18 @@ const PrepareInvoiceInputSchema = z.strictObject({
   organizationId: z.uuid(),
   branchCode: z.string().min(1),
   salesOrderId: z.uuid(),
+  // Stored so INVOICE_ISSUED is built from the invoice itself (MVP_PLAN §5). A POS invoice must
+  // carry both: the v1 event has no optional customer or branch.
+  channel: z.literal('POS').optional(),
+  customerId: z.uuid().optional(),
+  branchId: z.uuid().optional(),
   lines: z.array(PrepareInvoiceLineInputSchema).min(1),
   actor: ActorInputSchema,
   requestId: z.string().min(1),
   correlationId: z.string().min(1),
   source: SourceSchema,
+}).refine((input) => input.channel !== 'POS' || (input.customerId !== undefined && input.branchId !== undefined), {
+  path: ['customerId'], message: 'A POS invoice needs its customer and branch.',
 });
 export type PrepareInvoiceInput = z.input<typeof PrepareInvoiceInputSchema>;
 
@@ -107,9 +114,9 @@ async function insertPreparedInvoice(
   const invoiceId = randomUUID();
   await client.query(
     `INSERT INTO sales.invoice (
-      id, organization_id, sales_order_id, number, status, tax_total
-    ) VALUES ($1, $2, $3, $4, 'PREPARED', 0)`,
-    [invoiceId, input.organizationId, input.salesOrderId, number],
+      id, organization_id, sales_order_id, number, status, tax_total, channel, customer_id, branch_id
+    ) VALUES ($1, $2, $3, $4, 'PREPARED', 0, $5, $6, $7)`,
+    [invoiceId, input.organizationId, input.salesOrderId, number, input.channel ?? null, input.customerId ?? null, input.branchId ?? null],
   );
 
   for (const line of input.lines) {

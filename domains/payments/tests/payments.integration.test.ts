@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DomainError } from '@pss/contracts';
 import { declareCashHandover, recordPayment, verifyCashCustody } from '../src/index';
-import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
+import { applyAuditMigrations, applyMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_payments_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -22,12 +21,9 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
 
-  const paymentsMigration = await readFile(
-    new URL('../infrastructure/database/migrations/0001_payments.sql', import.meta.url),
-    'utf8',
-  );
-
-  await pool.query(paymentsMigration);
+  // Each domain's full ordered list; platform supplies the outbox the POS events are written to.
+  await applyMigrations(pool, 'platform');
+  await applyMigrations(pool, 'payments');
 
   // Every command audits through @pss/audit's withAuditedTransaction/runAuditedWork, which
   // inserts into audit.audit_entry — so that table must exist here too. The whole audit domain
@@ -51,9 +47,12 @@ function recordTunaiPayment(acceptedBy: string, amount: string) {
     channel: 'POS',
     method: 'TUNAI',
     amount,
-    referenceType: 'POS_SHIFT_LINE',
+    referenceType: 'POS_SALE',
     referenceId: randomUUID(),
     acceptedBy,
+    customerId: randomUUID(),
+    cashLocation: { type: 'POS_SHIFT', id: randomUUID() },
+    businessDate: '2026-10-01',
   });
 }
 
@@ -66,9 +65,9 @@ async function declareHandover(): Promise<{
   const collectorId = randomUUID();
   const paymentA = await recordTunaiPayment(collectorId, '15000.00');
   const paymentB = await recordTunaiPayment(collectorId, '20000.00');
-  const declared = await declareCashHandover(pool, {
+  const declared = await declareCashHandover(pool, undefined, {
     organizationId,
-    source: 'POS_SHIFT',
+    source: 'POS_SHIFT', sourceId: randomUUID(),
     collectorId,
     paymentIds: [paymentA.paymentId, paymentB.paymentId],
   });
@@ -106,9 +105,9 @@ describe('CSH-001 declareCashHandover', () => {
       referenceType: 'POS_SHIFT_LINE', referenceId: randomUUID(), acceptedBy: collectorId,
     });
 
-    const declared = await declareCashHandover(pool, {
+    const declared = await declareCashHandover(pool, undefined, {
       organizationId,
-      source: 'POS_SHIFT',
+      source: 'POS_SHIFT', sourceId: randomUUID(),
       collectorId,
       paymentIds: [paymentA.paymentId, paymentB.paymentId],
     });
@@ -127,9 +126,9 @@ describe('CSH-001 declareCashHandover', () => {
     expect(auditEntries.rows[0].count).toBe(1);
 
     // A repeat declaration with the exact same paymentIds must return the SAME record.
-    const repeat = await declareCashHandover(pool, {
+    const repeat = await declareCashHandover(pool, undefined, {
       organizationId,
-      source: 'POS_SHIFT',
+      source: 'POS_SHIFT', sourceId: randomUUID(),
       collectorId,
       paymentIds: [paymentA.paymentId, paymentB.paymentId],
     });
@@ -162,9 +161,9 @@ describe('CSH-001 declareCashHandover', () => {
       referenceType: 'POS_SHIFT_LINE', referenceId: randomUUID(), acceptedBy: collectorId,
     });
 
-    const attempt = declareCashHandover(pool, {
+    const attempt = declareCashHandover(pool, undefined, {
       organizationId,
-      source: 'POS_SHIFT',
+      source: 'POS_SHIFT', sourceId: randomUUID(),
       collectorId,
       paymentIds: [qrisPayment.paymentId],
     });
@@ -184,7 +183,7 @@ describe('CSH-001 verifyCashCustody', () => {
     const { cashCustodyRecordId, declaredAmount, paymentIds } = await declareHandover();
     const verifierId = randomUUID();
 
-    const result = await verifyCashCustody(pool, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: verifierId });
+    const result = await verifyCashCustody(pool, undefined, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: verifierId });
     expect(result).toMatchObject({ cashCustodyRecordId, status: 'VERIFIED', variance: '0.00' });
 
     const record = await pool.query(
@@ -213,7 +212,7 @@ describe('CSH-001 verifyCashCustody', () => {
     const { cashCustodyRecordId, paymentIds } = await declareHandover();
     const verifierId = randomUUID();
 
-    const result = await verifyCashCustody(pool, { cashCustodyRecordId, countedAmount: '1.00', verifiedBy: verifierId });
+    const result = await verifyCashCustody(pool, undefined, { cashCustodyRecordId, countedAmount: '1.00', verifiedBy: verifierId });
     expect(result.status).toBe('DISCREPANCY');
     expect(result.variance).toBe('-34999.00');
 
@@ -239,7 +238,7 @@ describe('CSH-001 verifyCashCustody', () => {
   it('rejects verification by the same collector who declared the handover (SOD-06)', async () => {
     const { cashCustodyRecordId, declaredAmount, collectorId } = await declareHandover();
 
-    const attempt = verifyCashCustody(pool, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: collectorId });
+    const attempt = verifyCashCustody(pool, undefined, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: collectorId });
     await expect(attempt).rejects.toThrow(DomainError);
     await expect(attempt).rejects.toMatchObject({ code: 'SEGREGATION_OF_DUTIES' });
 
@@ -249,10 +248,58 @@ describe('CSH-001 verifyCashCustody', () => {
 
   it('rejects a second verification attempt on an already-verified record', async () => {
     const { cashCustodyRecordId, declaredAmount } = await declareHandover();
-    await verifyCashCustody(pool, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: randomUUID() });
+    await verifyCashCustody(pool, undefined, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: randomUUID() });
 
-    const attempt = verifyCashCustody(pool, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: randomUUID() });
+    const attempt = verifyCashCustody(pool, undefined, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: randomUUID() });
     await expect(attempt).rejects.toThrow(DomainError);
     await expect(attempt).rejects.toMatchObject({ code: 'CUSTODY_ALREADY_VERIFIED' });
+  });
+});
+
+describe('MVP-OD-9 cash variance at verification, and CASH_CUSTODY_VERIFIED', () => {
+  async function outbox(aggregateId: string) {
+    const rows = await pool.query<{ envelope: { payload: Record<string, unknown> } }>(
+      "SELECT envelope FROM platform.outbox_event WHERE aggregate_id = $1 AND event_type = 'CASH_CUSTODY_VERIFIED'", [aggregateId],
+    );
+    return rows.rows.map((row) => row.envelope.payload);
+  }
+
+  it('verifies a matching count and publishes the event once, from the stored record', async () => {
+    const { cashCustodyRecordId, declaredAmount } = await declareHandover();
+    const verifierId = randomUUID();
+    await verifyCashCustody(pool, undefined, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: verifierId, businessDate: '2026-10-01' });
+    await expect(verifyCashCustody(pool, undefined, { cashCustodyRecordId, countedAmount: declaredAmount, verifiedBy: verifierId }))
+      .rejects.toMatchObject({ code: 'CUSTODY_ALREADY_VERIFIED' });
+    const events = await outbox(cashCustodyRecordId);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ declaredAmount, countedAmount: declaredAmount, varianceAmount: '0.00', verifiedBy: verifierId, sourceType: 'POS_SHIFT', businessDate: '2026-10-01' });
+  });
+
+  it('verifies a short count when a registered CSH reason is given, carrying the signed variance', async () => {
+    const { cashCustodyRecordId, paymentIds } = await declareHandover();
+    const result = await verifyCashCustody(pool, undefined, {
+      cashCustodyRecordId, countedAmount: '1.00', verifiedBy: randomUUID(), reasonCode: 'RC-CSH-COUNT_SHORT',
+    });
+    expect(result.status).toBe('VERIFIED');
+    const record = await pool.query<{ reason_code: string; status: string }>('SELECT reason_code, status FROM payments.cash_custody_record WHERE id = $1', [cashCustodyRecordId]);
+    expect(record.rows[0]).toEqual({ reason_code: 'RC-CSH-COUNT_SHORT', status: 'VERIFIED' });
+    const payments = await pool.query<{ status: string }>('SELECT status FROM payments.payment WHERE id = ANY($1::uuid[])', [paymentIds]);
+    expect(payments.rows.every((row) => row.status === 'VERIFIED')).toBe(true);
+    const [event] = await outbox(cashCustodyRecordId);
+    expect(event?.varianceAmount).toMatch(/^-\d+\.\d{2}$/);
+  });
+
+  it('refuses a reason code that is not a registered CSH code', async () => {
+    const { cashCustodyRecordId } = await declareHandover();
+    await expect(verifyCashCustody(pool, undefined, { cashCustodyRecordId, countedAmount: '1.00', verifiedBy: randomUUID(), reasonCode: 'RC-POS-OTHER' }))
+      .rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(await outbox(cashCustodyRecordId)).toEqual([]);
+  });
+
+  it('publishes nothing for a discrepancy left to CSH-002', async () => {
+    const { cashCustodyRecordId } = await declareHandover();
+    const result = await verifyCashCustody(pool, undefined, { cashCustodyRecordId, countedAmount: '1.00', verifiedBy: randomUUID() });
+    expect(result.status).toBe('DISCREPANCY');
+    expect(await outbox(cashCustodyRecordId)).toEqual([]);
   });
 });

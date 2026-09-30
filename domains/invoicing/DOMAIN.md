@@ -40,10 +40,12 @@ Explicitly NOT owned by this slice (tracked as gaps, not silent shortcuts):
   an optional already-open `PoolClient` so a caller (e.g. `pos`'s own checkout
   transaction) can run it as part of a larger transaction; when omitted, the
   command manages its own transaction. Audited as `INVOICE_PREPARED`.
-- `issueInvoice(pool, input)` — transitions a `PREPARED`/`DRAFT` invoice to
+- `issueInvoice(pool, client, input)` — transitions a `PREPARED`/`DRAFT` invoice to
   `ISSUED`, recomputing every line to match only the delivered qty (see the
-  line-removal rule below), and sets `invoice_date`. Always manages its own
-  transaction. Throws `DomainError('INVALID_STATE_TRANSITION')` if the
+  line-removal rule below), and sets `invoice_date`. Joins the caller's open
+  transaction when `client` is given: POS pickup handover issues it in the same
+  commit as the delivery and the stock issue. A `channel: 'POS'` invoice
+  publishes `INVOICE_ISSUED` v1 in that transaction. Throws `DomainError('INVALID_STATE_TRANSITION')` if the
   invoice is not `PREPARED`/`DRAFT` (e.g. issuing twice), and `NOT_FOUND` if
   the invoice does not exist. Audited as `INVOICE_ISSUED`.
 
@@ -61,9 +63,12 @@ None implemented in this slice.
 
 ## Events produced and consumed
 
-None implemented in this slice. `INVOICE_PREPARED`/`INVOICE_ISSUED` event
-publication (outbox) is deferred — callers observe results via command return
-values only for now.
+Produced: `INVOICE_ISSUED` v1 (MVP_PLAN §5), through `appendOutboxEvent` in the
+same transaction as the issue. It is built from the stored invoice, whose
+`channel`, `customer_id` and `branch_id` are set by `prepareInvoice` (migration
+`0002_invoice_event_facts.sql`); a POS invoice must carry both customer and branch.
+Only the POS channel has a v1 payload. Other invoices, and `INVOICE_PREPARED`,
+publish nothing yet.
 
 ## Tables
 

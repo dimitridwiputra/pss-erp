@@ -52,7 +52,7 @@ async function deliverOneDeliveryOrder(): Promise<string> {
   const line = await pool.query<{ id: string }>(
     'SELECT id FROM sales.delivery_order_line WHERE delivery_order_id = $1', [released.deliveryOrderId],
   );
-  await confirmPickupHandover(pool, {
+  await confirmPickupHandover(pool, undefined, {
     deliveryOrderId: released.deliveryOrderId,
     posSaleStatus: 'PAID', actorId, sodCashierNotHandoverEnabled: false,
     lines: [{ deliveryOrderLineId: line.rows[0]!.id, qtyHandedOver: '2.000' }],

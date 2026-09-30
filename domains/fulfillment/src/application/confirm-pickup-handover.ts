@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { withAuditedTransaction } from '@pss/audit';
 import { DomainError, newEventId } from '@pss/contracts';
-import { appendOutboxEvent } from '@pss/platform';
-import type { Pool } from 'pg';
+import { appendOutboxEvent, withConnection } from '@pss/platform';
+import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 
 // Matches sales.delivery_order_line.qty_delivered/qty_ordered: numeric(18,3).
@@ -25,6 +24,10 @@ const ConfirmPickupHandoverInputSchema = z.strictObject({
   lines: z.array(ConfirmPickupHandoverLineInputSchema).min(1),
   receiverName: z.string().min(1),
   mediaIds: z.array(z.string().min(1)).optional(),
+  // The caller's request context, so the audit entry and DELIVERY_ORDER_DELIVERED correlate with
+  // the request that caused them. Generated when absent, as before.
+  requestId: z.string().min(1).optional(),
+  correlationId: z.string().min(1).optional(),
 });
 
 export type ConfirmPickupHandoverInput = z.input<typeof ConfirmPickupHandoverInputSchema>;
@@ -48,6 +51,7 @@ const PAID_POS_SALE_STATUSES: ReadonlySet<string> = new Set(['PAID', 'CREDIT_APP
  */
 export async function confirmPickupHandover(
   pool: Pool,
+  client: PoolClient | undefined,
   rawInput: ConfirmPickupHandoverInput,
 ): Promise<ConfirmedPickupHandover> {
   const parsed = ConfirmPickupHandoverInputSchema.safeParse(rawInput);
@@ -63,7 +67,9 @@ export async function confirmPickupHandover(
   // (a) EXCEPTION FLOW E1: goods can only be handed over once the sale is settled.
   if (!PAID_POS_SALE_STATUSES.has(input.posSaleStatus)) throw new DomainError('POS_NOT_PAID');
 
-  return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+  // Pass an open `client` to compose with the caller: POS issues stock and the invoice in the same
+  // commit (POS-010.R02), so a failure in any of them leaves none applied.
+  return withConnection(pool, client, async ({ client, appendAuditEntry }) => {
     const orderResult = await client.query<{
       organization_id: string;
       status: string;
@@ -141,7 +147,8 @@ export async function confirmPickupHandover(
       ? [{ path: 'mediaIds', classification: 'PUBLIC' as const, after: JSON.stringify(input.mediaIds) }]
       : [];
 
-    const requestId = randomUUID();
+    const requestId = input.requestId ?? randomUUID();
+    const correlationId = input.correlationId ?? requestId;
     await appendAuditEntry({
       organizationId: order.organization_id,
       actor: { userId: input.actorId, roles: [] },
@@ -158,7 +165,7 @@ export async function confirmPickupHandover(
         ...mediaChange,
       ],
       requestId,
-      correlationId: requestId,
+      correlationId,
       source: 'API',
     });
 
@@ -175,7 +182,7 @@ export async function confirmPickupHandover(
         organizationId: order.organization_id,
         aggregateType: 'DeliveryOrder', aggregateId: input.deliveryOrderId, aggregateVersion: newVersion,
         producer: 'fulfillment', actor: { userId: input.actorId, roles: [] },
-        correlationId: requestId, causationId: requestId,
+        correlationId, causationId: requestId,
         payload: {
           doId: input.deliveryOrderId, deliveredAt,
           lines: lines.rows.map((line) => ({ productId: line.product_id, qtyDelivered: line.qty_delivered })),

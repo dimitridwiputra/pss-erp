@@ -1,62 +1,124 @@
 # POS domain (PSS Kasir)
 
-Status: first real slice implementing the P0 core loop of §46A (PSS Kasir / POS Grosir, PRD revision 1.1): terminal, shift, cart, checkout, cash tender, pickup handover, receipt, cash handover, and offline emergency mode. QRIS (POS-007), bank transfer (POS-008), tempo/credit sale (POS-009), cancel/return (POS-012), and the reporting home (POS-015) are deferred — see "Open decisions" below.
+Status: the P0 counter loop of §46A (PSS Kasir / POS Grosir, PRD revision 1.1) runs on the hardened API behind the MVP-OD-5 demo switch. It covers the terminal, shift, cart, checkout, cash tender, receipt, pickup handover and cash handover. QRIS (POS-007), bank transfer (POS-008), tempo/credit sale (POS-009), cancel/return (POS-012), offline mode (POS-013) and the reporting home (POS-015) are deferred; see "Open decisions".
 
 ## Purpose
 
-Run a walk-in wholesale counter sale end to end — cart → pay → hand over barang — by orchestrating the same public commands PSS Sales uses (DEC-108), never writing another domain's tables (POS-000.R01).
+Run a walk-in wholesale counter sale end to end (cart → pay → hand over barang) by orchestrating the same public commands PSS Sales uses (DEC-108), never writing another domain's tables (POS-000.R01).
 
 ## Owns
 
-`pos.pos_terminal`, `pos.pos_shift`, `pos.pos_sale` / `pos.pos_sale_line`, `pos.pos_tender`, `pos.pos_receipt_print`, `pos.pos_offline_batch` — exactly the six entities POS-000.R01 names. `pos` never has a chart of accounts, price list, stock, or invoice table of its own; those live in the domains that own them (`commercial`, `inventory`, `orders`, `fulfillment`, `invoicing`, `payments`, `master-data`).
+`pos.pos_terminal`, `pos.pos_shift`, `pos.pos_sale` / `pos.pos_sale_line`, `pos.pos_tender`, `pos.pos_receipt_print` and `pos.pos_offline_batch`, which are exactly the six entities POS-000.R01 names. `pos` never has a chart of accounts, price list, stock or invoice table of its own. Those live in the domains that own them (`commercial`, `inventory`, `orders`, `fulfillment`, `invoicing`, `payments`, `master-data`).
 
 ## Does not own
 
-Pricing, stock, sales orders, delivery orders, invoices, payments, or customer master data. `pos` never emits a journal (POS-000.R02) and never reads another domain's schema directly — every cross-domain effect goes through that domain's own exported command/query, composed in-process (this is a modular monolith sharing one Postgres cluster, so a checkout can be one ACID transaction across domains rather than a multi-step saga).
+Pricing, stock, sales orders, delivery orders, invoices, payments, and customer master data. `pos` never emits a journal (POS-000.R02). Every cross-domain effect goes through that domain's exported command or query, composed in-process. This is a modular monolith on one Postgres cluster, so a checkout or handover is a single ACID transaction rather than a saga.
 
 ## Commands
 
-- `registerPosTerminal` / `deactivatePosTerminal` (POS-001) — terminal lifecycle. The POS-000.R07 "warehouse must be MANAGED" gate is a documented no-op stub (`assertWarehouseManaged`): `organization`/`principal-policy` don't exist yet in this build.
-- `openPosShift` / `closePosShift` / `forceClosePosShift` (POS-002) — shift lifecycle. `POS-000.R08` (one OPEN shift per terminal/cashier) is enforced by two partial unique indexes, not application logic. `closePosShift` computes expected cash server-side (`opening_float + Σ ACCEPTED TUNAI tender.amount`, already net of change per POS-006.BR01) and requires a `reasonCode` outside `closeTolerance`.
-- `createPosSale`, `addPosSaleLine`, `updatePosSaleLine`, `removePosSaleLine`, `holdPosSale` (POS-003) — cart building. `addPosSaleLine` resolves the product (via `@pss/master-data`'s `findProductByBarcode`, or a caller-supplied `productId`+`uom`+`sku`+`name` from a prior katalog search — master-data exposes no "product by id" query) and its price (via `@pss/commercial`'s `resolvePrice`), snapshotting both onto the line. The cart-time stock indicator (POS-003.BR03, informational only) is not implemented — `inventory` exposes no read-only availability query yet, only mutating reserve/release/issue commands.
-- `selectPosCustomer` / `quickRegisterPosCustomer` (POS-004) — attaches an existing customer, or quick-registers one via `@pss/master-data`'s `createCustomer` (pos never writes the customer table).
-- `checkoutPosSale` (POS-005) — the checkout saga: locks the sale and its lines, defaults to the branch's walk-in customer if none was selected (`@pss/master-data`'s `getOrCreateWalkInCustomer`), then in one shared transaction calls `@pss/inventory`'s `reserveStock` (FULL only — any shortfall rolls back everything), `@pss/orders`'s `requestSalesOrder` (idempotent on `clientKey = posSaleId`), `@pss/fulfillment`'s `releaseFulfillment`, and `@pss/invoicing`'s `prepareInvoice`, then marks the sale `PENDING_PAYMENT`.
-- `acceptPosTender` (POS-006) — TUNAI only in this slice (QRIS/transfer are POS-007/008). Records the tender and calls `@pss/payments`'s `recordPayment`; marks the sale `PAID` once the (single, full-amount) tender covers the total. No split-tender across methods yet.
-- `confirmPosPickupHandover` (POS-010) — full-delivery only in this slice (no partial-pickup UI). Resolves the delivery order's lines via `@pss/fulfillment`'s `getDeliveryOrderLines` (a query added to `domains/fulfillment` for this purpose, since `pos` cannot read `sales.*` directly), calls `confirmPickupHandover` (guards `POS_NOT_PAID`/`POS_ALREADY_HANDED_OVER`/`SEGREGATION_OF_DUTIES` — SOD-09 — live in `fulfillment`, since that's the PRD's named domain owner for this command even though the facts it guards on originate in `pos`) and then `@pss/invoicing`'s `issueInvoice`, before marking the sale `HANDED_OVER`.
-- `printPosReceipt` (POS-011) — first print is copy 1; every later print requires a reason and is copy N ("SALINAN").
-- `declarePosCashHandover` (POS-014) — gathers the shift's ACCEPTED TUNAI payments and calls `@pss/payments`'s `declareCashHandover`, then marks the shift `HANDED_OVER`. Verification (`verifyCashCustody`) is a Finance-side action on `@pss/payments`, not exposed here.
-- `syncPosOfflineBatch` (POS-013) — replays a batch of offline cash sales through the normal online path (create → add lines → checkout → tender) so each gets the same server-side guards as an online sale. Idempotent per sale `number` (the offline block's number is unique per organization); a failure on one sale is recorded `NEEDS_REVIEW` and does not abort the rest of the batch.
+Every command has the signature `(pool, client | undefined, input)` and runs through `@pss/platform`'s `withConnection`. Called from `runCommand`, it joins the caller's idempotent transaction (ADR-0013). Called alone, it opens its own. Every success path appends an audit entry, and the audited runner refuses to commit without one. Every input carries `actor`, `requestId`, `correlationId` and `source`, which the API resolves from the session, never from the body. Money and quantity comparisons run in Postgres, never as a JS `Number`.
+
+- `registerPosTerminal` / `deactivatePosTerminal` (POS-001): terminal lifecycle. The POS-000.R07 "warehouse must be MANAGED" gate is a documented no-op stub, because `organization`/`principal-policy` do not exist yet. Registration is not exposed by the API: it needs the warehouse's branch from `organization`. The demo seed calls it directly.
+- `openPosShift` / `closePosShift` / `forceClosePosShift` (POS-002): shift lifecycle.
+  - POS-000.R08 (one OPEN shift per terminal and per cashier) is enforced by two partial unique indexes and surfaces as `POS_SHIFT_ALREADY_OPEN`.
+  - Close computes expected cash on the server: `opening_float + Σ ACCEPTED TUNAI tender.amount`, already net of change (POS-006.BR01).
+  - Any variance needs a registered `RC-POS-*` reason code. No close tolerance is configured, so the default is 0 and it fails closed.
+- `createPosSale`, `addPosSaleLine`, `updatePosSaleLine`, `removePosSaleLine` (POS-003): cart building on an OPEN shift. `createPosSale` takes only the shift. The terminal and organization come from the shift, so a sale can't be attached to another terminal's shift. `addPosSaleLine` resolves the product from a scanned barcode (`@pss/master-data` `findProductByBarcode`) and its price (`@pss/commercial` `resolvePrice`), then snapshots both onto the line (POS-003.BR02). It no longer accepts a caller-supplied product id, SKU or name (see MVP-OD-10).
+- `selectPosCustomer` / `quickRegisterPosCustomer` (POS-004): implemented and audited, but not exposed by the MVP API, because the customer menu is hidden.
+- `checkoutPosSale` (POS-005): the checkout saga, all in one transaction.
+  1. Lock the sale and require an OPEN shift. With no customer selected, default to the branch's walk-in customer.
+  2. `reserveStock`: FULL reservation only. A shortfall surfaces as `POS_STOCK_INSUFFICIENT` and rolls everything back, leaving the sale in CART.
+  3. `requestSalesOrder`, idempotent on `clientKey = posSaleId`.
+  4. `releaseFulfillment`.
+  5. `prepareInvoice` with `channel: 'POS'`, customer and branch.
+  6. Mark the sale `PENDING_PAYMENT`.
+- `acceptPosTender` (POS-006): TUNAI only. It checks cash received ≥ total in SQL. `@pss/payments` `recordPayment` stores the payment with its customer, invoice, cash location (the shift) and business date, and publishes `PAYMENT_RECEIVED` in the same transaction. The sale becomes `PAID`.
+- `printPosReceipt` (POS-011): copy 1 is the original. Every later print needs a reason and is returned with `isCopy` ("SALINAN"). The sale row is locked so two prints can't share a copy number. The receipt carries the invoice number, because `KSR-{CAB}-{YYYY}-{NNNNNN}` numbering (DOC-001) awaits the owner's template (GAP-16).
+- `confirmPosPickupHandover` (POS-010): full delivery only. One transaction covers:
+  - `@pss/fulfillment` `confirmPickupHandover`, which holds the `POS_NOT_PAID` / `POS_ALREADY_HANDED_OVER` / SOD-09 guards and publishes `DELIVERY_ORDER_DELIVERED`;
+  - `@pss/inventory` `issueInventory`, which consumes the checkout reservation;
+  - `@pss/invoicing` `issueInvoice`, with the handover date as the invoice date (POS-010.BR03), which publishes `INVOICE_ISSUED`;
+  - the sale's `HANDED_OVER` state.
+
+  These steps used to commit separately, so a failure part-way left goods delivered with no invoice issued.
+- `declarePosCashHandover` (POS-014): gathers the shift's ACCEPTED TUNAI payments and calls `@pss/payments` `declareCashHandover` with `source: 'POS_SHIFT'` and the shift id, then marks the shift `HANDED_OVER`, in one commit. The opening float is excluded (POS-014.BR01) and returned so the screen can say it stays in the drawer.
+
+`syncPosOfflineBatch` (POS-013) was removed. Its replay added lines through the path that trusted a client-supplied product name and SKU, and offline mode is out of MVP scope (MVP_PLAN §9). The `pos_offline_batch` table and the `pos-offline` contract remain. Rebuild it on the hardened commands when POS-013 is scheduled.
 
 ## Queries
 
-`getPosSale`, `getShiftSaya` — read models backing `GET /kasir/shift-saya` and sale detail. Not idempotent-projector-backed read models in the CST-001 sense (no separate `reporting.*` table) — they query `pos`'s own tables directly, which is fine since `pos` owns them.
+- `getPosTerminalScope`, `getPosShiftScope`, `getPosSaleScope`: the canonical organization, branch, warehouse, terminal and cashier of a supplied id, which the API uses for authorization.
+- `listPosTerminals`: active terminals with an `inUse` flag.
+- `getPosSale`: sale detail with lines and tender.
+- `getPosReceipt`: receipt content for the latest print.
+- `getShiftSaya`: the cashier's OPEN shift, or else a closed one not yet handed over, with cash-sales total and paid count, plus unfinished sales.
+- `listPickupsAwaitingHandover`: PAID sales, oldest first.
+
+All of these read only `pos` tables and accept a pool or an open client.
+
+## API (apps/api `PosController`, behind `DemoPosFeatureGuard`)
+
+Each route resolves the caller, resolves every supplied id through a scope query, checks the Appendix D permission at that record's warehouse, and for cashier work requires the shift to be the caller's own. Each mutation runs through `runCommand` with a required `Idempotency-Key`. An id from another organization is `NOT_FOUND`.
+
+| Route | Permission |
+|---|---|
+| `GET kasir/terminals` | `pos.shift.open` (filtered per terminal) |
+| `POST pos/shifts` | `pos.shift.open` |
+| `POST pos/shifts/:id/close` | `pos.shift.close`, own shift |
+| `POST pos/shifts/:id/cash-handover` | `payments.cash_handover.declare`, own shift |
+| `GET kasir/shift-saya`, `GET kasir/products?q=`, `GET kasir/scan/:barcode` | `pos.shift.open` / `pos.sale.create` held |
+| `POST pos/sales`, `POST/PATCH/DELETE pos/sales/:id/lines[/:lineId]` | `pos.sale.create`, own shift |
+| `GET pos/sales/:id` | own sale with `pos.sale.create`, or `fulfillment.pickup.handover` at the warehouse |
+| `POST pos/sales/:id/checkout` | `pos.sale.checkout`, own shift |
+| `POST pos/sales/:id/tenders` | `pos.tender.accept`, own shift |
+| `POST pos/sales/:id/receipt-prints` | `pos.tender.accept` for copy 1; `pos.receipt.reprint` for a copy |
+| `GET pos/pickups`, `POST pos/sales/:id/pickup-handover` | `fulfillment.pickup.handover` at the warehouse |
 
 ## Events produced and consumed
 
-None published yet. `POS_TERMINAL_UPDATED`, `POS_SHIFT_OPENED`, `POS_SHIFT_CLOSED`, `POS_SALE_CHECKED_OUT`, `POS_TENDER_ACCEPTED`, `POS_SALE_PAID`, `POS_SALE_HANDED_OVER`, `POS_OFFLINE_BATCH_SYNCED` are registered in Appendix C.9 (`packages/contracts/src/events/catalog.generated.ts`) but have no payload schema in `eventSchemaRegistry` yet, matching the same deferred-event pattern used by every sibling domain built this session (`CUSTOMER_CREATED`, `FULFILLMENT_RELEASED`, etc.) — wire the real `appendOutboxEvent` calls once payload schemas exist.
+`pos` publishes nothing itself. The economic facts are published by their owners, in the same transaction as the POS command that causes them (MVP_PLAN §5):
+- `PAYMENT_RECEIVED` (payments, at tender);
+- `DELIVERY_ORDER_DELIVERED` (fulfillment) and `INVOICE_ISSUED` (invoicing), at pickup handover;
+- `CASH_CUSTODY_VERIFIED` (payments, when Finance verifies the handover).
+
+The POS aggregate events in Appendix C.9 (`POS_SHIFT_OPENED`, `POS_SALE_CHECKED_OUT`, …) have no payload schema and are not published. Every POS mutation is audited instead.
 
 ## Tables
 
-Migration `0001_pos.sql` creates schema `pos` (owned solely by this domain per `scripts/check-database.mjs`'s `schemaOwners`): `pos_terminal`, `pos_shift` (two partial unique indexes enforce POS-000.R08), `pos_sale` / `pos_sale_line`, `pos_tender`, `pos_receipt_print`, `pos_offline_batch`. All cross-domain references (`customer_id`, `sales_order_id`, `delivery_order_id`, `invoice_id`, product ids, payment ids) are plain UUID columns, never foreign keys, per AGENTS.md §11.1.
+Migration `0001_pos.sql` creates schema `pos`, owned solely by this domain per `scripts/check-database.mjs`'s `schemaOwners`. Cross-domain references (`customer_id`, `sales_order_id`, `delivery_order_id`, `invoice_id`, product ids, payment ids) are plain UUID columns, never foreign keys (AGENTS.md §11.1). Commands bump `version` on the aggregate they change, and the audit entry records it.
 
 ## Invariants
 
 - One `PosSale` → at most one active `SalesOrder`, keyed by `clientKey = posSaleId` (POS-000.R03).
-- Goods are never handed over before `PAID`/`CREDIT_APPROVED` (POS-000.R05) — enforced in `fulfillment`'s `confirmPickupHandover`, not re-checked in `pos`.
-- At most one `OPEN` shift per terminal and per cashier (POS-000.R08), enforced by database partial unique indexes.
-- `pos` never produces a `JOURNAL_POSTED` event or calls `finance` — posting is entirely a reaction to the owning domains' own events (POS-000.R02), none of which are wired to Finance yet since `domains/finance` doesn't exist in this build either.
+- Goods are never handed over before `PAID`/`CREDIT_APPROVED` (POS-000.R05), enforced in `fulfillment`'s `confirmPickupHandover`.
+- The cashier who accepted the tender never confirms the handover (SOD-09). `pos.sod.cashier_not_handover` is not read from configuration yet, so it defaults on.
+- At most one `OPEN` shift per terminal and per cashier (POS-000.R08).
+- A cart changes only while its shift is OPEN.
+- The product on a line always comes from master-data, never from the caller.
+- `pos` never produces a journal or calls `finance` (POS-000.R02).
 
 ## Dependencies
 
-`@pss/audit` (`withAuditedTransaction`/`runAuditedWork`), `@pss/contracts` (`DomainError`, registered error codes), `@pss/master-data`, `@pss/commercial`, `@pss/inventory`, `@pss/orders`, `@pss/fulfillment`, `@pss/invoicing`, `@pss/payments` — all called as in-process function imports (workspace packages), never over HTTP, matching how `domains/identity` is already consumed by `apps/api`.
+`@pss/platform` (`withConnection`), `@pss/contracts`, `@pss/master-data`, `@pss/commercial`, `@pss/inventory`, `@pss/orders`, `@pss/fulfillment`, `@pss/invoicing`, `@pss/payments`, all called as in-process function imports.
 
 ## Open decisions
 
-- POS-000.R07 (warehouse must be INVENTORY/FULFILLMENT MANAGED before a terminal can open) is a documented no-op stub pending the `organization`/`principal-policy` domains.
-- `checkoutPosSale`'s invoice `branchCode` is derived from the branch UUID as a placeholder (`organization` doesn't exist yet to supply a real short code).
-- `EvaluateCredit`/tempo (POS-009), QRIS (POS-007), transfer (POS-008), cancel/return (POS-012), and the reporting home (POS-015) are not implemented — deferred by explicit scope choice for this build increment, not silently dropped (see the repo's plan file for the phase breakdown).
-- The cart-time stock availability indicator (POS-003.BR03) is not implemented, pending a read-only query on `domains/inventory`.
+- MVP-OD-10: katalog pick needs a master-data "product by id with sellable units" query. Until then the katalog lists matches and adding is by barcode.
+- POS-000.R07 (warehouse MANAGED before a terminal opens) is a no-op stub pending `organization`/`principal-policy`.
+- `checkoutPosSale`'s invoice `branchCode` is derived from the branch UUID as a placeholder, since `organization` doesn't exist yet.
+- Receipt numbering `KSR-…` awaits GAP-16. The receipt shows the invoice number.
+- The price list scope is the constant `KONTER` until PLT-009 supplies it.
+- `pos.sod.cashier_not_handover` and a shift close tolerance are not read from configuration yet. Both default to the fail-closed value.
+- POS-007/008/009/012/013/015 are deferred by explicit scope choice (MVP_PLAN §9).
+- The cart-time stock indicator (POS-003.BR03) awaits a read-only availability query on `domains/inventory`.
 
 ## Acceptance tests
 
-None yet in this domain package — the P0 loop is exercised end to end by `tests/integration/pos-checkout-flow.integration.test.ts` at the repo root (spans `pos` + all seven dependency domains), plus each dependency domain's own `tests/*.integration.test.ts`.
+- `tests/integration/pos-checkout-flow.integration.test.ts` runs the P0 loop across all eight domains. It covers the float-money refusal, SOD-09, and the three §5 events with their payloads, each passing `parseEventForPublication`.
+- `apps/api/tests/pos.integration.test.ts` runs the counter flow over HTTP as `kasir` then `gudang`. It covers the negative paths from NEXT_IMPLEMENTATION_PLAN §2:
+  - unauthenticated;
+  - missing key, wrong role, no role, wrong warehouse/branch, wrong organization, another cashier's shift;
+  - a body that tries to set the organization, price list, cashier or product;
+  - stale state, replay, key reuse, insufficient stock, malformed ids and money;
+  - a single publication of each event under retry.
+- `apps/api/tests/demo-pos-guard.integration.test.ts` covers the demo switch.

@@ -6,6 +6,7 @@ import { createHttpRequestLogging, ProblemExceptionFilter } from '@pss/http';
 import { IdentityAdminController, IdentityController, IdentityService } from './identity.controller';
 import { ApprovalController, ApprovalService } from './approval.controller';
 import { WmsController, WmsService } from './wms.controller';
+import { PosController, PosService } from './pos.controller';
 
 @Controller('health')
 class HealthController {
@@ -17,8 +18,8 @@ class HealthController {
 }
 
 @Module({
-  controllers: [HealthController, IdentityController, IdentityAdminController, ApprovalController, WmsController],
-  providers: [IdentityService, ApprovalService, WmsService],
+  controllers: [HealthController, IdentityController, IdentityAdminController, ApprovalController, WmsController, PosController],
+  providers: [IdentityService, ApprovalService, WmsService, PosService],
 })
 class AppModule {}
 

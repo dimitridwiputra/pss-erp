@@ -9,6 +9,8 @@ export * from './pos-sale';
 export * from './pos-tender';
 export * from './pos-offline';
 export * from './pos-kasir-bff';
+export * from './pos-receipt';
+export * from './pos-pickup';
 export * from './experience-approval-inbox';
 export * from './experience-home';
 export * from './wms-location';

@@ -4,8 +4,8 @@ export type { RegisterPosTerminalInput, DeactivatePosTerminalInput, PosTerminal 
 export { openPosShift, closePosShift, forceClosePosShift } from './application/pos-shift';
 export type { OpenPosShiftInput, ClosePosShiftInput, ForceClosePosShiftInput, PosShift, ClosedPosShift } from './application/pos-shift';
 
-export { createPosSale, updatePosSaleLine, removePosSaleLine, holdPosSale, recomputeSaleTotals } from './application/pos-sale-cart';
-export type { CreatePosSaleInput, PosSaleCart, UpdatePosSaleLineInput, RemovePosSaleLineInput, HoldPosSaleInput } from './application/pos-sale-cart';
+export { createPosSale, updatePosSaleLine, removePosSaleLine } from './application/pos-sale-cart';
+export type { CreatePosSaleInput, PosSaleCart, UpdatePosSaleLineInput, RemovePosSaleLineInput } from './application/pos-sale-cart';
 
 export { addPosSaleLine } from './application/add-pos-sale-line';
 export type { AddPosSaleLineInput, AddedPosSaleLine } from './application/add-pos-sale-line';
@@ -23,13 +23,16 @@ export { confirmPosPickupHandover } from './application/confirm-pos-pickup-hando
 export type { ConfirmPosPickupHandoverInput, ConfirmedPosPickupHandover } from './application/confirm-pos-pickup-handover';
 
 export { printPosReceipt } from './application/pos-receipt';
-export type { PrintPosReceiptInput, PosReceiptPrint } from './application/pos-receipt';
+export type { PrintPosReceiptInput } from './application/pos-receipt';
 
 export { declarePosCashHandover } from './application/declare-pos-cash-handover';
 export type { DeclarePosCashHandoverInput, DeclaredPosCashHandover } from './application/declare-pos-cash-handover';
 
-export { syncPosOfflineBatch } from './application/sync-pos-offline-batch';
-export type { SyncPosOfflineBatchInput, SyncedPosOfflineBatch, OfflineSaleSyncResult } from './application/sync-pos-offline-batch';
-
-export { getPosSale, getShiftSaya } from './application/queries';
-export type { PosSaleRow, PosSaleLineRow, ShiftSaya } from './application/queries';
+export {
+  getPosSale, getPosReceipt, getShiftSaya, getPosTerminalScope, getPosShiftScope, getPosSaleScope,
+  listPosTerminals, listPickupsAwaitingHandover,
+} from './application/queries';
+export type {
+  PosSaleRow, PosSaleLineRow, PosSaleDetail, PosReceipt, ShiftSaya, PosTerminalScope, PosShiftScope, PosSaleScope,
+  PosTerminalOption, PickupAwaitingHandover,
+} from './application/queries';
