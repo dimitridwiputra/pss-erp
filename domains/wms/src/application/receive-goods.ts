@@ -80,12 +80,25 @@ export async function receiveGoods(pool: Pool, client: PoolClient | undefined, i
       );
     }
 
+    // MVP_PLAN §6.3 — the one change this frozen domain is allowed to take, because
+    // `@pss/inventory`'s `receiveStock` now values a receipt and publishes `INVENTORY_RECEIVED`
+    // (MVP-OD-4, MVP-OD-12). Two fields are stated rather than left to a default:
+    //   `unitCost: null` a physical warehouse scan carries no cost: WMS-003 receives goods against a
+    //                 location, and pricing belongs to the back office's goods receipt. The movement
+    //                 is therefore UNVALUED, which is a real state — the event carries
+    //                 `unitCost: null` and finance routes it to its exception queue rather than
+    //                 posting a zero (MVP_PLAN §5, AGENTS.md §3.7).
+    //   `sourceType: 'WMS_RECEIPT'` which kind of receipt this is, because it is the whole of the
+    //                 event's `sourceType` and Finance's posting rules switch on it. Inventing a
+    //                 default here would let a mislabelled receipt reach the General Ledger.
+    //                 `sourceId` is left to default to the same `referenceId` the ledger records.
     await receiveStock(pool, tx, {
       organizationId: parsed.organizationId,
       warehouseId: parsed.warehouseId,
       referenceType: parsed.referenceType,
       referenceId: parsed.referenceId,
-      lines: parsed.lines,
+      sourceType: 'WMS_RECEIPT',
+      lines: parsed.lines.map((line) => ({ ...line, unitCost: null })),
     });
 
     const auditContext = resolveAuditContext(parsed, parsed.referenceId);
