@@ -15,6 +15,7 @@ export * from './pos-sales-report';
 export * from './pos-cash-handover';
 export * from './experience-approval-inbox';
 export * from './experience-home';
+export * from './finance-reports';
 export * from './wms-location';
 export * from './wms-warehouse';
 export * from './wms-task';
