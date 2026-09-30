@@ -12,6 +12,7 @@ const workTileDefinitions = [
   { key: 'serah-barang', label: 'Serah Barang', description: 'Serahkan barang yang sudah dibayar di konter.', href: '/kasir', permission: 'fulfillment.pickup.handover' },
   { key: 'penjualan', label: 'Penjualan Konter', description: 'Lihat transaksi kasir dan fakturnya.', href: '/kantor/penjualan', permission: 'pos.report.view' },
   { key: 'setoran-kas', label: 'Setoran Kas', description: 'Hitung dan terima uang dari kasir.', href: '/kantor/setoran-kas', permission: 'payments.cash_custody.verify' },
+  { key: 'keuangan', label: 'Keuangan', description: 'Tinjau jurnal, laporan, dan periode akuntansi.', href: '/keuangan', permission: 'finance.journal.create' },
 ] as const;
 
 /** RBAC-003: consume the identity service's entitlement decision; do not rebuild it in UI. */

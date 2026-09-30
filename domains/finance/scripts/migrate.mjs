@@ -1,16 +1,18 @@
-import { readFile, readdir } from 'node:fs/promises';
 import pg from 'pg';
+import { applyPendingMigrations, ensureMigrationLedger } from '../../../scripts/apply-migrations.mjs';
 
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required.');
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error('DATABASE_URL is required for finance migration.');
+const client = new pg.Client({ connectionString });
 await client.connect();
 try {
+  const bootstrap = await ensureMigrationLedger(client);
   await client.query('BEGIN');
-  const directory = new URL('../infrastructure/database/migrations/', import.meta.url);
-  for (const filename of (await readdir(directory)).filter((name) => /^\d+_.*\.sql$/.test(name)).sort()) {
-    await client.query(await readFile(new URL(filename, directory), 'utf8'));
-  }
+  const outcome = await applyPendingMigrations(client, 'finance', {
+    bootstrap, report: (line) => process.stderr.write(`warning: ${line}\n`),
+  });
   await client.query('COMMIT');
+  process.stdout.write(`Finance migrations: ${outcome.applied.length} applied, ${outcome.assumed.length} already present.\n`);
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

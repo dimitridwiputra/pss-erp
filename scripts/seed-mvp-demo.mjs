@@ -44,6 +44,14 @@ const pool = new pg.Pool({ connectionString: databaseUrl });
 const meta = { actor: { roles: [], serviceIdentity: 'mvp-demo-seed' }, requestId: randomUUID(), correlationId: randomUUID(), source: 'SYSTEM' };
 
 try {
+  // Demo fixture: the seeded checker is CONTROLLER with GL-APPROVE. Platform keeps
+  // ownership of the approval engine; this root fixture selects its registered route.
+  await pool.query(
+    `UPDATE platform.approval_level level SET role_code = 'CONTROLLER'
+     FROM platform.approval_policy policy
+     WHERE level.policy_id = policy.id AND policy.type_code = 'journal'
+       AND level.permission_code = 'finance.journal.approve'`,
+  );
   for (const terminal of terminals) {
     const existing = await pool.query('SELECT 1 FROM pos.pos_terminal WHERE organization_id = $1 AND code = $2', [organizationId, terminal.code]);
     if (existing.rowCount) continue;

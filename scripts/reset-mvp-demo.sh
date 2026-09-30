@@ -33,4 +33,6 @@ pnpm turbo run build --filter=@pss/pos --filter=@pss/inventory --filter=@pss/con
 DATABASE_URL="$url" node scripts/migrate-local.mjs
 DATABASE_URL="$url" node scripts/setup-local-identity.mjs
 DATABASE_URL="$url" node scripts/seed-mvp-demo.mjs
+demo_organization_id="$(node -p "require('./infrastructure/keycloak/pss-demo-users.json').organization.id")"
+DATABASE_URL="$url" DEMO_ORGANIZATION_ID="$demo_organization_id" pnpm --filter @pss/finance db:seed:demo
 echo "Demo reset complete. Start the API with scripts/dev-mvp-api.sh and the web with pnpm --filter @pss/web dev."

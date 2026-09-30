@@ -41,6 +41,7 @@ You are stream C (back office). Your original brief in `docs/mvp/prompts/opencod
   - Money inputs: reuse `apps/web/app/kasir/components/money-field.tsx` (thousand separators while typing, digits sent).
   - Labels: reuse `apps/web/app/kasir/lib/labels.ts`, so no raw status reaches the screen.
 - **Dashboard input:** `GET /api/bff/core/pos/reports/summary?date=YYYY-MM-DD` returns `PosDashboardSummaryResponseSchema`: `salesTotal`, `saleCount`, `undepositedCash` and `undepositedPaymentCount`. It needs `pos.report.view`, which `admin.demo` holds. Gross profit comes from Codex's finance summary.
+  - Finance summary for an authorized Control Station viewer: `GET /api/bff/finance/finance/gross-profit-summary?businessDate=YYYY-MM-DD[&branchId=UUID]`, typed by `FinanceGrossProfitSummarySchema` in `packages/contracts/src/api/finance-reports.ts`. It returns today, month-to-date, previous day, and previous comparable month-to-date net sales, COGS, gross profit and margin. The Finance API enforces `control_station.gross_profit_summary.view` and branch scope before querying posted journals. `admin.demo` does not hold this permission, so its dashboard must omit this card rather than fetch organization-wide Finance data (MVP-OD-10).
 
 ## What stream A needs from you
 
