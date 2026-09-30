@@ -1,18 +1,19 @@
-import { createProblemDetails, DomainError, type ApprovalDetailView, type ApprovalInboxView, type ExperienceApprovalView, type ProblemDetails } from '@pss/contracts';
+import { createProblemDetails, DomainError, type ApprovalDetailView, type ApprovalInboxView, type ExperienceApprovalView, type ExperienceHomeView, type ProblemDetails } from '@pss/contracts';
 import { z } from 'zod';
 import { buildApprovalCard, buildApprovalDetailView, buildApprovalInboxView } from './approval-view';
-import { readIdentityGrants, readIdentitySelf, readPlatformApprovalInbox, type IdentitySelf, type UpstreamTransport } from './sources';
+import { buildHomeView } from './home-view';
+import { readIdentityGrants, readIdentityNavigation, readIdentitySelf, readPlatformApprovalInbox, type IdentitySelf, type UpstreamTransport } from './sources';
 
 /**
- * PLT-008 handler core for the approval experience endpoints. It is framework-agnostic on
+ * PLT-008 handler core for the home and approval experience endpoints. It is framework-agnostic on
  * purpose: the Next route handlers in `app/api/experience/**` and the Server Components
- * that render `/persetujuan` both call these functions, so the composed view model and
+ * that render those screens both call these functions, so the composed view model and
  * its error shape are defined once (PLT-007.R02, PLT-008.R01).
  *
  * The only thing a route handler adds is the session token and the request id.
  */
 
-export type ExperienceOutcome<TView extends ExperienceApprovalView = ExperienceApprovalView> =
+export type ExperienceOutcome<TView extends ExperienceApprovalView | ExperienceHomeView = ExperienceApprovalView | ExperienceHomeView> =
   | { readonly kind: 'VIEW'; readonly view: TView }
   | { readonly kind: 'PROBLEM'; readonly problem: ProblemDetails };
 
@@ -25,7 +26,7 @@ export interface ExperienceRequestContext {
   readonly instance: string;
 }
 
-function unauthorized<TView extends ExperienceApprovalView>(context: ExperienceRequestContext): ExperienceOutcome<TView> {
+function unauthorized<TView extends ExperienceApprovalView | ExperienceHomeView>(context: ExperienceRequestContext): ExperienceOutcome<TView> {
   return { kind: 'PROBLEM', problem: problemOf(new DomainError('UNAUTHENTICATED'), context) };
 }
 
@@ -38,7 +39,7 @@ function problemOf(error: unknown, context: ExperienceRequestContext): ProblemDe
   });
 }
 
-function toOutcome<TView extends ExperienceApprovalView>(
+function toOutcome<TView extends ExperienceApprovalView | ExperienceHomeView>(
   error: unknown,
   context: ExperienceRequestContext,
 ): ExperienceOutcome<TView> {
@@ -65,6 +66,24 @@ export async function resolveApprovalInbox(context: ExperienceRequestContext): P
       self: self.data, grants, inbox, generatedAt: context.now ?? new Date(),
     });
     return { kind: 'VIEW', view };
+  } catch (error) {
+    return toOutcome(error, context);
+  }
+}
+
+/** One role-scoped, ready-to-render F0 home response from public identity reads. */
+export async function resolveHome(context: ExperienceRequestContext): Promise<ExperienceOutcome<ExperienceHomeView>> {
+  if (!context.accessToken) return unauthorized(context);
+  try {
+    const [self, navigation, grants] = await Promise.all([
+      readIdentitySelf(context.transport, context.accessToken),
+      readIdentityNavigation(context.transport, context.accessToken),
+      readIdentityGrants(context.transport, context.accessToken),
+    ]);
+    requireSelf(self);
+    return { kind: 'VIEW', view: buildHomeView({
+      self: self.data, navigation, grants, generatedAt: context.now ?? new Date(),
+    }) };
   } catch (error) {
     return toOutcome(error, context);
   }

@@ -38,10 +38,14 @@ const appAccessPermission: Readonly<Record<AppKey, string>> = {
  * muncul hanya bila user punya minimal satu permission di bawahnya".
  */
 const appEvidencePermissions: Readonly<Record<AppKey, readonly string[]>> = {
-  sales: ['sfa.visit.execute', 'sfa.prospect.create', 'sfa.photo.create', 'orders.order_request.submit', 'orders.order.create', 'commercial.price.view'],
+  sales: ['sfa.visit.execute', 'sfa.prospect.create', 'sfa.photo.create', 'orders.order_request.submit', 'commercial.price.view'],
   gudang: ['wms.task.execute', 'wms.task.reassign', 'wms.count.review', 'wms.location.manage', 'inventory.count.execute', 'inventory.adjustment.request'],
   antar: ['fleet.delivery.execute', 'fleet.shipment.dispatch', 'fleet.shipment.plan', 'fleet.vehicle.manage'],
-  admin: ['identity.user.manage', 'identity.role.assign', 'identity.session.revoke', 'identity.mfa.reset', 'identity.device.revoke'],
+  admin: [
+    'orders.order.create', 'orders.order.confirm', 'fulfillment.request.prepare',
+    'procurement.po.manage', 'integration.batch.retry', 'integration.mapping.decide',
+    'master_data.merge.request', 'inventory.adjustment.request',
+  ],
   supervisor: ['sfa.visit_plan.manage', 'sfa.team.view', 'wms.task.reassign', 'fleet.shipment.view', 'orders.order.manage', 'orders.order.resolve_shortage'],
   keuangan: [
     'finance.journal.create', 'finance.journal.submit', 'finance.journal.approve', 'finance.close.manage',
@@ -50,7 +54,11 @@ const appEvidencePermissions: Readonly<Record<AppKey, readonly string[]>> = {
     'tax.rate.manage', 'finance.coa.manage', 'finance.bank.reconcile',
   ],
   control_station: ['reporting.control_station.view'],
-  konsol: ['integration.connector.manage', 'integration.mapping.decide', 'integration.batch.retry', 'platform.exception.work', 'audit.entry.read', 'audit.export'],
+  konsol: [
+    'identity.user.manage', 'identity.role.assign', 'identity.session.revoke',
+    'identity.mfa.reset', 'identity.device.revoke', 'integration.connector.manage',
+    'geo.dataset.load', 'geo.territory.manage',
+  ],
 };
 
 export interface AppEntitlement {
@@ -94,11 +102,13 @@ const appDefinitions: Readonly<Record<AppKey, AppDefinition>> = {
     ],
   },
   admin: {
-    label: 'Administrasi',
+    label: 'PSS Admin',
     items: [
-      { key: 'user', label: 'Pengguna', evidence: ['identity.user.manage'] },
-      { key: 'role', label: 'Peran & Akses', evidence: ['identity.role.assign'] },
-      { key: 'session', label: 'Sesi', evidence: ['identity.session.revoke'] },
+      { key: 'orders', label: 'Pesanan', evidence: ['orders.order.create', 'orders.order.confirm'] },
+      { key: 'fulfillment', label: 'Pengiriman', evidence: ['fulfillment.request.prepare'] },
+      { key: 'procurement', label: 'Pembelian', evidence: ['procurement.po.manage'] },
+      { key: 'master-data', label: 'Data Utama', evidence: ['master_data.merge.request'] },
+      { key: 'integration', label: 'Integrasi', evidence: ['integration.batch.retry', 'integration.mapping.decide'] },
     ],
   },
   supervisor: {
@@ -125,9 +135,11 @@ const appDefinitions: Readonly<Record<AppKey, AppDefinition>> = {
   konsol: {
     label: 'Konsol Sistem',
     items: [
+      { key: 'user', label: 'Pengguna', evidence: ['identity.user.manage'] },
+      { key: 'role', label: 'Peran & Akses', evidence: ['identity.role.assign'] },
+      { key: 'session', label: 'Sesi', evidence: ['identity.session.revoke'] },
       { key: 'connector', label: 'Konektor', evidence: ['integration.connector.manage'] },
-      { key: 'exception', label: 'Antrean Masalah', evidence: ['platform.exception.work'] },
-      { key: 'audit', label: 'Audit', evidence: ['audit.entry.read', 'audit.export'] },
+      { key: 'geo', label: 'Peta', evidence: ['geo.dataset.load', 'geo.territory.manage'] },
     ],
   },
 };

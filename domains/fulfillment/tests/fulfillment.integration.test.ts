@@ -4,6 +4,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { confirmPickupHandover, type ConfirmPickupHandoverInput } from '../src/application/confirm-pickup-handover';
 import { releaseFulfillment, type ReleaseFulfillmentInput } from '../src/application/release-fulfillment';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_fulfillment_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -19,9 +20,10 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
   const fulfillmentMigration = await readFile(new URL('../infrastructure/database/migrations/0001_fulfillment.sql', import.meta.url), 'utf8');
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
   await pool.query(fulfillmentMigration);
-  const auditMigration = await readFile(new URL('../../audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8');
-  await pool.query(auditMigration);
   const platformMigration = await readFile(new URL('../../platform/infrastructure/database/migrations/0001_outbox_event.sql', import.meta.url), 'utf8');
   await pool.query(platformMigration);
 }, 30_000);

@@ -2,6 +2,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
+
 /**
  * Replay a domain's migrations in filename order, for a test database.
  *
@@ -19,27 +21,39 @@ import { fileURLToPath } from 'node:url';
  * to a fresh database is the supported path.
  */
 
-const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
-
-/** The migrations directory of a domain, addressed from the repository root. */
-export function domainMigrations(domain) {
-  return resolve(repositoryRoot, 'domains', domain, 'infrastructure', 'database', 'migrations');
-}
+const migrationsDirectory = (domain) => resolve(
+  repositoryRoot, 'domains', domain, 'infrastructure', 'database', 'migrations',
+);
 
 export async function listMigrations(directory) {
   return (await readdir(directory)).filter((file) => file.endsWith('.sql')).sort();
 }
 
-/**
- * Apply every migration in `directory` to `executor`, in order. Not wrapped in a transaction by
- * default: several migrations use `CREATE INDEX CONCURRENTLY`-style or `DO` blocks that cannot run
- * inside one, and a test database is discarded on failure anyway.
- */
-export async function applyMigrations(executor, directory) {
+export async function applyMigrations(executor, domain) {
+  const directory = migrationsDirectory(domain);
   const applied = [];
   for (const file of await listMigrations(directory)) {
     await executor.query(await readFile(join(directory, file), 'utf8'));
     applied.push(file);
   }
   return applied;
+}
+
+/**
+ * Apply the audit domain's migrations.
+ *
+ * `audit` is the domain nearly every other fixture needs, because a mutation that must be audited
+ * writes an audit row and the writer names `retention_class`. This exists so a fixture asks for
+ * "the audit schema" rather than for one file, which is what let a shipped migration be amended.
+ */
+export async function applyAuditMigrations(executor) {
+  return applyMigrations(executor, 'audit');
+}
+
+/** Apply a domain's migrations to an executor that takes one SQL string. */
+export async function applyDomainMigrations(executor, domain) {
+  const directory = migrationsDirectory(domain);
+  for (const file of await listMigrations(directory)) {
+    await executor(await readFile(join(directory, file), 'utf8'));
+  }
 }

@@ -6,6 +6,7 @@ import { createCustomer } from '../src/application/create-customer';
 import { findProductByBarcode } from '../src/application/find-product-by-barcode';
 import { getOrCreateWalkInCustomer } from '../src/application/get-or-create-walk-in-customer';
 import { searchProducts } from '../src/application/search-products';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_master_data_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -22,9 +23,10 @@ beforeAll(async () => {
   pool = new pg.Pool({ connectionString: testUrl.toString() });
   // audit.audit_entry is a prerequisite: withAuditedTransaction (called by createCustomer /
   // getOrCreateWalkInCustomer) writes into it, and one test asserts on it directly.
-  const auditMigration = await readFile(new URL('../../audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8');
-  await pool.query(auditMigration);
   const migration = await readFile(new URL('../infrastructure/database/migrations/0001_master_data.sql', import.meta.url), 'utf8');
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
   await pool.query(migration);
 }, 30_000);
 

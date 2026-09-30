@@ -55,9 +55,18 @@ describe('RBAC-003 permission-aware navigation', () => {
   });
 
   it('keeps the system console to technical permissions only', () => {
-    const navigation = resolveNavigation(['integration.connector.manage', 'audit.entry.read']);
+    const navigation = resolveNavigation(['integration.connector.manage', 'identity.user.manage']);
     expect(appKeys(navigation)).toContain('konsol');
-    expect(itemKeys(navigation, 'konsol').sort()).toEqual(['audit', 'connector']);
+    expect(itemKeys(navigation, 'konsol').sort()).toEqual(['connector', 'user']);
+    expect(appKeys(navigation)).not.toContain('admin');
+  });
+
+  it('routes Sales Admin work to PSS Admin rather than the field Sales app', () => {
+    const navigation = resolveNavigation(permissionsForRoles(['SALES_ADMIN']));
+    expect(appKeys(navigation)).toContain('admin');
+    expect(appKeys(navigation)).not.toContain('sales');
+    expect(navigation.apps.find((entry) => entry.app === 'admin')?.label).toBe('PSS Admin');
+    expect(itemKeys(navigation, 'admin')).toContain('orders');
   });
 
   it('never emits a raw technical code in an app or item label', () => {

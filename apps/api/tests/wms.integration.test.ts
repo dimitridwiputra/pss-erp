@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ProblemExceptionFilter } from '@pss/http';
 import { IdentityService } from '../src/identity.controller';
 import { WmsController, WmsService } from '../src/wms.controller';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 @Module({ controllers: [WmsController], providers: [IdentityService, WmsService] })
 class WmsTestModule {}
@@ -55,8 +56,10 @@ beforeAll(async () => {
     for (const file of ['0001_user_account.sql', '0002_role_assignment.sql', '0003_session_revocation.sql']) {
       await setup.query(await readFile(new URL(`../../../domains/identity/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
     }
-    await setup.query(await readFile(new URL('../../../domains/audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8'));
     await setup.query(await readFile(new URL('../../../domains/audit/infrastructure/database/migrations/0002_audit_source_offline_paper.sql', import.meta.url), 'utf8'));
+    // The whole audit domain, not one file: a fixture that replays only
+    // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+    await applyAuditMigrations(setup);
     for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql']) {
       await setup.query(await readFile(new URL(`../../../domains/platform/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
     }

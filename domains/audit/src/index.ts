@@ -22,10 +22,11 @@ export {
   resolveAuditRetentionPeriods,
   assertAuditRetentionPolicy,
   auditRetentionHotCutoff,
-  auditRetentionPurgeAfter,
+  resolveAuditArchiveRetention, isArchivePurgeEligible,
   type AuditRetentionClass,
   type AuditRetentionPeriod,
   type AuditRetentionPolicy,
+  type AuditArchiveRetention,
 } from './domain/retention-policy';
 export {
   auditArchiveDigest,

@@ -38,7 +38,12 @@ export const retentionClassFieldClassification = 'INTERNAL' as const;
 
 const AuditRetentionPeriodSchema = z.strictObject({
   hotMonths: z.number().int().min(1).max(120),
-  totalYears: z.number().int().min(1).max(25),
+  /**
+   * Years the record must survive somewhere, archive included. `null` is the documented KOSONG
+   * case and means INDEFINITE: the archive is never destroyed. It is a first-class value rather
+   * than an omitted field, because an omitted field would be indistinguishable from a default.
+   */
+  totalYears: z.number().int().min(1).max(25).nullable(),
 });
 export type AuditRetentionPeriod = z.output<typeof AuditRetentionPeriodSchema>;
 
@@ -50,8 +55,12 @@ export type AuditRetentionPeriod = z.output<typeof AuditRetentionPeriodSchema>;
 export const AuditRetentionPolicySchema = z.strictObject({
   /** Months a row stays in the primary database before it is archived. OD-19 accepted 24. */
   hotMonths: z.number().int().min(1).max(120),
-  /** Years the record must survive somewhere, archive included. OD-19 accepted 10. */
-  totalYears: z.number().int().min(1).max(25),
+  /**
+   * Years the record must survive somewhere, archive included. OD-19 accepted 10. `null` is the
+   * documented KOSONG case: the archived artifact is kept indefinitely and no deletion job is
+   * scheduled for it, while the hot window still applies. See ADR-0014.
+   */
+  totalYears: z.number().int().min(1).max(25).nullable(),
   /**
    * Per-class overrides. Empty means every class uses the two numbers above.
    *
@@ -89,11 +98,15 @@ export function resolveAuditRetentionPeriods(
  * A class whose hot window outlives its total obligation is refused at load time, not at drop time.
  * The archive would be eligible for deletion while the row was still inside its hot window, which is
  * exactly the "archived" state the owner requires the drop to be impossible from.
+ *
+ * A KOSONG (`null`) total obligation is never a violation: keeping evidence forever satisfies any
+ * hot window, so the check simply does not apply.
  */
 export function assertAuditRetentionPolicy(policy: AuditRetentionPolicy): void {
   const periods = resolveAuditRetentionPeriods(policy);
   for (const retentionClass of auditRetentionClasses) {
     const period = periods[retentionClass];
+    if (period.totalYears === null) continue;
     if (period.hotMonths > period.totalYears * 12) {
       throw new Error(
         `Retention class ${retentionClass} keeps rows hot for ${period.hotMonths} months but drops them ` +
@@ -128,8 +141,50 @@ export function auditRetentionHotCutoff(asOf: Date, hotMonths: number): Date {
  * derived from the row's own month so a partition archived in one run does not expire its rows in
  * different months.
  */
-export function auditRetentionPurgeAfter(occurredAt: Date, totalYears: number): Date {
-  return firstInstantOfMonthMonthsBefore(new Date(Date.UTC(
-    occurredAt.getUTCFullYear() + totalYears, occurredAt.getUTCMonth(), 1,
-  )), 0);
+/**
+ * How long the ARCHIVED COPY of a row must be kept, which is a different question from how long it
+ * stays queryable in the hot database.
+ *
+ * `audit.hot_months` governs PostgreSQL residency. `audit.retention_years` governs destruction of
+ * the archive object, and the two are deliberately independent: a partition may be dropped from the
+ * hot database as soon as the archive is verified, even when the archive itself is kept forever.
+ * That is why this is a discriminated union and not a date — the previous shape returned a `Date`
+ * for every row, which asserted that every archive must eventually be destroyed, and left a
+ * `KOSONG` retention with nowhere to say "never".
+ *
+ * `audit.retention_years = KOSONG` resolves to INDEFINITE, and no deletion job is scheduled at all
+ * for those artifacts. See ADR-0014 and the OD-19 decision.
+ */
+export type AuditArchiveRetention =
+  | { mode: 'INDEFINITE'; purgeAfter: null }
+  | { mode: 'PURGE_AFTER'; purgeAfter: Date };
+
+/**
+ * Resolve archive retention for a row that occurred at `occurredAt`.
+ *
+ * `retentionYears` is nullable on purpose: `null` is the documented KOSONG case and means the
+ * obligation is indefinite. It is never defaulted to a number, because defaulting a retention
+ * period is how evidence disappears quietly.
+ */
+export function resolveAuditArchiveRetention(
+  occurredAt: Date,
+  retentionYears: number | null | undefined,
+): AuditArchiveRetention {
+  if (retentionYears === null || retentionYears === undefined) {
+    return { mode: 'INDEFINITE', purgeAfter: null };
+  }
+  if (!Number.isInteger(retentionYears) || retentionYears < 1) {
+    throw new Error('Archive retention years must be a positive whole number, or unset for indefinite.');
+  }
+  return {
+    mode: 'PURGE_AFTER',
+    purgeAfter: firstInstantOfMonthMonthsBefore(new Date(Date.UTC(
+      occurredAt.getUTCFullYear() + retentionYears, occurredAt.getUTCMonth(), 1,
+    )), 0),
+  };
+}
+
+/** True only when a deletion job may act on this artifact. Never true for INDEFINITE. */
+export function isArchivePurgeEligible(retention: AuditArchiveRetention, asOf: Date): boolean {
+  return retention.mode === 'PURGE_AFTER' && retention.purgeAfter.getTime() <= asOf.getTime();
 }

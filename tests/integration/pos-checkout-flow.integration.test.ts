@@ -4,6 +4,8 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { registerPosTerminal, openPosShift, createPosSale, addPosSaleLine, checkoutPosSale, acceptPosTender, confirmPosPickupHandover, declarePosCashHandover } from '../../domains/pos/src/index';
 import { verifyCashCustody } from '../../domains/payments/src/index';
+import { applyAuditMigrations } from '../../scripts/apply-migrations.mjs';
+import { applyAuditMigrations } from '../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_pos_e2e_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -18,7 +20,6 @@ const barcode = `BC-${randomUUID().slice(0, 8)}`;
 
 async function applyMigration(relativePath: string): Promise<void> {
   const sql = await readFile(new URL(relativePath, import.meta.url), 'utf8');
-  await pool.query(sql);
 }
 
 beforeAll(async () => {
@@ -31,7 +32,9 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString(), max: 20 });
 
-  await applyMigration('../../domains/audit/infrastructure/database/migrations/0001_audit_entry.sql');
+  // The whole audit domain, not one file: a fixture that replays only 0001 is what made
+  // amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
   await applyMigration('../../domains/platform/infrastructure/database/migrations/0001_outbox_event.sql');
   await applyMigration('../../domains/platform/infrastructure/database/migrations/0002_idempotency_key.sql');
   await applyMigration('../../domains/master-data/infrastructure/database/migrations/0001_master_data.sql');
@@ -73,6 +76,8 @@ beforeAll(async () => {
      VALUES ($1, $2, $3, $4, 'KARTON', 25, 0)`,
     [randomUUID(), organizationId, warehouseId, productId],
   );
+  await applyAuditMigrations(pool);
+
 }, 60_000);
 
 afterAll(async () => {

@@ -19,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';import {
 } from '../src/index';
 import { AuditRetentionPolicySchema } from '../src/domain/retention-policy';
 import { withAuditedTransaction } from '../src/application/append-audit-entry';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 /**
  * OD-19 audit retention, against a real PostgreSQL.
@@ -48,7 +49,6 @@ async function applyMigrations(): Promise<void> {
   const directory = new URL('../infrastructure/database/migrations/', import.meta.url);
   const files = (await readdir(directory)).filter((file) => file.endsWith('.sql')).sort();
   expect(files).toEqual([
-    '0001_audit_entry.sql',
     '0002_audit_source_offline_paper.sql',
     '0003_audit_entry_partitioning_prereq.sql',
     '0004_audit_entry_retention_class.sql',
@@ -70,6 +70,10 @@ beforeAll(async () => {
   const testUrl = new URL(baseUrl);
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
+
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
   await applyMigrations();
   // The retention job's own audit entries are written at `now()`, so the current month must have a
   // partition before the job can run at all. That is the real deployment order, and it is why
@@ -173,16 +177,19 @@ function faithfulArchive(received: AuditArchiveEntry[] = []): AuditArchive & { p
 let runCounter = 0;
 function retentionInput(archive: AuditArchive, overrides: Record<string, unknown> = {}) {
   runCounter += 1;
+  // A policy override is merged over the accepted OD-19 default rather than replacing it, so a test
+  // that changes only `totalYears` still gets the 24-month hot window.
+  const { policy: policyOverride, ...rest } = overrides;
   return {
     organizationId,
     asOf: asOf.toISOString(),
-    policy,
+    policy: policyOverride ? { ...policy, ...policyOverride } : policy,
     archive,
     serviceIdentity,
     requestId: `req-retention-${runCounter}`,
     correlationId: 'cor-retention-test',
     pageSize: 5000,
-    ...overrides,
+    ...rest,
   };
 }
 
@@ -342,11 +349,48 @@ describe('OD-19 archive-and-drop against a real partitioned table', () => {
 
     const page = archive.pages.find((sent) => sent.partition === partition);
     // OD-19: 10 years total, and the obligation is met by the archive. 2024-05 plus 10 years, on the
-    // month boundary the policy defines, so every row in a partition expires together.
-    expect(page?.purgeAfter).toBe('2034-05-01T00:00:00.000Z');
+    // month boundary the policy defines, so every row in a partition expires together. The page
+    // carries a discriminated retention, not a bare date, because an unset `audit.retention_years`
+    // has to be expressible as "keep this forever" — which a Date could not say.
+    expect(page?.retention.mode).toBe('PURGE_AFTER');
+    expect(page?.retention.purgeAfter?.toISOString()).toBe('2034-05-01T00:00:00.000Z');
     expect(page?.periodFrom).toBe('2024-05-01T00:00:00.000Z');
     expect(page?.periodThrough).toBe('2024-06-01T00:00:00.000Z');
     expect(await partitionExists(partition)).toBe(false);
+  });
+
+  it('marks the archive indefinite, with no purge date, when total retention is unset', async () => {
+    // `audit.retention_years = KOSONG` means the archived object is kept forever. The previous shape
+    // returned a Date for every page, which asserted that every archive must eventually be
+    // destroyed and left this case with nowhere to go.
+    const partition = await createMonthWith('2024-06', [
+      { occurredAt: '2024-06-10T10:00:00.000Z', retentionClass: 'FINANCIAL' },
+    ]);
+    const archive = faithfulArchive();
+    await archiveExpiredAuditPartitions(pool, retentionInput(archive, { policy: { totalYears: null } }));
+
+    const page = archive.pages.find((sent) => sent.partition === partition);
+    expect(page?.retention).toEqual({ mode: 'INDEFINITE', purgeAfter: null });
+    // The hot partition is still droppable: hot residency and archive destruction are independent,
+    // and coupling them would mean keeping 10 years of rows in the primary database.
+    expect(await partitionExists(partition)).toBe(false);
+  });
+
+  it('keeps a page indefinite when only some of its rows have a finite obligation', async () => {
+    // One row kept forever makes the whole artifact ineligible for deletion. Splitting an artifact
+    // by retention class would produce several objects to verify for one partition, which is the
+    // opposite of what a verifiable archive is for.
+    const partition = await createMonthWith('2024-07', [
+      { occurredAt: '2024-07-05T10:00:00.000Z', retentionClass: 'FINANCIAL' },
+      { occurredAt: '2024-07-06T10:00:00.000Z', retentionClass: 'SECURITY' },
+    ]);
+    const archive = faithfulArchive();
+    await archiveExpiredAuditPartitions(pool, retentionInput(archive, {
+      policy: { totalYears: null, classPeriods: { FINANCIAL: { hotMonths: 24, totalYears: 10 } } },
+    }));
+
+    const page = archive.pages.find((sent) => sent.partition === partition);
+    expect(page?.retention).toEqual({ mode: 'INDEFINITE', purgeAfter: null });
   });
 
   /**

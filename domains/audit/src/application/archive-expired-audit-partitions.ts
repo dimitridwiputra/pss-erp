@@ -16,11 +16,12 @@ import {
 import {
   assertAuditRetentionPolicy,
   auditRetentionHotCutoff,
-  auditRetentionPurgeAfter,
+  resolveAuditArchiveRetention,
   AuditRetentionPolicySchema,
   defaultAuditRetentionClass,
   resolveAuditRetentionPeriods,
   retentionClassFieldClassification,
+  type AuditArchiveRetention,
   type AuditRetentionClass,
   type AuditRetentionPolicy,
 } from '../domain/retention-policy';
@@ -347,21 +348,31 @@ async function runRetention(
       const first = entries[0];
       if (first === undefined) break;
       const cursor = pageCursor(partition.partition, first);
-      const pagePurgeAfter = entries.reduce((latest, entry) => {
-        const candidate = auditRetentionPurgeAfter(
+      // Archive retention is independent per row, so a page can mix INDEFINITE rows with rows that
+      // have a finite obligation. INDEFINITE wins: one row kept forever makes the whole artifact
+      // ineligible for deletion, and splitting an artifact by retention class would defeat the point
+      // of a single verifiable object per partition.
+      const pageRetention = entries.reduce((widest, entry) => {
+        const candidate = resolveAuditArchiveRetention(
           new Date(entry.occurredAt), periods[entry.retentionClass].totalYears,
         );
-        return latest === null || candidate > latest ? candidate : latest;
-      }, null as Date | null);
-      if (pagePurgeAfter !== null && (purgeAfter === null || pagePurgeAfter > purgeAfter)) {
-        purgeAfter = pagePurgeAfter;
+        if (widest === null) return candidate;
+        if (candidate.mode === 'INDEFINITE' || widest.mode === 'INDEFINITE') {
+          return { mode: 'INDEFINITE', purgeAfter: null } as const;
+        }
+        return candidate.purgeAfter > widest.purgeAfter ? candidate : widest;
+      }, null as AuditArchiveRetention | null);
+      const effective = pageRetention ?? resolveAuditArchiveRetention(partition.periodThrough, null);
+      if (effective.mode === 'PURGE_AFTER'
+        && (purgeAfter === null || effective.purgeAfter > purgeAfter)) {
+        purgeAfter = effective.purgeAfter;
       }
 
       const page: AuditArchivePage = {
         partition: partition.partition,
         periodFrom: partition.periodFrom.toISOString(),
         periodThrough: partition.periodThrough.toISOString(),
-        purgeAfter: (pagePurgeAfter ?? partition.periodThrough).toISOString(),
+        retention: effective,
         cursor,
         entries,
       };

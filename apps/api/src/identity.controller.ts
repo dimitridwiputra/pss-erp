@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post, Query, Req } from '@nestjs/common';
 import { createAccessTokenVerifier, InvalidAccessTokenError } from '@pss/auth-client';
-import { CurrentUserResponseSchema, CurrentUserPermissionsResponseSchema, DomainError, registryCatalog, type CurrentUserResponse, type CurrentUserPermissionsResponse } from '@pss/contracts';
+import { CurrentUserResponseSchema, CurrentUserPermissionsResponseSchema, CurrentUserNavigationResponseSchema, DomainError, registryCatalog, type CurrentUserResponse, type CurrentUserPermissionsResponse, type CurrentUserNavigationResponse } from '@pss/contracts';
 import {
   assertSessionActive, checkAccess, loadActiveRoleAssignments, requireAccess, requireRecentMfa,
   resolveActiveUser, resolveNavigation, resolveRolePermissions, revokeUserSessions,
@@ -13,26 +13,7 @@ import { z } from 'zod';
 
 const RevokeSessionsSchema = z.strictObject({ reason: z.string().trim().min(1).max(200) });
 
-/**
- * RBAC-003 / IDN-003 response shapes.
- *
- * Declared here rather than in `@pss/contracts` because that package is being edited
- * concurrently; they are plain wire contracts with no cross-domain meaning, so
- * moving them is mechanical. Labels are Indonesian and no field carries a raw enum
- * a client would have to translate.
- */
-const NavigationItemSchema = z.strictObject({ key: z.string().min(1), label: z.string().min(1) });
-const NavigationAppSchema = z.strictObject({
-  app: z.string().min(1),
-  accessPermission: z.string().min(1),
-  label: z.string().min(1),
-  items: z.array(NavigationItemSchema),
-});
-const NavigationResponseSchema = z.strictObject({
-  apps: z.array(NavigationAppSchema),
-  bottomNav: z.array(NavigationItemSchema.extend({ href: z.string().min(1) })),
-  bottomNavTrimmed: z.boolean(),
-});
+/** IDN-003 access-review response stays local until a second consumer needs it. */
 const AccessReviewHolderSchema = z.strictObject({
   userId: z.uuid(),
   displayName: z.string().min(1),
@@ -50,7 +31,6 @@ const AccessReviewResponseSchema = z.strictObject({
   branchId: z.uuid().nullable(),
   holders: z.array(AccessReviewHolderSchema),
 });
-type NavigationResponse = z.infer<typeof NavigationResponseSchema>;
 type AccessReviewResponse = z.infer<typeof AccessReviewResponseSchema>;
 
 @Injectable()
@@ -178,13 +158,13 @@ export class IdentityService implements OnModuleDestroy {
    * RBAC-003.BR01 therefore holds by construction: a denied permission produces an
    * absent item rather than a disabled one.
    */
-  async getCurrentUserNavigation(authorizationHeader: string | undefined): Promise<NavigationResponse> {
+  async getCurrentUserNavigation(authorizationHeader: string | undefined): Promise<CurrentUserNavigationResponse> {
     const user = await this.getCurrentUser(authorizationHeader);
     if (!this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
     const assignments = await loadActiveRoleAssignments(this.pool, user.id);
     const permissions = [...new Set(assignments.flatMap((assignment) => resolveRolePermissions(assignment.roleCode).permissions))];
     const navigation = resolveNavigation(permissions);
-    return NavigationResponseSchema.parse({
+    return CurrentUserNavigationResponseSchema.parse({
       apps: navigation.apps,
       bottomNav: navigation.bottomNav,
       bottomNavTrimmed: navigation.bottomNavTrimmed,
@@ -279,7 +259,7 @@ export class IdentityController {
    * the command-fitness gate only constrains mutating routes.
    */
   @Get('navigation')
-  getCurrentUserNavigation(@Req() request: { headers: { authorization?: string } }): Promise<NavigationResponse> {
+  getCurrentUserNavigation(@Req() request: { headers: { authorization?: string } }): Promise<CurrentUserNavigationResponse> {
     return this.identity.getCurrentUserNavigation(request.headers.authorization);
   }
 

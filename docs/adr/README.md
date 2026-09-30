@@ -12,6 +12,7 @@ each record must state context, alternatives, consequences, and fitness tests.
 | [ADR-0009](ADR-0009-hosting-jakarta.md) | Hosting: Google Cloud, Jakarta region | Proposed | OD-119 answered (vendor + residency). OD-185, OD-188 remain open. |
 | [ADR-0012](ADR-0012-infrastructure-as-code.md) | IaC tool: Terraform | Proposed | OD-187 answered. |
 | [ADR-0013](ADR-0013-single-command-pipeline.md) | One command pipeline for every mutation | Accepted | No open decision. Deliberately leaves the stored idempotency response HTTP-shaped. |
+| [ADR-0014](ADR-0014-audit-once-per-version-invariant.md) | Audit once-per-version is a transactional invariant, not a DB constraint | Accepted | Records AUD-RISK-001 (accepted residual risk) with five explicit revisit triggers. |
 
 ADR-0009 and ADR-0012 are **Proposed, not Accepted.** Neither has a human
 signatory, and `docs/releases/F0.md` still records the accountable owner as

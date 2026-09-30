@@ -34,6 +34,7 @@ import {
   getLocationUtilization,
   listWarehouseTasks,
 } from '../src/index';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_wms_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -97,7 +98,10 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
 
-  await applyMigration('../../audit/infrastructure/database/migrations/0001_audit_entry.sql');
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
+
   await applyMigration('../../audit/infrastructure/database/migrations/0002_audit_source_offline_paper.sql');
   await applyMigration('../../inventory/infrastructure/database/migrations/0001_inventory.sql');
   await applyMigration('../../inventory/infrastructure/database/migrations/0002_inventory_receive_adjust.sql');

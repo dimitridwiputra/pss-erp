@@ -6,6 +6,7 @@ import { confirmPickupHandover, releaseFulfillment } from '@pss/fulfillment';
 import { listOpenDeadLetters, replayDeadLetter, type PublishableEvent } from '@pss/platform';
 import { projectDeliveredOrder } from '@pss/reporting';
 import { redisConnectionFromUrl, startEventPipeline } from '../../apps/integration-worker/src/event-pipeline';
+import { applyAuditMigrations } from '../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_pipeline_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -21,7 +22,6 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
   for (const relativePath of [
-    '../../domains/audit/infrastructure/database/migrations/0001_audit_entry.sql',
     '../../domains/platform/infrastructure/database/migrations/0001_outbox_event.sql',
     '../../domains/platform/infrastructure/database/migrations/0005_event_delivery_reliability.sql',
     '../../domains/fulfillment/infrastructure/database/migrations/0001_fulfillment.sql',
@@ -29,6 +29,8 @@ beforeAll(async () => {
   ]) {
     await pool.query(await readFile(new URL(relativePath, import.meta.url), 'utf8'));
   }
+  await applyAuditMigrations(pool);
+
 }, 30_000);
 
 afterAll(async () => {

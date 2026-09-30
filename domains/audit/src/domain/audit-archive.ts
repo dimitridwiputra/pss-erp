@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { AuditRetentionClass } from './retention-policy';
+import type { AuditArchiveRetention, AuditRetentionClass } from './retention-policy';
 
 /**
  * Cold archive for audit entries that have passed their hot window (OD-19).
@@ -48,8 +48,15 @@ export interface AuditArchivePage {
   periodFrom: string;
   /** Exclusive end of the partition's month, ISO 8601 UTC. */
   periodThrough: string;
-  /** Latest instant the archive must keep these rows until; the total obligation is met by the archive. */
-  purgeAfter: string;
+  /**
+   * How long this artifact must be kept, and whether it may be destroyed at all.
+   *
+   * Deliberately a union rather than a date. The earlier shape returned a `purgeAfter` string for
+   * every page, which asserted that every archive is eventually destroyed and left `KOSONG`
+   * retention with no way to say "never" — while the owner's decision is that an unset
+   * `audit.retention_years` means the archived object is kept indefinitely.
+   */
+  retention: AuditArchiveRetention;
   cursor: string;
   entries: readonly AuditArchiveEntry[];
 }

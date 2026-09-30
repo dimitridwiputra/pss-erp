@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ProblemExceptionFilter } from '@pss/http';
 import { ConfigAdminController, ConfigAdminService, FeatureFlagController } from '../src/config-admin.controller';
 import { IdentityService } from '../src/identity.controller';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 @Module({
   controllers: [ConfigAdminController, FeatureFlagController],
@@ -59,7 +60,9 @@ beforeAll(async () => {
     for (const file of ['0001_user_account.sql', '0002_role_assignment.sql', '0003_session_revocation.sql']) {
       await setup.query(await readFile(new URL(`../../../domains/identity/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
     }
-    await setup.query(await readFile(new URL('../../../domains/audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8'));
+    // The whole audit domain, not one file: a fixture that replays only
+    // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+    await applyAuditMigrations(setup);
     for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql', '0003_approval.sql', '0004_configuration.sql', '0009_config_flag_admin.sql', '0010_config_key_registry.sql']) {
       await setup.query(await readFile(new URL(`../../../domains/platform/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
     }
