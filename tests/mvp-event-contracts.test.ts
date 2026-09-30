@@ -97,8 +97,8 @@ describe('MVP v1 event payload contracts (MVP_PLAN §5)', () => {
 
   it.each(events)('%s: rejects a missing payload field', (eventType) => {
     const [first] = Object.keys(payloads[eventType]);
-    const { [first]: _omitted, ...rest } = payloads[eventType];
-    expect(() => parseEventForPublication(envelope(eventType, rest))).toThrow();
+    const withoutFirst = Object.fromEntries(Object.entries(payloads[eventType]).filter(([key]) => key !== first));
+    expect(() => parseEventForPublication(envelope(eventType, withoutFirst))).toThrow();
   });
 
   it.each(events)('%s: rejects the wrong producer', (eventType) => {

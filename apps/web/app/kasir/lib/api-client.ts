@@ -11,11 +11,14 @@ export function newIdempotencyKey(): string {
   return crypto.randomUUID();
 }
 
+/** API paths such as `/pos/shifts` go through the web BFF proxy, which attaches the session token server-side. */
+const BFF_CORE_PREFIX = '/api/bff/core';
+
 export async function kasirFetch<T>(path: string, init?: RequestInit & { idempotencyKey?: string }): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set('content-type', 'application/json');
   if (init?.idempotencyKey) headers.set('idempotency-key', init.idempotencyKey);
-  const response = await fetch(path, { ...init, headers, credentials: 'include' });
+  const response = await fetch(`${BFF_CORE_PREFIX}${path}`, { ...init, headers, credentials: 'same-origin' });
   if (!response.ok) {
     const problem = (await response.json().catch(() => null)) as ProblemDetails | null;
     if (problem) throw new KasirApiError(problem);
