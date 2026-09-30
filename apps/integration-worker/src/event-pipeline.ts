@@ -6,6 +6,7 @@ import {
   EVENT_RETRY_BACKOFF_MS, type PublishableEvent,
 } from '@pss/platform';
 import { projectApproval, projectDeliveredOrder } from '@pss/reporting';
+import { consumeEconomicEvent, FINANCE_CONSUMER } from '@pss/finance';
 
 const QUEUE_NAME = 'pss-canonical-events';
 const CONSUMER_DELIVERY = 'reporting.delivery-status';
@@ -16,6 +17,15 @@ const REGISTERED_CONSUMERS: Record<string, string> = {
   DELIVERY_ORDER_DELIVERED: CONSUMER_DELIVERY,
   APPROVAL_REQUESTED: CONSUMER_APPROVAL,
   APPROVAL_DECIDED: CONSUMER_APPROVAL,
+  INVENTORY_RECEIVED: FINANCE_CONSUMER,
+  INVENTORY_ISSUED: FINANCE_CONSUMER,
+  INVENTORY_ADJUSTED: FINANCE_CONSUMER,
+  INVOICE_ISSUED: FINANCE_CONSUMER,
+  PAYMENT_RECEIVED: FINANCE_CONSUMER,
+  CASH_CUSTODY_VERIFIED: FINANCE_CONSUMER,
+  JOURNAL_POSTED: 'finance.journal-publication',
+  JOURNAL_REVERSED: 'finance.journal-publication',
+  ACCOUNTING_PERIOD_CLOSED: 'finance.period-publication',
 };
 
 export function redisConnectionFromUrl(rawUrl: string): ConnectionOptions {
@@ -42,6 +52,17 @@ export function startEventPipeline(pool: Pool, connection: ConnectionOptions, qu
   const queue = new Queue<PublishableEvent>(queueName, { connection });
   const worker = new Worker<PublishableEvent>(queueName, async (job) => {
     switch (job.name) {
+      case 'INVENTORY_RECEIVED':
+      case 'INVENTORY_ISSUED':
+      case 'INVENTORY_ADJUSTED':
+      case 'INVOICE_ISSUED':
+      case 'PAYMENT_RECEIVED':
+      case 'CASH_CUSTODY_VERIFIED':
+        return consumeEconomicEvent(pool, job.data);
+      case 'JOURNAL_POSTED':
+      case 'JOURNAL_REVERSED':
+      case 'ACCOUNTING_PERIOD_CLOSED':
+        return { published: job.data.eventId };
       case 'DELIVERY_ORDER_DELIVERED':
         return projectDeliveredOrder(pool, job.data);
       case 'APPROVAL_REQUESTED':

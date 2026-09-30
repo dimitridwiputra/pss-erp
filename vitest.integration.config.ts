@@ -16,6 +16,7 @@ export default defineConfig({
     'domains/payments/tests/**/*.integration.test.ts',
     'domains/pos/tests/**/*.integration.test.ts',
     'domains/reporting/tests/**/*.integration.test.ts',
+    'domains/finance/tests/**/*.integration.test.ts',
     'domains/wms/tests/**/*.integration.test.ts',
     'tests/integration/**/*.integration.test.ts',
   ] },

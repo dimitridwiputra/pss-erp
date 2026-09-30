@@ -117,16 +117,37 @@ importers:
       '@nestjs/platform-express':
         specifier: 12.1.0
         version: 12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@12.1.0)(supports-color@8.1.1)
+      '@pss/auth-client':
+        specifier: workspace:*
+        version: link:../../packages/auth-client
+      '@pss/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@pss/finance':
+        specifier: workspace:*
+        version: link:../../domains/finance
       '@pss/http':
         specifier: workspace:*
         version: link:../../packages/http
+      '@pss/platform':
+        specifier: workspace:*
+        version: link:../../domains/platform
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
     devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
       tsx:
         specifier: 4.23.15
         version: 4.23.15
@@ -170,6 +191,9 @@ importers:
       '@pss/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@pss/finance':
+        specifier: workspace:*
+        version: link:../../domains/finance
       '@pss/http':
         specifier: workspace:*
         version: link:../../packages/http
@@ -309,6 +333,34 @@ importers:
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
+
+  domains/finance:
+    dependencies:
+      '@pss/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@pss/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@pss/platform':
+        specifier: workspace:*
+        version: link:../platform
+      decimal.js:
+        specifier: 10.4.3
+        version: 10.4.3
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
 
   domains/fulfillment:
     dependencies:
