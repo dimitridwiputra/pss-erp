@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useFinanceData, financeDate, journalLabel, periodLabel, rupiah } from './finance-client';
+import { useState } from 'react';
+import { useFinanceData, useFinancePermissions, financeDate, journalLabel, periodLabel, rupiah } from './finance-client';
 
 type Journal = { id: string; number: string; business_date: string; source_type: string;
   source_document_id: string | null; source_document_number: string | null; status: string; period_code: string };
@@ -140,15 +141,31 @@ export function BalanceSheet() {
 
 export function PostingExceptions() {
   const result = useFinanceData<Page<Exception>>('finance/posting-exceptions?limit=50&offset=0');
+  const permissions = useFinancePermissions();
+  const [message, setMessage] = useState('');
+  const canRetry = permissions.includes('finance.posting.period_decision') || permissions.includes('finance.close.manage');
+  async function retry(id: string) {
+    setMessage('');
+    try {
+      const response = await fetch(`/api/bff/finance/finance/posting-exceptions/${id}/retry`, {
+        method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() },
+      });
+      if (!response.ok) throw new Error('Posting belum dapat dicoba lagi. Periksa periode, nilai, dan akun yang diperlukan.');
+      setMessage('Posting selesai. Muat ulang halaman untuk melihat status terbaru.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Posting belum dapat dicoba lagi.'); }
+  }
   const reason = (code: string) => ({ PERIOD_CLOSED: 'Periode sudah ditutup', PERIOD_NOT_FOUND: 'Periode belum tersedia',
     UNVALUED_INVENTORY: 'Nilai persediaan belum tersedia', POSTING_RULE_NOT_FOUND: 'Aturan posting belum tersedia',
     ACCOUNT_INACTIVE_OR_MISSING: 'Akun belum aktif' } as Record<string, string>)[code] ?? 'Perlu diperiksa';
   return <><h1>Pengecualian Posting</h1><p className="finance-intro">Transaksi berikut memerlukan tindakan sebelum dapat dibukukan.</p>
     <State loading={result.loading} error={result.error} />
+    {message && <p role="status" className="finance-message">{message}</p>}
     <section className="finance-panel">{!result.data?.items.length ? <p>Semua transaksi sudah diproses.</p> :
-      <table className="finance-table"><thead><tr><th>Tanggal</th><th>Transaksi</th><th>Masalah</th><th>Status</th></tr></thead>
+      <table className="finance-table"><thead><tr><th>Tanggal</th><th>Transaksi</th><th>Masalah</th><th>Status</th><th>Aksi</th></tr></thead>
         <tbody>{result.data.items.map((entry) => <tr key={entry.id}><td>{financeDate(entry.business_date)}</td>
           <td>{economicEventLabel(entry.event_type)}</td><td>{reason(entry.reason_code)}</td>
-          <td>{entry.status === 'RESOLVED' ? 'Selesai' : 'Perlu ditindaklanjuti'}</td></tr>)}</tbody></table>}</section>
+          <td>{entry.status === 'RESOLVED' ? 'Selesai' : 'Perlu ditindaklanjuti'}</td>
+          <td>{canRetry && entry.status !== 'RESOLVED' && <button className="finance-button finance-button-secondary" onClick={() => void retry(entry.id)}>Coba lagi</button>}</td>
+        </tr>)}</tbody></table>}</section>
   </>;
 }

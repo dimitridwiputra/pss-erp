@@ -69,11 +69,13 @@ export interface AccountBalance { code: string; name: string; type: string; norm
 export async function accountBalances(pool: Pool, organizationId: string, through: string): Promise<AccountBalance[]> {
   return (await pool.query<AccountBalance>(
     `SELECT a.code, a.name, a.type, a.normal_balance,
-            COALESCE(sum(l.debit - l.credit) FILTER (WHERE j.id IS NOT NULL),0)::text AS net
+            COALESCE(sum(entries.net),0)::text AS net
      FROM finance.account a
-     LEFT JOIN finance.journal_line l ON l.account_code = a.code
-     LEFT JOIN finance.journal j ON j.id = l.journal_id
-       AND j.organization_id = $1 AND j.status IN ('POSTED','REVERSED') AND j.business_date <= $2::date
+     LEFT JOIN (
+       SELECT l.account_code, l.debit - l.credit AS net
+       FROM finance.journal_line l JOIN finance.journal j ON j.id = l.journal_id
+       WHERE j.organization_id = $1 AND j.status IN ('POSTED','REVERSED') AND j.business_date <= $2::date
+     ) entries ON entries.account_code = a.code
      GROUP BY a.code, a.name, a.type, a.normal_balance ORDER BY a.code`, [organizationId, through],
   )).rows;
 }
@@ -93,13 +95,14 @@ export async function trialBalance(pool: Pool, organizationId: string, through: 
 export async function profitAndLoss(pool: Pool, organizationId: string, from: string, to: string) {
   const rows = (await pool.query<AccountBalance>(
     `SELECT a.code, a.name, a.type, a.normal_balance,
-            COALESCE(sum(CASE WHEN a.type = 'REVENUE' THEN l.credit - l.debit
-                              ELSE l.debit - l.credit END) FILTER (WHERE j.id IS NOT NULL),0)::text AS net
+            COALESCE(sum(CASE WHEN a.type = 'REVENUE' THEN -entries.net ELSE entries.net END),0)::text AS net
      FROM finance.account a
-     LEFT JOIN finance.journal_line l ON l.account_code = a.code
-     LEFT JOIN finance.journal j ON j.id = l.journal_id
-       AND j.organization_id = $1 AND j.status IN ('POSTED','REVERSED')
-       AND j.business_date BETWEEN $2::date AND $3::date
+     LEFT JOIN (
+       SELECT l.account_code, l.debit - l.credit AS net
+       FROM finance.journal_line l JOIN finance.journal j ON j.id = l.journal_id
+       WHERE j.organization_id = $1 AND j.status IN ('POSTED','REVERSED')
+         AND j.business_date BETWEEN $2::date AND $3::date
+     ) entries ON entries.account_code = a.code
      WHERE a.type IN ('REVENUE','EXPENSE')
      GROUP BY a.code, a.name, a.type, a.normal_balance ORDER BY a.code`, [organizationId, from, to],
   )).rows;
@@ -127,17 +130,26 @@ export async function balanceSheet(pool: Pool, organizationId: string, through: 
 
 export async function reconciliation(pool: Pool, organizationId: string, through: string) {
   const gl = await accountBalances(pool, organizationId, through);
-  const source = (await pool.query<{ inventory: string; receivable: string }>(
+  const [sourceResult, unvaluedResult] = await Promise.all([
+    pool.query<{ inventory: string; receivable: string }>(
     `SELECT COALESCE(sum(inventory_delta),0)::text AS inventory,
             COALESCE(sum(receivable_delta),0)::text AS receivable
      FROM finance.subledger_event WHERE organization_id = $1 AND business_date <= $2::date`, [organizationId, through],
-  )).rows[0]!;
+    ),
+    pool.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM finance.posting_exception
+       WHERE organization_id = $1 AND business_date <= $2::date
+         AND reason_code = 'UNVALUED_INVENTORY' AND status <> 'RESOLVED'`, [organizationId, through],
+    ),
+  ]);
+  const source = sourceResult.rows[0]!;
   const inventoryGl = new Decimal(gl.find((row) => row.code === '1-1400')?.net ?? 0);
   const receivableGl = new Decimal(gl.find((row) => row.code === '1-1300')?.net ?? 0);
   return {
     through,
     inventory: { gl: inventoryGl.toFixed(2), source: source.inventory,
-      difference: inventoryGl.minus(source.inventory).toFixed(2) },
+      difference: inventoryGl.minus(source.inventory).toFixed(2),
+      unvaluedEvents: unvaluedResult.rows[0]!.count },
     receivables: { gl: receivableGl.toFixed(2), invoicesMinusPayments: source.receivable,
       difference: receivableGl.minus(source.receivable).toFixed(2),
       temporaryCreditBalance: receivableGl.isNegative() },

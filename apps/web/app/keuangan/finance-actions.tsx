@@ -6,12 +6,16 @@ import Decimal from 'decimal.js';
 import Link from 'next/link';
 import { ConfirmationDialog } from '@pss/ui';
 import { FinanceManualJournalSchema, type FinanceManualJournalInput } from '@pss/contracts';
-import { useFinanceData, financeDate, periodLabel, rupiah } from './finance-client';
+import { useFinanceData, useFinancePermissions, financeDate, periodLabel, rupiah } from './finance-client';
 
 type Account = { code: string; name: string; active: boolean };
 type Period = { id: string; code: string; status: string };
 type Ledger = { openingBalance: string; items: Array<{ journal_id: string; number: string; business_date: string;
   source_document_number: string | null; debit: string; credit: string }>; total: number };
+
+function decimalInput(value: string | undefined): Decimal | null {
+  try { return new Decimal(value || 0); } catch { return null; }
+}
 
 export function ManualJournalForm() {
   const accounts = useFinanceData<Account[]>('finance/accounts');
@@ -25,11 +29,12 @@ export function ManualJournalForm() {
   const { fields, append, remove } = useFieldArray({ control, name: 'lines' });
   const [message, setMessage] = useState('');
   const lines = watch('lines');
-  const sums = lines.reduce((value, line) => ({ debit: value.debit.plus(line.debit || 0),
-    credit: value.credit.plus(line.credit || 0) }), { debit: new Decimal(0), credit: new Decimal(0) });
+  const sums = lines.reduce((value, line) => ({ debit: value.debit.plus(decimalInput(line.debit) ?? 0),
+    credit: value.credit.plus(decimalInput(line.credit) ?? 0) }), { debit: new Decimal(0), credit: new Decimal(0) });
   const balanced = lines.length >= 2 && sums.debit.greaterThan(0) && sums.debit.equals(sums.credit)
     && lines.every((line) => {
-      const debit = new Decimal(line.debit || 0), credit = new Decimal(line.credit || 0);
+      const debit = decimalInput(line.debit), credit = decimalInput(line.credit);
+      if (!debit || !credit) return false;
       return (debit.greaterThan(0) && credit.isZero()) || (credit.greaterThan(0) && debit.isZero());
     });
 
@@ -99,6 +104,8 @@ export function GeneralLedger() {
 
 export function Periods() {
   const result = useFinanceData<Period[]>('finance/periods');
+  const permissions = useFinancePermissions();
+  const canManage = permissions.includes('finance.close.manage');
   const [selected, setSelected] = useState<{ id: string; action: 'soft-close' | 'close'; code: string } | null>(null);
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
@@ -126,8 +133,8 @@ export function Periods() {
     <section className="finance-panel">{!result.data?.length ? <p>Belum ada periode. Minta admin menjalankan seed demo keuangan.</p> :
       <table className="finance-table"><thead><tr><th>Periode</th><th>Status</th><th>Aksi</th></tr></thead>
         <tbody>{result.data.map((period) => <tr key={period.id}><td>{period.code}</td><td>{periodLabel(period.status)}</td>
-          <td>{period.status === 'OPEN' ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'soft-close' })}>Tutup sementara</button>
-            : period.status === 'SOFT_CLOSED' ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'close' })}>Tutup periode</button>
+          <td>{canManage && period.status === 'OPEN' ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'soft-close' })}>Tutup sementara</button>
+            : canManage && period.status === 'SOFT_CLOSED' ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'close' })}>Tutup periode</button>
               : <span>Ditutup</span>}</td></tr>)}</tbody></table>}
     </section>
     {selected && <><div className="finance-panel finance-form"><label>Alasan tindakan<textarea value={reason} onChange={(event) => setReason(event.target.value)} required /></label></div>

@@ -25,6 +25,19 @@ export function useFinanceData<T>(path: string) {
   return { data, error, loading };
 }
 
+export function useFinancePermissions() {
+  const [permissions, setPermissions] = useState<string[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/bff/core/me/permissions', { signal: controller.signal, cache: 'no-store' })
+      .then(async (response) => response.ok ? response.json() as Promise<{ grants: Array<{ permission: string }> }> : { grants: [] })
+      .then((value) => setPermissions(value.grants.map((grant) => grant.permission)))
+      .catch(() => { if (!controller.signal.aborted) setPermissions([]); });
+    return () => controller.abort();
+  }, []);
+  return permissions;
+}
+
 export function rupiah(value: string | number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 2 }).format(Number(value));
 }
