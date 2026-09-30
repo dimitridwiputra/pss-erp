@@ -17,7 +17,7 @@ Project canonical events into read models for operational reporting, using each 
 ## Commands
 
 - `projectDeliveredOrder(pool, event)` handles `DELIVERY_ORDER_DELIVERED` through `withInbox`. The inbox receipt and the projection commit together, and the upsert is guarded by `aggregate_version`, so a redelivered or out-of-order older event cannot move the read model backwards. Returns the `InboxResult`.
-- `projectApproval(pool, event)` handles `APPROVAL_REQUESTED` and `APPROVAL_DECIDED` the same way, with the same version guard.
+- `projectApproval(pool, event)` handles both v1 and v2 `APPROVAL_REQUESTED` / `APPROVAL_DECIDED` with the same version guard. The v2 subject-version payload remains owned by Platform and the business effect by its subject domain.
 - `deleteExpiredInboxReceipts(pool, retentionDays = 400)` removes receipts only past the archive window. It refuses a smaller window: PLT-005.R05 requires inbox retention to be at least the replay archive retention, so a shorter one would let a replayed event be reprocessed as new.
 
 ## Queries

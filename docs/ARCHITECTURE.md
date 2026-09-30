@@ -137,7 +137,7 @@ Finance adalah accounting system of record.
 - journal/journal lines;
 - posting rules;
 - manual journal workflow;
-- approvals;
+- Finance approval subject state and business effects; `platform.approval` owns the shared approval mechanism and decisions (ADR-0015);
 - GL;
 - bank/cash accounting reconciliation;
 - trial balance;

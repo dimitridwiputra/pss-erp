@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { withAuditedTransaction } from '@pss/audit';
-import { DomainError, newEventId } from '@pss/contracts';
+import { runAuditedWork, withAuditedTransaction } from '@pss/audit';
+import { ApprovalTypeCodeSchema, DomainError, FinanceApprovalSubmittedV1Schema, newEventId } from '@pss/contracts';
 import { appendOutboxEvent } from './outbox';
+import { withInbox, type ConsumerInbox } from './inbox';
 
 const RequestApprovalSchema = z.strictObject({
   organizationId: z.uuid(), branchId: z.uuid().optional(),
@@ -11,6 +12,9 @@ const RequestApprovalSchema = z.strictObject({
   requesterId: z.uuid(), amount: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
   summary: z.string().trim().min(1).max(200), businessDate: z.iso.date(),
   requestId: z.string().min(1),
+  subjectType: z.string().min(1).optional(), subjectVersion: z.int().positive().optional(),
+  contextHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  causationId: z.string().min(1).optional(),
 });
 export type RequestApprovalInput = z.input<typeof RequestApprovalSchema>;
 
@@ -37,7 +41,27 @@ export async function requestApproval(pool: Pool, rawInput: RequestApprovalInput
   const parsed = RequestApprovalSchema.safeParse(rawInput);
   if (!parsed.success) throw new DomainError('VALIDATION_FAILED');
   const input = parsed.data;
-  return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+  return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) =>
+    requestApprovalWork(client, appendAuditEntry, input));
+}
+
+async function requestApprovalWork(client: PoolClient,
+  appendAuditEntry: Parameters<Parameters<typeof withAuditedTransaction>[1]>[0]['appendAuditEntry'],
+  input: z.infer<typeof RequestApprovalSchema>) {
+    if (input.subjectVersion !== undefined) {
+      if (!ApprovalTypeCodeSchema.safeParse(input.typeCode).success || !z.uuid().safeParse(input.requestId).success) {
+        throw new DomainError('VALIDATION_FAILED');
+      }
+      const existing = (await client.query<{ id: string }>(
+        `SELECT id FROM platform.approval_request WHERE organization_id = $1 AND type_code = $2
+         AND owner_domain = $3 AND subject_ref = $4 AND subject_version = $5`,
+        [input.organizationId, input.typeCode, input.ownerDomain, input.subjectRef, input.subjectVersion],
+      )).rows[0];
+      if (existing) {
+        if (existing.id !== input.requestId) throw new DomainError('STALE_DATA');
+        return { id: existing.id, status: 'PENDING' as const };
+      }
+    }
     const type = (await client.query<{
       code: string; owner_domain: string; expiry_hours: number;
     }>('SELECT code, owner_domain, expiry_hours FROM platform.approval_type WHERE code = $1', [input.typeCode])).rows[0];
@@ -60,38 +84,77 @@ export async function requestApproval(pool: Pool, rawInput: RequestApprovalInput
     if (levels.length === 0) throw new DomainError('APPROVAL_TYPE_UNKNOWN');
     // An unset threshold is deliberately not zero: choose the highest authority.
     const level = levels.find((entry) => entry.fits) ?? levels.at(-1)!;
-    const approvalId = randomUUID();
+    const approvalId = input.subjectVersion === undefined ? randomUUID() : input.requestId;
     const inserted = await client.query<{ expires_at: Date }>(
       `INSERT INTO platform.approval_request (
          id, organization_id, branch_id, type_code, policy_id, owner_domain, subject_ref,
-         requester_id, amount, summary, status, level, required_role, permission_code, expires_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PENDING',$11,$12,$13,now() + make_interval(hours => $14))
+         requester_id, amount, summary, status, level, required_role, permission_code, expires_at,
+         subject_type, subject_version, context_hash
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PENDING',$11,$12,$13,now() + make_interval(hours => $14),$15,$16,$17)
        RETURNING expires_at`,
       [approvalId, input.organizationId, input.branchId ?? null, input.typeCode, policy.id,
         input.ownerDomain, input.subjectRef, input.requesterId, input.amount ?? null, input.summary,
-        level.level, level.role_code, level.permission_code, type.expiry_hours],
+        level.level, level.role_code, level.permission_code, type.expiry_hours,
+        input.subjectType ?? null, input.subjectVersion ?? null, input.contextHash ?? null],
     );
+    if (input.subjectVersion !== undefined) {
+      await client.query(
+        `INSERT INTO platform.approval_step (request_id, level, status) VALUES ($1,$2,'PENDING')`,
+        [approvalId, level.level],
+      );
+    }
     await appendAuditEntry({
       organizationId: input.organizationId, branchId: input.branchId,
       actor: { userId: input.requesterId, roles: [] },
       action: 'APPROVAL_REQUESTED',
       entity: { domain: 'platform', type: 'ApprovalRequest', id: approvalId, version: 1 },
       changes: [{ path: 'status', classification: 'INTERNAL', after: 'PENDING' }],
-      requestId: input.requestId, correlationId: input.requestId, source: 'API',
+      requestId: input.requestId, correlationId: input.requestId,
+      ...(input.causationId ? { causationId: input.causationId } : {}),
+      source: input.causationId ? 'SYSTEM' : 'API',
     });
     await appendOutboxEvent(client, {
-      eventId: newEventId(), eventType: 'APPROVAL_REQUESTED', eventVersion: 1,
+      eventId: newEventId(), eventType: 'APPROVAL_REQUESTED', eventVersion: input.subjectVersion === undefined ? 1 : 2,
       occurredAt: new Date().toISOString(), businessDate: input.businessDate,
       organizationId: input.organizationId,
       ...(input.branchId ? { branchId: input.branchId } : {}),
       aggregateType: 'ApprovalRequest', aggregateId: approvalId, aggregateVersion: 1,
       producer: 'approval', actor: { userId: input.requesterId, roles: [] },
-      correlationId: input.requestId, causationId: input.requestId,
-      payload: { requestId: approvalId, type: input.typeCode, subjectRef: input.subjectRef,
-        ownerDomain: input.ownerDomain, decision: 'PENDING' },
+      correlationId: input.requestId, causationId: input.causationId ?? input.requestId,
+      payload: input.subjectVersion === undefined
+        ? { requestId: approvalId, type: input.typeCode, subjectRef: input.subjectRef,
+          ownerDomain: input.ownerDomain, decision: 'PENDING' }
+        : { requestId: approvalId, type: input.typeCode, subjectType: input.subjectType!,
+          subjectRef: input.subjectRef, subjectVersion: input.subjectVersion,
+          ownerDomain: input.ownerDomain, decision: 'PENDING' },
     });
     return { id: approvalId, status: 'PENDING' as const, level: level.level,
       requiredRole: level.role_code, expiresAt: inserted.rows[0]!.expires_at.toISOString() };
+}
+
+const approvalSubmissionInbox: ConsumerInbox = {
+  reserve: async (client, eventId) => (await client.query(
+    'INSERT INTO platform.approval_inbox (event_id) VALUES ($1) ON CONFLICT DO NOTHING', [eventId],
+  )).rowCount === 1,
+};
+
+/** Platform consumes an owner request only after the owner transaction has committed. */
+export async function processFinanceApprovalSubmission(pool: Pool, rawEvent: unknown) {
+  const parsed = FinanceApprovalSubmittedV1Schema.parse(rawEvent);
+  if (parsed.payload.ownerDomain !== 'finance') throw new DomainError('VALIDATION_FAILED');
+  return withInbox(pool, approvalSubmissionInbox, parsed, async (client, event) => {
+    const payload = FinanceApprovalSubmittedV1Schema.parse(event).payload;
+    return runAuditedWork(client, async ({ appendAuditEntry }) => requestApprovalWork(client, appendAuditEntry,
+      RequestApprovalSchema.parse({
+        organizationId: event.organizationId,
+        ...(payload.scopeType === 'BRANCH' ? { branchId: payload.scopeId } : {}),
+        typeCode: payload.type, ownerDomain: payload.ownerDomain,
+        subjectType: payload.subjectType, subjectRef: payload.subjectRef,
+        subjectVersion: payload.subjectVersion, contextHash: payload.contextHash,
+        requesterId: payload.requestedBy, amount: payload.amount, summary: payload.summary,
+        businessDate: event.businessDate, requestId: payload.requestId,
+        causationId: event.eventId,
+      })));
   });
 }
 
@@ -103,7 +166,8 @@ export async function decideApproval(pool: Pool, rawInput: DecideApprovalInput, 
   return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
     const approval = (await client.query<{
       organization_id: string; branch_id: string | null; type_code: string; owner_domain: string;
-      subject_ref: string; requester_id: string; status: string; version: number; level: number;
+      subject_ref: string; subject_type: string | null; subject_version: number | null;
+      requester_id: string; status: string; version: number; level: number;
       required_role: string; permission_code: string; expires_at: Date; delegation_allowed: boolean;
       reason_required: boolean;
     }>(
@@ -147,6 +211,13 @@ export async function decideApproval(pool: Pool, rawInput: DecideApprovalInput, 
          decided_at = now(), decision_reason = $3, version = $4, updated_at = now() WHERE id = $5`,
       [input.decision, input.actorId, input.reason ?? null, version, input.approvalId],
     );
+    if (approval.subject_version !== null) {
+      await client.query(
+        `UPDATE platform.approval_step SET status = $2, decided_by = $3, decided_at = now(), reason = $4
+         WHERE request_id = $1 AND level = $5 AND status = 'PENDING'`,
+        [input.approvalId, input.decision, input.actorId, input.reason ?? null, approval.level],
+      );
+    }
     await appendAuditEntry({
       organizationId: input.organizationId,
       ...(approval.branch_id ? { branchId: approval.branch_id } : {}),
@@ -158,15 +229,20 @@ export async function decideApproval(pool: Pool, rawInput: DecideApprovalInput, 
       requestId: input.requestId, correlationId: input.requestId, source: 'API',
     });
     await appendOutboxEvent(client, {
-      eventId: newEventId(), eventType: 'APPROVAL_DECIDED', eventVersion: 1,
+      eventId: newEventId(), eventType: 'APPROVAL_DECIDED', eventVersion: approval.subject_version === null ? 1 : 2,
       occurredAt: new Date().toISOString(), businessDate: input.businessDate,
       organizationId: input.organizationId,
       ...(approval.branch_id ? { branchId: approval.branch_id } : {}),
       aggregateType: 'ApprovalRequest', aggregateId: input.approvalId, aggregateVersion: version,
       producer: 'approval', actor: { userId: input.actorId, roles: [], ...(onBehalfOf ? { onBehalfOf } : {}) },
       correlationId: input.requestId, causationId: input.requestId,
-      payload: { requestId: input.approvalId, type: approval.type_code, subjectRef: approval.subject_ref,
-        ownerDomain: approval.owner_domain, decision: input.decision, decidedBy: input.actorId, level: approval.level },
+      payload: approval.subject_version === null
+        ? { requestId: input.approvalId, type: approval.type_code, subjectRef: approval.subject_ref,
+          ownerDomain: approval.owner_domain, decision: input.decision, decidedBy: input.actorId, level: approval.level }
+        : { requestId: input.approvalId, type: approval.type_code, subjectType: approval.subject_type!,
+          subjectRef: approval.subject_ref, subjectVersion: approval.subject_version,
+          ownerDomain: approval.owner_domain, decision: input.decision, decidedBy: input.actorId,
+          ...(input.reason ? { reason: input.reason } : {}), step: approval.level },
     });
     return { id: input.approvalId, status: input.decision, version };
   });

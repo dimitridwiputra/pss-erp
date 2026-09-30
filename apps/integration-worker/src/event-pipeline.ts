@@ -4,8 +4,10 @@ import { Pool } from 'pg';
 import {
   dispatchPendingEvents, outboxDeliveryStats, recordConsumerDeadLetter,
   EVENT_RETRY_BACKOFF_MS, type PublishableEvent,
+  processFinanceApprovalSubmission,
 } from '@pss/platform';
 import { projectApproval, projectDeliveredOrder } from '@pss/reporting';
+import { consumeEconomicEvent, consumeFinanceApprovalDecision, FINANCE_CONSUMER } from '@pss/finance';
 
 const QUEUE_NAME = 'pss-canonical-events';
 const CONSUMER_DELIVERY = 'reporting.delivery-status';
@@ -16,6 +18,18 @@ const REGISTERED_CONSUMERS: Record<string, string> = {
   DELIVERY_ORDER_DELIVERED: CONSUMER_DELIVERY,
   APPROVAL_REQUESTED: CONSUMER_APPROVAL,
   APPROVAL_DECIDED: CONSUMER_APPROVAL,
+  FINANCE_APPROVAL_SUBMITTED: 'platform.approval-submission',
+  INVENTORY_RECEIVED: FINANCE_CONSUMER,
+  INVENTORY_ISSUED: FINANCE_CONSUMER,
+  INVENTORY_ADJUSTED: FINANCE_CONSUMER,
+  INVOICE_ISSUED: FINANCE_CONSUMER,
+  PAYMENT_RECEIVED: FINANCE_CONSUMER,
+  PAYMENT_REVERSED: FINANCE_CONSUMER,
+  CASH_CUSTODY_VERIFIED: FINANCE_CONSUMER,
+  JOURNAL_POSTED: 'finance.journal-publication',
+  JOURNAL_REVERSED: 'finance.journal-publication',
+  ACCOUNTING_PERIOD_CLOSED: 'finance.period-publication',
+  ACCOUNTING_PERIOD_REOPENED: 'finance.period-publication',
 };
 
 export function redisConnectionFromUrl(rawUrl: string): ConnectionOptions {
@@ -42,11 +56,31 @@ export function startEventPipeline(pool: Pool, connection: ConnectionOptions, qu
   const queue = new Queue<PublishableEvent>(queueName, { connection });
   const worker = new Worker<PublishableEvent>(queueName, async (job) => {
     switch (job.name) {
+      case 'INVENTORY_RECEIVED':
+      case 'INVENTORY_ISSUED':
+      case 'INVENTORY_ADJUSTED':
+      case 'INVOICE_ISSUED':
+      case 'PAYMENT_RECEIVED':
+      case 'PAYMENT_REVERSED':
+      case 'CASH_CUSTODY_VERIFIED':
+        return consumeEconomicEvent(pool, job.data);
+      case 'JOURNAL_POSTED':
+      case 'JOURNAL_REVERSED':
+      case 'ACCOUNTING_PERIOD_CLOSED':
+      case 'ACCOUNTING_PERIOD_REOPENED':
+        return { published: job.data.eventId };
       case 'DELIVERY_ORDER_DELIVERED':
         return projectDeliveredOrder(pool, job.data);
       case 'APPROVAL_REQUESTED':
-      case 'APPROVAL_DECIDED':
         return projectApproval(pool, job.data);
+      case 'APPROVAL_DECIDED':
+        await projectApproval(pool, job.data);
+        if (job.data.eventVersion === 2 && (job.data.payload as { ownerDomain?: string }).ownerDomain === 'finance') {
+          return consumeFinanceApprovalDecision(pool, job.data);
+        }
+        return { published: job.data.eventId };
+      case 'FINANCE_APPROVAL_SUBMITTED':
+        return processFinanceApprovalSubmission(pool, job.data);
       default:
         throw new Error(`No consumer registered for ${job.name}.`);
     }
@@ -121,6 +155,9 @@ export class EventPipelineService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     if (!process.env.DATABASE_URL || !process.env.REDIS_URL) return;
     this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    this.pool.on('error', (error: Error) => {
+      process.stderr.write(`Worker idle database connection closed: ${error.message}\n`);
+    });
     this.pipeline = startEventPipeline(this.pool, redisConnectionFromUrl(process.env.REDIS_URL));
     await this.pipeline.ready();
     this.timer = setInterval(() => {

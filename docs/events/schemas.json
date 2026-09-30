@@ -408,6 +408,186 @@
       ],
       "additionalProperties": false
     },
+    "APPROVAL_REQUESTED@2": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        },
+        "eventType": {
+          "type": "string",
+          "const": "APPROVAL_REQUESTED"
+        },
+        "eventVersion": {
+          "type": "number",
+          "const": 2
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "businessDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+        },
+        "organizationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "branchId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "producer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor": {
+          "type": "object",
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "onBehalfOf": {
+              "type": "string",
+              "minLength": 1
+            },
+            "serviceIdentity": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "causationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "branch_change",
+                "prospect_conversion",
+                "outlet_customer_move",
+                "supplier_bank_change",
+                "principal_policy_change",
+                "tax_rate_change",
+                "credit_profile_change",
+                "credit_override",
+                "purchase_order",
+                "supplier_invoice_variance",
+                "sales_return",
+                "credit_note_adjustment",
+                "payment_reversal",
+                "payment_application_reversal",
+                "cash_discrepancy",
+                "supplier_payment",
+                "supplier_payment_reversal",
+                "discount_override",
+                "coa_change",
+                "posting_rule_change",
+                "journal",
+                "journal_reversal",
+                "period_reopen",
+                "stock_adjustment",
+                "bank_account_change",
+                "petty_cash_expense",
+                "internal_transfer",
+                "period_close",
+                "metric_definition",
+                "reporting_attribution",
+                "config_change"
+              ]
+            },
+            "ownerDomain": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subjectType": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subjectRef": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subjectVersion": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "decision": {
+              "type": "string",
+              "const": "PENDING"
+            }
+          },
+          "required": [
+            "requestId",
+            "type",
+            "ownerDomain",
+            "subjectType",
+            "subjectRef",
+            "subjectVersion",
+            "decision"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "eventVersion",
+        "occurredAt",
+        "businessDate",
+        "organizationId",
+        "aggregateType",
+        "aggregateId",
+        "aggregateVersion",
+        "producer",
+        "correlationId",
+        "causationId",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
     "APPROVAL_DECIDED@1": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
@@ -540,6 +720,416 @@
             "ownerDomain",
             "decision",
             "level"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "eventVersion",
+        "occurredAt",
+        "businessDate",
+        "organizationId",
+        "aggregateType",
+        "aggregateId",
+        "aggregateVersion",
+        "producer",
+        "correlationId",
+        "causationId",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "APPROVAL_DECIDED@2": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        },
+        "eventType": {
+          "type": "string",
+          "const": "APPROVAL_DECIDED"
+        },
+        "eventVersion": {
+          "type": "number",
+          "const": 2
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "businessDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+        },
+        "organizationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "branchId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "producer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor": {
+          "type": "object",
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "onBehalfOf": {
+              "type": "string",
+              "minLength": 1
+            },
+            "serviceIdentity": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "causationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "branch_change",
+                "prospect_conversion",
+                "outlet_customer_move",
+                "supplier_bank_change",
+                "principal_policy_change",
+                "tax_rate_change",
+                "credit_profile_change",
+                "credit_override",
+                "purchase_order",
+                "supplier_invoice_variance",
+                "sales_return",
+                "credit_note_adjustment",
+                "payment_reversal",
+                "payment_application_reversal",
+                "cash_discrepancy",
+                "supplier_payment",
+                "supplier_payment_reversal",
+                "discount_override",
+                "coa_change",
+                "posting_rule_change",
+                "journal",
+                "journal_reversal",
+                "period_reopen",
+                "stock_adjustment",
+                "bank_account_change",
+                "petty_cash_expense",
+                "internal_transfer",
+                "period_close",
+                "metric_definition",
+                "reporting_attribution",
+                "config_change"
+              ]
+            },
+            "ownerDomain": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subjectType": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subjectRef": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subjectVersion": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "APPROVED",
+                "REJECTED",
+                "EXPIRED",
+                "CANCELLED"
+              ]
+            },
+            "decidedBy": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "step": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "requestId",
+            "type",
+            "ownerDomain",
+            "subjectType",
+            "subjectRef",
+            "subjectVersion",
+            "decision",
+            "decidedBy",
+            "step"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "eventVersion",
+        "occurredAt",
+        "businessDate",
+        "organizationId",
+        "aggregateType",
+        "aggregateId",
+        "aggregateVersion",
+        "producer",
+        "correlationId",
+        "causationId",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "FINANCE_APPROVAL_SUBMITTED@1": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        },
+        "eventType": {
+          "type": "string",
+          "const": "FINANCE_APPROVAL_SUBMITTED"
+        },
+        "eventVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "businessDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+        },
+        "organizationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "branchId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "producer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor": {
+          "type": "object",
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "onBehalfOf": {
+              "type": "string",
+              "minLength": 1
+            },
+            "serviceIdentity": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "causationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "branch_change",
+                "prospect_conversion",
+                "outlet_customer_move",
+                "supplier_bank_change",
+                "principal_policy_change",
+                "tax_rate_change",
+                "credit_profile_change",
+                "credit_override",
+                "purchase_order",
+                "supplier_invoice_variance",
+                "sales_return",
+                "credit_note_adjustment",
+                "payment_reversal",
+                "payment_application_reversal",
+                "cash_discrepancy",
+                "supplier_payment",
+                "supplier_payment_reversal",
+                "discount_override",
+                "coa_change",
+                "posting_rule_change",
+                "journal",
+                "journal_reversal",
+                "period_reopen",
+                "stock_adjustment",
+                "bank_account_change",
+                "petty_cash_expense",
+                "internal_transfer",
+                "period_close",
+                "metric_definition",
+                "reporting_attribution",
+                "config_change"
+              ]
+            },
+            "ownerDomain": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subjectType": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subjectRef": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subjectVersion": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "requestedBy": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "scopeType": {
+              "type": "string",
+              "enum": [
+                "ORGANIZATION",
+                "BRANCH"
+              ]
+            },
+            "scopeId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "contextHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "amount": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d{1,2})?$"
+            }
+          },
+          "required": [
+            "requestId",
+            "type",
+            "ownerDomain",
+            "subjectType",
+            "subjectRef",
+            "subjectVersion",
+            "requestedBy",
+            "summary",
+            "scopeType",
+            "scopeId",
+            "contextHash"
           ],
           "additionalProperties": false
         }
@@ -1454,6 +2044,140 @@
       ],
       "additionalProperties": false
     },
+    "PAYMENT_REVERSED@1": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        },
+        "eventType": {
+          "type": "string",
+          "const": "PAYMENT_REVERSED"
+        },
+        "eventVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "businessDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+        },
+        "organizationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "branchId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "producer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor": {
+          "type": "object",
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "onBehalfOf": {
+              "type": "string",
+              "minLength": 1
+            },
+            "serviceIdentity": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "causationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "paymentId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "originalEventId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+            },
+            "reasonCode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "businessDate": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+            }
+          },
+          "required": [
+            "paymentId",
+            "originalEventId",
+            "reasonCode",
+            "businessDate"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "eventVersion",
+        "occurredAt",
+        "businessDate",
+        "organizationId",
+        "aggregateType",
+        "aggregateId",
+        "aggregateVersion",
+        "producer",
+        "correlationId",
+        "causationId",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
     "CASH_CUSTODY_VERIFIED@1": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
@@ -2005,6 +2729,145 @@
             "periodId",
             "periodCode",
             "closedBy"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "eventVersion",
+        "occurredAt",
+        "businessDate",
+        "organizationId",
+        "aggregateType",
+        "aggregateId",
+        "aggregateVersion",
+        "producer",
+        "correlationId",
+        "causationId",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "ACCOUNTING_PERIOD_REOPENED@1": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        },
+        "eventType": {
+          "type": "string",
+          "const": "ACCOUNTING_PERIOD_REOPENED"
+        },
+        "eventVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "businessDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+        },
+        "organizationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "branchId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "producer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor": {
+          "type": "object",
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "onBehalfOf": {
+              "type": "string",
+              "minLength": 1
+            },
+            "serviceIdentity": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "causationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "periodId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "periodCode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reopenedBy": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "approvalRequestId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "periodId",
+            "periodCode",
+            "reopenedBy",
+            "approvalRequestId",
+            "reason"
           ],
           "additionalProperties": false
         }

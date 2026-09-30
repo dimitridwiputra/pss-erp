@@ -6,9 +6,15 @@ Status: PLT-004 outbox, PLT-005 inbox/retry/DLQ/replay, PLT-006 command idempote
 
 Provide shared persistence and delivery infrastructure for canonical domain events, plus the single exception queue every bounded domain opens work into. A domain keeps authority over the business fact, its event content, and its subject; Platform owns transport state, delivery bookkeeping, and queue lifecycle.
 
+`platform.approval` is the one shared approval mechanism (MVP-OD-8; ADR-0015). It owns ApprovalType, ApprovalRequest, ApprovalStep, routing, thresholds, expiry, delegation, SoD, concurrent decision protection and decision audit. It never reads or mutates another domain's subject table. `FINANCE_APPROVAL_SUBMITTED` is consumed through `platform.approval_inbox`; request creation, step, audit and Platform outbox are one transaction. A final decision, audit and `APPROVAL_DECIDED` v2 outbox are one transaction. The owner domain applies and tracks the business effect independently.
+
+`finance.branch_pnl_visible` remains the separate CFO-owned sensitive configuration for detailed branch P&L. Migration `0012_branch_pnl_config_owner.sql` corrects its owner role; it does not grant gross-profit-summary access or alter that permission.
+
 ## Owns
 
 `platform.outbox_event`, `platform.event_dead_letter`, `platform.idempotency_key`, `platform.queue_definition`, `platform.exception_item`, `platform.business_calendar_day`, `platform.config_value`, `platform.feature_flag`, `platform.feature_flag_targeting`, `platform.document_numbering_scheme`, `platform.document_number_sequence`, `platform.document_number_reservation`, dispatch mechanics, dead-letter replay, command replay, exception queue lifecycle, the effective-dated configuration registry, the feature flag registry, and the document number allocator. Platform provides a reusable `withInbox` transaction boundary, but each consumer owns its inbox table and business effect. This module does not define domain event payloads; `@pss/contracts` validates those before an insert or send.
+
+Approval tables: `platform.approval_type`, `platform.approval_policy`, `platform.approval_level`, `platform.approval_request`, `platform.approval_step`, `platform.approval_delegation`, and `platform.approval_inbox`. Migration `0011_approval_subject_version.sql` adds subject version and a unique `(type, subjectRef, subjectVersion)` request key. `processFinanceApprovalSubmission` and `decideApproval` are acceptance-tested in the Finance and Platform integration suites.
 
 ## Does not own
 

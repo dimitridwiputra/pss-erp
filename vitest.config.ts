@@ -10,6 +10,7 @@ export default defineConfig({
       { find: /^@pss\/auth-client$/, replacement: fileURLToPath(new URL('./packages/auth-client/src/index.ts', import.meta.url)) },
       { find: /^@pss\/identity$/, replacement: fileURLToPath(new URL('./domains/identity/src/index.ts', import.meta.url)) },
       { find: /^@pss\/platform$/, replacement: fileURLToPath(new URL('./domains/platform/src/index.ts', import.meta.url)) },
+      { find: /^@pss\/finance$/, replacement: fileURLToPath(new URL('./domains/finance/src/index.ts', import.meta.url)) },
       { find: /^@pss\/master-data$/, replacement: fileURLToPath(new URL('./domains/master-data/src/index.ts', import.meta.url)) },
       { find: /^@pss\/commercial$/, replacement: fileURLToPath(new URL('./domains/commercial/src/index.ts', import.meta.url)) },
       { find: /^@pss\/inventory$/, replacement: fileURLToPath(new URL('./domains/inventory/src/index.ts', import.meta.url)) },
@@ -22,5 +23,5 @@ export default defineConfig({
       { find: /^@pss\/wms$/, replacement: fileURLToPath(new URL('./domains/wms/src/index.ts', import.meta.url)) },
     ],
   },
-  test: { include: ['tests/*.test.ts', 'packages/auth-client/tests/**/*.test.ts', 'packages/configuration/tests/**/*.test.ts', 'domains/identity/tests/**/*.test.ts', 'domains/principal-policy/tests/**/*.test.ts'] },
+  test: { include: ['tests/*.test.ts', 'apps/finance-api/tests/**/*.test.ts', 'packages/auth-client/tests/**/*.test.ts', 'packages/configuration/tests/**/*.test.ts', 'domains/identity/tests/**/*.test.ts', 'domains/principal-policy/tests/**/*.test.ts', 'domains/finance/tests/**/*.test.ts'] },
 });

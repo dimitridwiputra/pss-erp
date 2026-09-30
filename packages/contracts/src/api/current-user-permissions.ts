@@ -13,3 +13,4 @@ export const CurrentUserPermissionsResponseSchema = z.strictObject({
 });
 
 export type CurrentUserPermissionsResponse = z.infer<typeof CurrentUserPermissionsResponseSchema>;
+export type UserPermissionGrant = z.infer<typeof UserPermissionGrantSchema>;

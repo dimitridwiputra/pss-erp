@@ -180,7 +180,7 @@ export class CounterBackofficeService implements OnModuleDestroy {
     return handover;
   }
 
-  /** CSH-001: the verifier is the caller; SOD-06 (not the collector) and the reason rule (MVP-OD-9) live in `payments`. */
+  /** CSH-001: the verifier is the caller; SOD-06 (not the collector) and the reason rule (MVP-OD-26) live in `payments`. */
   async verifyHandover(context: CommandContext, id: string, input: VerifyCashHandoverRequest, idempotencyKey: string) {
     const record = await this.handoverRecord(context, id, false);
     await runApiCommand(this.requirePool(), context, 'payments.verifyCashHandover', idempotencyKey, { id: record.id, ...input }, (client) =>

@@ -28,7 +28,7 @@ Record tendered payments as PENDING_VERIFICATION facts and, for cash specificall
 - `declareCashHandover(pool, client, input)` — sums the `amount` of the given `paymentIds` (SQL-side `SUM`), restricted to `method = 'TUNAI'` and `status = 'PENDING_VERIFICATION'`; throws `VALIDATION_FAILED` if any given id doesn't match that filter. Creates one `cash_custody_record` (`DECLARED`) plus one `cash_custody_payment` row per payment. Idempotent per the caller's exact `paymentIds`: if any of them is already linked to a `DECLARED`/`VERIFIED` record, returns that existing record instead of inserting a duplicate, and traces that no-op as `CASH_HANDOVER_DECLARE_NOOP` (ADR-0013 4b). A `POS_SHIFT` declaration names its shift in `sourceId`. Audited as `CASH_HANDED_OVER`.
 - `verifyCashCustody(pool, client, input)` — loads the custody record `FOR UPDATE`; throws `CUSTODY_ALREADY_VERIFIED` if its status isn't `DECLARED`; throws `SEGREGATION_OF_DUTIES` (SOD-06) if `verifiedBy` is the record's collector. Computes `variance = countedAmount - declaredAmount` server-side (`numeric`, never a JS float). Outcomes:
   - A zero variance sets the record `VERIFIED` and cascades every linked payment to `VERIFIED`.
-  - A non-zero variance with a registered `RC-CSH-*` `reasonCode` is also `VERIFIED`. The reason is stored and the variance is carried for posting (MVP-OD-9, demo default).
+  - A non-zero variance with a registered `RC-CSH-*` `reasonCode` is also `VERIFIED`. The reason is stored and the variance is carried for posting (MVP-OD-26, demo default).
   - A non-zero variance without a reason sets `DISCREPANCY` and leaves linked payments untouched, for CSH-002.
 
   A `VERIFIED` `POS_SHIFT` record publishes `CASH_CUSTODY_VERIFIED` v1 in the same transaction, with the signed variance and the verification business date (Asia/Jakarta). Audited as `CASH_CUSTODY_VERIFIED` or `CASH_CUSTODY_DISCREPANCY_RECORDED`.
@@ -71,7 +71,7 @@ PostgreSQL `pg`; `@pss/contracts` (`DomainError`, `MoneyAmountSchema`, registere
 ## Open decisions
 
 - **OD-PAY-1 (event publication):** resolved for the POS cash path (see Events). Non-POS channels still publish nothing until their payloads are contracted.
-- **MVP-OD-9 (variance at verification):** the demo default is described under `verifyCashCustody`. CSH-002's approval by `CSH-DISCREPANCY-APPROVE` is not built.
+- **MVP-OD-26 (variance at verification):** the demo default is described under `verifyCashCustody`. CSH-002's approval by `CSH-DISCREPANCY-APPROVE` is not built.
 - **QRIS/TRANSFER/GIRO/CEK verification (PAY-002/005/006/007/008):** deferred. The schema accepts these `method`/`source` values so a payment can at least be *recorded*, but no verification command exists for them.
 - **Bank reconciliation (PAY-006/009):** deferred entirely; no table or command in this domain addresses it.
 - **Payment application / AR allocation (PAY-003 `ApplyPayment`, PAY-004 `TransferToCustomerCredit`):** deferred entirely; this domain never allocates a payment against an invoice or customer credit balance.

@@ -12971,7 +12971,7 @@ PSS Control Station adalah produk desktop untuk manajemen (Direksi, CFO, Kepala 
 **MAIN FLOW:** 1. BFF `GET /control-station/keuangan`. 2. Kartu KPI dengan asOf & sumber.
 **ALTERNATIVE FLOW:** A1 Drill ke FIN-006/GL-007.
 **EXCEPTION FLOW:** E1 Posting tertunda/gagal > 0 → penanda "Angka belum final".
-**BUSINESS RULES:** CST-007.BR01 Angka GL hanya dari jurnal POSTED. CST-007.BR02 Kas di tangan adalah operasional, bukan GL (DEC-104), dan diberi label itu.
+**BUSINESS RULES:** CST-007.BR01 Angka GL hanya dari jurnal POSTED. CST-007.BR02 Kas di tangan adalah operasional, bukan GL (DEC-104), dan diberi label itu. CST-007.BR03 Ringkasan laba kotor memakai permission khusus `control_station.gross_profit_summary.view`, hanya Net Sales, COGS, Gross Profit, Gross Margin %, dan pembanding periode setara dari Finance posted figures. Branch scope ditegakkan server-side; izin ini tidak memberi P&L lengkap, Neraca, Arus Kas, Neraca Saldo, baris jurnal, Buku Besar, atau konfigurasi Finance (MVP-OD-10; ADR-0015).
 **REQUIREMENTS:** CST-007.R01 Tampilkan jumlah `Q-POSTING_FAILED`/`Q-POSTING_PERIOD_DECISION` sebagai konteks. CST-007.R02 Scope ORG untuk CFO; BRANCH untuk Branch Manager (kas cabang).
 **DATA INPUT:** Filter.
 **DATA OUTPUT:** KPI.
@@ -12986,7 +12986,7 @@ PSS Control Station adalah produk desktop untuk manajemen (Direksi, CFO, Kepala 
 **API / COMMAND CONCEPTS:** BFF `GET /control-station/keuangan`.
 **IDEMPOTENCY REQUIREMENT:** Tidak berlaku — hanya baca.
 **AUDIT REQUIREMENT:** Tidak ada.
-**RBAC / SCOPE:** CFO, CEO/COO, BRANCH_MANAGER (terbatas).
+**RBAC / SCOPE:** CFO, CEO, COO: ORGANIZATION; BRANCH_MANAGER: hanya BRANCH yang diberikan. SALES_SUPERVISOR dan role Sales/Gudang/Pengiriman serta DATA_ANALYST tidak mendapat izin Control Station ini secara default. `finance.branch_pnl_visible` hanya mengatur P&L rinci cabang, bukan kartu laba kotor.
 **OFFLINE BEHAVIOR:** Tidak berlaku — fitur desktop online (ARC §15).
 **UX REQUIREMENTS:** CST-000.R01–R04.
 **USER-FACING COPY EXAMPLES:** "Kas & bank Rp 4,2 M (buku besar)"; "Kas di tangan penagih Rp 186 jt (operasional)".
@@ -12999,7 +12999,7 @@ PSS Control Station adalah produk desktop untuk manajemen (Direksi, CFO, Kepala 
 **OBSERVABILITY:** Latensi.
 **FEATURE FLAGS:** Tidak ada.
 **MIGRATION / COEXISTENCE:** Tidak berlaku.
-**ACCEPTANCE CRITERIA:** CST-007.AC01 Given saldo GL kas Rp4,2 M, Then kartu sama dengan neraca saldo. CST-007.AC02 Given posting tertunda, Then penanda. CST-007.AC03 Given Branch Manager, Then hanya kas cabangnya. CST-007.AC04 Given kas di tangan, Then label operasional.
+**ACCEPTANCE CRITERIA:** CST-007.AC01 Given saldo GL kas Rp4,2 M, Then kartu sama dengan neraca saldo. CST-007.AC02 Given posting tertunda, Then penanda. CST-007.AC03 Given Branch Manager, Then hanya kas dan laba kotor cabangnya. CST-007.AC04 Given kas di tangan, Then label operasional. CST-007.AC05 Given SALES_SUPERVISOR, Then kartu laba kotor agregat ditolak. CST-007.AC06 Given izin ringkasan saja, Then GL dan P&L lengkap tetap ditolak.
 **NEGATIVE ACCEPTANCE CRITERIA:** CST-007.NC01 Jurnal DRAFT tidak boleh masuk angka. CST-007.NC02 Kas di tangan tidak boleh dijumlahkan dengan saldo GL.
 **TEST SCENARIOS:** CST-007.TS01 Konsistensi vs GL-008. CST-007.TS02 Scope. CST-007.TS03 Penanda. CST-007.TS04 E2E.
 **DEPENDENCIES:** FIN-006, CST-002.
@@ -14153,7 +14153,7 @@ Domain `finance` (deployable `finance-api`, skema `finance`) memiliki Chart of A
 ### 48.2 Aturan bagian
 
 - FIN-000.R10 Satu COA untuk seluruh organisasi; akun tidak diduplikasi per cabang/principal/stream (ARC §13.4).
-- FIN-000.R11 Control account (AR_CONTROL, AP_CONTROL, INVENTORY*, UNAPPLIED_RECEIPTS, CUSTOMER_DEPOSITS, GRNI) hanya boleh disentuh jurnal SYSTEM dari event subledger (Appendix H invariant).
+- FIN-000.R11 Control account adalah role eksplisit `AR_CONTROL`, `AP_CONTROL`, `GRNI`, `INVENTORY`, `INVENTORY_IN_TRANSIT`, `INVENTORY_IN_TRANSFER`, `INVENTORY_QUARANTINE` bila bernilai finansial, `UNAPPLIED_RECEIPTS`, `CUSTOMER_DEPOSITS`, dan `CASH_IN_TRANSIT`. Masing-masing memiliki `manual_posting_policy=DENY` dan hanya disentuh jurnal SYSTEM dari economic event domain pemilik. `BANK`, `CASH_ON_HAND`, dan `PETTY_CASH` bukan control account otomatis. Penentuan tidak memakai awalan/nama akun (MVP-OD-7; ADR-0015).
 - FIN-000.R12 Akun tidak pernah dihapus; akun yang sudah dipakai hanya bisa INACTIVE mulai tanggal tertentu.
 - FIN-000.R13 Perubahan COA, pemetaan role akun, dan dimensi wajib bersifat effective-dated, diaudit, dan memerlukan approval (maker ≠ approver).
 
@@ -14173,7 +14173,7 @@ Domain `finance` (deployable `finance-api`, skema `finance`) memiliki Chart of A
 **IN SCOPE:**
 - `Account` dengan atribut S3 §1.5; tipe ASSET / LIABILITY / EQUITY / REVENUE / EXPENSE.
 - `AccountGroup` hierarkis dengan pemetaan ke baris P&L/Neraca dan kategori arus kas.
-- `AccountRoleMapping`: role akun (Appendix H) → akun, dengan scope opsional (cabang/principal) dan effective-dating.
+- `AccountRole` menyimpan `is_control_account`, `subledger_owner`, `manual_posting_policy` (`DENY`/`TEMPLATE_ONLY`/`ALLOW`), dan `reconciliation_pair`; `AccountRoleMapping`: role akun (Appendix H) → akun, dengan scope opsional (cabang/principal) dan effective-dating (MVP-OD-7).
 - Impor COA awal dari template CSV/XLSX; validasi.
 - Versi & histori; approval perubahan.
 - Cek kelengkapan: setiap role akun yang dipakai posting rule aktif harus punya pemetaan.
@@ -14783,7 +14783,7 @@ Bagian ini mengatur jurnal: immutabilitas & pembalikan, jurnal manual lewat wiza
 - E3 Tanpa bukti → `EVIDENCE_REQUIRED`.
 - E4 Periode CLOSED → `PERIOD_CLOSED`; SOFT_CLOSE untuk non-ADJUSTMENT → `SOFT_CLOSE_ADJUSTMENT_ONLY`.
 **BUSINESS RULES:**
-- GL-005.BR01 Manual journal tidak boleh menyentuh control account (GL-000.R12).
+- GL-005.BR01 MANUAL dan ADJUSTMENT tidak boleh menyentuh role control dengan kebijakan `DENY`; validasi server dilakukan saat buat/validasi, submit, dan post. Saldo awal melalui MIG-001, bukan mode bebas GL-005 (MVP-OD-7; GL-000.R12).
 - GL-005.BR02 Bukti wajib untuk semua manual journal.
 - GL-005.BR03 Balance wajib sebelum submit.
 - GL-005.BR04 Dimensi wajib per akun (FIN-002).
@@ -18643,24 +18643,24 @@ Approval engine adalah kapabilitas platform (`platform.approval`, skema `platfor
 **BUSINESS VALUE:** Kontrol internal seragam dan dapat diaudit di seluruh platform.
 **IN SCOPE:**
 - `ApprovalType` registry (kode, owner domain, subject, levels/threshold per nilai, expiry, delegasi, apakah alasan wajib saat reject/approve).
-- `ApprovalRequest` (type, subjectRef, ownerDomain, amount?, scope (branch/org), requester, payload ringkas untuk konteks, status) dan `ApprovalStep` (level, approverRole, status, decidedBy, decidedAt, reason).
+- `ApprovalRequest` (requestId, type, ownerDomain, subjectType, subjectRef, subjectVersion, amount?, scope (branch/org), context snapshot/hash, requester, status) dan `ApprovalStep` (level, approverRole, status, decidedBy, decidedAt, reason).
 - Routing level: nilai dibandingkan threshold; kosong → level tertinggi; multi-step berurutan.
 - Delegasi approver (periode, cakupan tipe) dengan jejak `on behalf of`.
 - Kedaluwarsa (`expiry_hours` per tipe) → EXPIRED → domain diberi tahu.
 - Pembatalan oleh pengaju/domain (subject berubah) → CANCELLED.
 - Validasi SoD & permission saat keputusan.
-- Event `APPROVAL_REQUESTED`, `APPROVAL_DECIDED` (payload: requestId, type, subjectRef, ownerDomain, decision, decidedBy, step).
+- Event permintaan dari outbox domain pemilik, lalu `APPROVAL_REQUESTED` dari Platform dan `APPROVAL_DECIDED` (requestId, type, subjectRef, subjectVersion, ownerDomain, decision, decidedBy, reason?, step). Efek bisnis dijalankan hanya oleh domain pemilik. Status efek `PENDING`/`APPLIED`/`STALE`/`FAILED` terpisah dari keputusan Platform (MVP-OD-8; ADR-0015).
 - Item `Q-APPROVAL_PENDING` per approver (DQ-001).
 **OUT OF SCOPE:** Efek domain (fitur pemilik); UI kotak persetujuan (APR-002).
 **PRECONDITIONS:** RBAC-002 (permission × scope); AUD-001.
 **TRIGGER:** Command domain `RequestApproval`.
 **MAIN FLOW:**
-1. Domain memanggil `RequestApproval {type, subjectRef, amount?, scope, context}` (dalam transaksi domain; outbox).
+1. Domain pemilik menyimpan subject PENDING, request ID, subjectVersion, lalu append request approval ke outbox dalam satu transaksi. Tidak ada panggilan jaringan atau penulisan tabel Platform pada transaksi domain.
 2. Engine membuat request PENDING dan step sesuai level; `APPROVAL_REQUESTED`.
 3. Approver yang memenuhi syarat melihat item di kotak persetujuan.
 4. Approver memutuskan (approve/reject + alasan bila wajib) → validasi SoD, permission, scope, limit.
 5. Step terakhir APPROVED → request APPROVED → `APPROVAL_DECIDED` (approve); reject di step mana pun → REJECTED → `APPROVAL_DECIDED` (reject).
-6. Domain pemilik menerima event, menjalankan efek (idempotent), dan memperbarui subject.
+6. Domain pemilik menerima event melalui inbox, memverifikasi requestId, type, subjectRef, subjectVersion/current validity dan penerapan sebelumnya; mutasi subject, audit, serta outbox domain berkomitmen dalam satu transaksi. Request unik per `(type, subjectRef, subjectVersion)` dan keputusan dedupe per eventId + requestId.
 **ALTERNATIVE FLOW:**
 - A1 Delegasi aktif → delegate dapat memutuskan; audit mencatat delegator.
 - A2 Kedaluwarsa → EXPIRED → `APPROVAL_DECIDED` (expired) → domain menerapkan perilaku kedaluwarsa tipe (misal hold kredit REJECTED, jurnal kembali DRAFT).
@@ -22850,7 +22850,7 @@ Ringkasan jumlah requirement atomik per fitur. Teks lengkap setiap ID ada di fea
 | `CASH_HANDED_OVER` | sfa / fleet | CashHandoverDeclaration | payments | declarationId, collector, evidenceIds, total | declarationId | APRD |
 | `PAYMENT_RECEIVED` | payments | Payment | reporting | paymentId, channel, method, amount | paymentId | ARC/BRIEF |
 | `PAYMENT_VERIFIED` | payments | Payment | finance, SFA, reporting | paymentId, method, bankAccount, bankLineRef?, verifiedBy | paymentId | PAYMENT_RECONCILED |
-| `PAYMENT_REJECTED` / `PAYMENT_BOUNCED` / `PAYMENT_REVERSED` | payments | Payment | credit, finance, SFA, exception | paymentId, reason | paymentId+state | — |
+| `PAYMENT_REJECTED` / `PAYMENT_BOUNCED` / `PAYMENT_REVERSED` | payments | Payment | credit, finance, SFA, exception | paymentId, originalEventId (untuk pembalikan), reasonCode, businessDate | paymentId+state | — |
 | `PAYMENT_APPLIED` / `PAYMENT_APPLICATION_REVERSED` | payments | PaymentApplication | ar, finance, credit, SFA | applicationId, paymentId, receivableId, amount | applicationId(+reversal) | APRD |
 | `CUSTOMER_CREDIT_CREATED` | payments | CustomerCreditLedger | finance, credit | customerId, amount, sourceRef | entryId | — |
 | `CASH_CUSTODY_VERIFIED` / `CASH_CUSTODY_DISCREPANCY_RECORDED` / `CASH_CUSTODY_DISCREPANCY_RESOLVED` | payments | CashCustodyRecord | SFA, Fleet, finance (opsi resolusi), exception | custodyId, declared, counted, resolution | custodyId+state | — |
@@ -22885,7 +22885,8 @@ Ringkasan jumlah requirement atomik per fitur. Teks lengkap setiap ID ada di fea
 
 | Event | Producer | Aggregate | Consumer utama | Payload kunci | Kunci bisnis | Alias |
 |---|---|---|---|---|---|---|
-| `APPROVAL_REQUESTED` / `APPROVAL_DECIDED` | approval | ApprovalRequest | domain pemilik, notifications | requestId, type, subjectRef, ownerDomain, decision | requestId+state | — |
+| `APPROVAL_REQUESTED` / `APPROVAL_DECIDED` | approval | ApprovalRequest | domain pemilik, notifications | requestId, type, subjectRef, subjectVersion, ownerDomain, decision, step | requestId+state | — |
+| `FINANCE_APPROVAL_SUBMITTED` | finance | FinanceApprovalEffect | platform.approval | requestId, type, subjectType, subjectRef, subjectVersion, ownerDomain, scope, contextHash, requestedBy | type+subjectRef+subjectVersion | MVP-OD-8 |
 | `EXCEPTION_OPENED` / `EXCEPTION_RESOLVED` | platform | ExceptionItem | reporting, notifications | itemId, queueCode, subjectRef | itemId+state | — |
 | `SYNC_BATCH_COMPLETED` / `SYNC_BATCH_FAILED` | integration | SyncBatch | reporting (Sync Monitor), notifications | batchId, instance, counters / error | batchId(+attempt) | EXTERNAL_DMS_SYNC_COMPLETED / _FAILED |
 | `MASTER_MAPPING_REQUIRED` / `MASTER_MAPPING_CHANGED` | integration | Mapping | exception, integration (auto-resume), audit | system, instance, entityType, externalId, canonicalId | natural key / mappingId+version | APRD |
@@ -22950,7 +22951,7 @@ Scope mengikuti ARC §16: `ORGANIZATION`, `BRANCH`, `WAREHOUSE`, `TERRITORY`, `P
 | SALES_REP | Salesperson | PSS Sales | TERRITORY + OWN | SFA-EXEC, ORD-REQ, COL-FIELD, CSH-DECLARE | — |
 | SALES_SUPERVISOR | Supervisor Sales | PSS Supervisor | SALES_TEAM | SFA-SUPERVISE, CUS-PROSPECT-APPROVE, COM-OVERRIDE-L1, CST-VIEW-TEAM | — |
 | SALES_ADMIN | Admin Penjualan | PSS Admin | BRANCH | ORD-MANAGE, FUL-DELIVERY-CONFIRM, RET-REQUEST, DQ-WORK | — |
-| BRANCH_MANAGER | Kepala Cabang | PSS Control Station | BRANCH | CST-VIEW, ORD-CANCEL, COM-OVERRIDE-L2, CRD-OVERRIDE-L1, INV-ADJ-APPROVE-L1, CSH-DISCREPANCY-APPROVE, RET-APPROVE | ✔ |
+| BRANCH_MANAGER | Kepala Cabang | PSS Control Station | BRANCH | CST-VIEW, CST-GROSS-PROFIT-SUMMARY, ORD-CANCEL, COM-OVERRIDE-L2, CRD-OVERRIDE-L1, INV-ADJ-APPROVE-L1, CSH-DISCREPANCY-APPROVE, RET-APPROVE | ✔ |
 | WAREHOUSE_OPERATOR | Petugas Gudang | PSS Gudang | WAREHOUSE | WMS-EXEC | — |
 | WAREHOUSE_SUPERVISOR | Supervisor Gudang | PSS Supervisor | WAREHOUSE | WMS-SUPERVISE, WMS-COUNT-REVIEW | — |
 | WAREHOUSE_ADMIN | Admin Gudang | PSS Admin | WAREHOUSE | FUL-PREPARE, INV-ADJ-REQUEST, INV-COUNT, INV-TRANSFER, PUR-RECEIVE, RET-RECEIVE, WMS-CONFIG | — |
@@ -22965,9 +22966,10 @@ Scope mengikuti ARC §16: `ORGANIZATION`, `BRANCH`, `WAREHOUSE`, `TERRITORY`, `P
 | PROCUREMENT_OFFICER | Staf Pembelian | PSS Admin | BRANCH/ORG | PUR-MANAGE | — |
 | FINANCE_MAKER | Staf Akuntansi | PSS Keuangan | ORG | GL-MAKE, BNK-RECON, AP-MANAGE, TAX-MANAGE | ✔ |
 | FINANCE_APPROVER | Penyetuju Keuangan | PSS Keuangan | ORG | GL-APPROVE, AP-PAY-APPROVE, CRD-OVERRIDE-L2, AR-WO-APPROVE, PAY-REVERSAL-APPROVE, PUR-APPROVE-L2 | ✔ |
-| CONTROLLER | Controller | PSS Keuangan | ORG | FIN-CONFIG, CLS-MANAGE, GL-PERIOD-DECISION, GL-MAKE, GL-APPROVE | ✔ |
-| CFO | CFO | PSS Control Station | ORG | CST-VIEW, CLS-APPROVE, CLS-REOPEN-APPROVE, APPROVE-ALL-L3 | ✔ |
-| CEO / COO | Direksi | PSS Control Station | ORG | CST-VIEW, APPROVE-ALL-L3 | ✔ |
+| CONTROLLER | Controller | PSS Keuangan | ORG | FIN-CONFIG, FIN-PNL-VIEW, CLS-MANAGE, GL-PERIOD-DECISION, GL-MAKE, GL-APPROVE | ✔ |
+| CFO | CFO | PSS Control Station | ORG | CST-VIEW, CST-GROSS-PROFIT-SUMMARY, FIN-PNL-VIEW, CLS-APPROVE, CLS-REOPEN-APPROVE, APPROVE-ALL-L3 | ✔ |
+| CEO | Direktur Utama | PSS Control Station | ORG | CST-VIEW, CST-GROSS-PROFIT-SUMMARY, FIN-PNL-VIEW, APPROVE-ALL-L3 | ✔ |
+| COO | Direktur Operasional | PSS Control Station | ORG | CST-VIEW, CST-GROSS-PROFIT-SUMMARY, FIN-PNL-VIEW, APPROVE-ALL-L3 | ✔ |
 | MASTER_DATA_STEWARD | Pengelola Data Utama | PSS Admin | ORG | MDM-MANAGE, INT-MAP, MDM-MERGE-REQUEST | — |
 | INTEGRATION_OPERATOR | Operator Integrasi | PSS Admin | ORG | INT-OPERATE | — |
 | COMMERCIAL_ADMIN | Admin Komersial | PSS Admin | ORG/PRINCIPAL | COM-PRICE, PRI-POLICY-REQUEST | — |
@@ -23014,12 +23016,14 @@ Scope mengikuti ARC §16: `ORGANIZATION`, `BRANCH`, `WAREHOUSE`, `TERRITORY`, `P
 | BNK-RECON / PETTY | `finance.bank.import`, `finance.bank.reconcile`, `finance.petty_cash.expense.record` |
 | TAX-MANAGE | `tax.rate.manage`, `tax.invoice_number.manage`, `tax.export.run` |
 | FIN-CONFIG | `finance.coa.manage`, `finance.posting_rule.manage`, `finance.account_role.map` |
+| FIN-PNL-VIEW | `finance.report.pnl.view` (laporan lengkap; terpisah dari kartu `CST-GROSS-PROFIT-SUMMARY`) |
 | MDM-MANAGE / MERGE | `master_data.*.manage`, `master_data.merge.request` (approve: `master_data.merge.approve` oleh Controller atau steward lain) |
 | INT-MAP / OPERATE | `integration.mapping.decide`, `integration.batch.retry`, `integration.file.upload`, `integration.raw.view` |
 | WMS-EXEC / SUPERVISE / CONFIG | `wms.task.execute`, `wms.task.reassign`, `wms.count.review`, `wms.location.manage` |
 | FLT-* | `fleet.shipment.plan`, `fleet.shipment.dispatch`, `fleet.vehicle.manage`, `fleet.delivery.execute` |
 | GEO-ADMIN | `geo.dataset.load`, `geo.territory.manage` |
 | CST-VIEW | `reporting.control_station.view` (dengan scope) |
+| CST-GROSS-PROFIT-SUMMARY | `control_station.gross_profit_summary.view` (ORG untuk CEO/COO/CFO; BRANCH untuk BRANCH_MANAGER). Hanya ringkasan posted Finance, tanpa P&L/GL/drill-down. Independen dari `finance.branch_pnl_visible`. |
 | POS-EXEC | `pos.shift.open`, `pos.shift.close`, `pos.sale.create`, `pos.sale.checkout`, `pos.tender.accept`, `pos.customer.quick_register`, `pos.receipt.reprint`, `pos.credit_sale.request` (bila `pos.credit_sale` aktif) |
 | POS-SUPERVISE | `pos.terminal.manage`, `pos.shift.force_close`, `pos.shift.review`, `pos.sale.cancel.approve`, `pos.tender.void.approve`, `pos.transfer.release.approve`, `pos.offline.activate`, `pos.report.view` |
 | DQ-WORK | `platform.exception.work` — mengerjakan antrian yang owner role-nya dimiliki user (Appendix P). Dimiliki semua role yang tercantum sebagai owner antrian |
@@ -23059,6 +23063,7 @@ Scope mengikuti ARC §16: `ORGANIZATION`, `BRANCH`, `WAREHOUSE`, `TERRITORY`, `P
 | Approval type | `coa_change` | §48 |
 | Approval type | `posting_rule_change` | §49 |
 | Approval type | `journal`, `journal_reversal` | §50 |
+| Approval type | `period_reopen`, `stock_adjustment` | §54, §32; MVP-OD-8 |
 | Approval type | `bank_account_change`, `petty_cash_expense`, `internal_transfer` | §51 |
 | Approval type | `period_close` | §54 |
 | Approval type | `metric_definition`, `reporting_attribution` | §69 |
@@ -23251,10 +23256,10 @@ States: `DRAFT` · `SUBMITTED` · `POSTED`■ · `REJECTED` (kembali bisa diedit
 |---|---|---|---|---|---|---|
 | — → POSTED (SYSTEM) | posting engine | Sistem | balance; akun aktif & `posting_allowed`; dimensi wajib; periode OPEN/SOFT_CLOSE; control account hanya dari event subledger | — | `JOURNAL_POSTED` | |
 | — → DRAFT (MANUAL) | `CreateManualJournal` (wizard kategori) | Finance Maker | control account (AR/AP/persediaan) **dilarang** di manual journal | lampiran bukti wajib | — | |
-| DRAFT → SUBMITTED | `SubmitJournal` | Finance Maker | balance; bukti ada | ApprovalRequest | `APPROVAL_REQUESTED` | |
-| SUBMITTED → POSTED | `ApproveJournal` ("Setujui & Posting") | Finance Approver | SOD-02; periode OPEN, atau SOFT_CLOSE bila tipe ADJUSTMENT dan approver punya `finance.period.soft_close.post` | — | `JOURNAL_POSTED` | |
-| SUBMITTED → REJECTED | `RejectJournal` | Finance Approver | — | — | — | ✔ |
-| POSTED → (reversed) | `ReverseJournal` (membuat jurnal REVERSAL baru dengan sisi terbalik; perlu approval untuk jurnal MANUAL) | Finance Maker → Approver | jurnal SYSTEM hanya bisa dibalik lewat event pembalik dari domain sumber, bukan manual | `reversed_by` diisi | `JOURNAL_REVERSED` | ✔ |
+| DRAFT → SUBMITTED | `SubmitJournal` | Finance Maker | balance; bukti ada; role control `DENY` ditolak | subject version dan correlation tersimpan; `FINANCE_APPROVAL_SUBMITTED` di outbox Finance | `FINANCE_APPROVAL_SUBMITTED` | |
+| SUBMITTED → POSTED | Konsumsi `APPROVAL_DECIDED` v2 | Finance, setelah keputusan Platform | requestId/type/ref/version valid; belum diterapkan; SOD-02; periode OPEN, atau SOFT_CLOSE bila tipe ADJUSTMENT dan approver punya `finance.period.soft_close.post` | audit + jurnal + outbox Finance atomik; effect `APPLIED` | `JOURNAL_POSTED` | |
+| SUBMITTED → REJECTED | `RejectJournal` | Finance Approver | — | REVERSAL yang ditolak tetap tercatat; permintaan koreksi baru boleh diajukan | — | ✔ |
+| POSTED → (reversed) | `ReverseJournal` membuat REVERSAL baru dengan sisi terbalik dan approval `journal_reversal` | Finance Maker → Approver | SYSTEM selalu ditolak untuk semua role; tanggal asal bila OPEN, atau periode OPEN berikutnya dengan `latePosting=true` bila CLOSED; reopened period mengikuti alur reopen | `reversed_by` diisi; dimensi sama | `JOURNAL_REVERSED` | ✔ |
 | POSTED → (edit) | — | — | **Selalu ditolak** (`POSTED_JOURNAL_IMMUTABLE`) | — | — | |
 
 ### STM-PostingRecord (finance)

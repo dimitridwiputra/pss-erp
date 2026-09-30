@@ -53,6 +53,7 @@ const groupPermissions: Readonly<Record<string, readonly string[]>> = {
   'BNK-PETTY-EXEC': ['finance.petty_cash.expense.record'],
   'TAX-MANAGE': ['tax.rate.manage', 'tax.invoice_number.manage', 'tax.export.run'],
   'FIN-CONFIG': ['finance.coa.manage', 'finance.posting_rule.manage', 'finance.account_role.map'],
+  'FIN-PNL-VIEW': ['finance.report.pnl.view'],
   'INT-MAP': ['integration.mapping.decide'],
   'INT-OPERATE': ['integration.batch.retry', 'integration.file.upload', 'integration.raw.view'],
   // POS-EXEC's source text ends "(bila `pos.credit_sale` aktif)": `pos.credit_sale` is the feature
@@ -75,11 +76,12 @@ const groupPermissions: Readonly<Record<string, readonly string[]>> = {
   'DLV-EXEC': ['fleet.delivery.execute'],
   'GEO-ADMIN': ['geo.dataset.load', 'geo.territory.manage'],
   'CST-VIEW': ['reporting.control_station.view'],
+  'CST-GROSS-PROFIT-SUMMARY': ['control_station.gross_profit_summary.view'],
   'CST-VIEW-TEAM': ['reporting.control_station.view'],
   'FLT-SUPERVISE': ['fleet.shipment.view'],
   'MDM-MERGE-REQUEST': ['master_data.merge.request'],
   // D.2 gives MDM-MANAGE only as `master_data.*.manage`. Identity never expands a wildcard, so each
-  // resource is transcribed by decision: MVP-OD-8 (demo default, product owner to confirm) adds the
+  // resource is transcribed by decision: MVP-OD-25 (demo default, product owner to confirm) adds the
   // product resource alone. Customer, principal and other master data stay ungranted until decided.
   'MDM-MANAGE': ['master_data.product.manage'],
   'DQ-WORK': ['platform.exception.work'],
@@ -102,7 +104,7 @@ const groupPermissions: Readonly<Record<string, readonly string[]>> = {
  * Grants a feature spec names for a role without a group in the Appendix D.1 role row. Each entry
  * cites the spec line; none is inferred.
  *   - POS-014 "RBAC / SCOPE: CSH-DECLARE (POS_CASHIER)" — the counter cashier declares the shift's
- *     cash handover. The D.1 row for POS_CASHIER lists only POS-EXEC (MVP_PLAN §10, MVP-OD-7).
+ *     cash handover. The D.1 row for POS_CASHIER lists only POS-EXEC (MVP_PLAN §10, MVP-OD-24).
  *   - Appendix D additions §46A and POS-010 "RBAC / SCOPE": `fulfillment.pickup.handover`
  *     (WAREHOUSE_ADMIN, WAREHOUSE_OPERATOR).
  *   - Appendix D additions §34 and BIL-001 "RBAC / SCOPE": `invoicing.invoice.print` (SALES_ADMIN).
@@ -117,6 +119,9 @@ const roleAdditionalPermissions: Readonly<Record<string, readonly string[]>> = {
   WAREHOUSE_ADMIN: ['fulfillment.pickup.handover', 'inventory.stock_card.view'],
   WAREHOUSE_OPERATOR: ['fulfillment.pickup.handover'],
   SALES_ADMIN: ['invoicing.invoice.print'],
+  FINANCE_MAKER: ['finance.journal.lines.view'],
+  FINANCE_APPROVER: ['finance.journal.lines.view'],
+  CONTROLLER: ['finance.journal.lines.view'],
 };
 
 export interface RolePermissions {

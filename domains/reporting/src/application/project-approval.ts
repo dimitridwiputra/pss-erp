@@ -1,12 +1,19 @@
 import type { Pool } from 'pg';
-import { ApprovalDecidedV1Schema, ApprovalRequestedV1Schema } from '@pss/contracts';
+import {
+  ApprovalDecidedV1Schema, ApprovalDecidedV2Schema,
+  ApprovalRequestedV1Schema, ApprovalRequestedV2Schema,
+} from '@pss/contracts';
 import { withInbox } from '@pss/platform';
 
 const CONSUMER_NAME = 'reporting.approval_status.v1';
 
 export async function projectApproval(pool: Pool, rawEvent: unknown) {
-  const requested = ApprovalRequestedV1Schema.safeParse(rawEvent);
-  const event = requested.success ? requested.data : ApprovalDecidedV1Schema.parse(rawEvent);
+  const requestedV1 = ApprovalRequestedV1Schema.safeParse(rawEvent);
+  const requestedV2 = ApprovalRequestedV2Schema.safeParse(rawEvent);
+  const decidedV1 = ApprovalDecidedV1Schema.safeParse(rawEvent);
+  const event = requestedV1.success ? requestedV1.data
+    : requestedV2.success ? requestedV2.data
+      : decidedV1.success ? decidedV1.data : ApprovalDecidedV2Schema.parse(rawEvent);
   return withInbox(pool, {
     reserve: async (client, eventId) => {
       const receipt = await client.query(

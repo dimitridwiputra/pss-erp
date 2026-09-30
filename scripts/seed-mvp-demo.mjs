@@ -108,6 +108,14 @@ try {
     );
   }
 
+  // Demo fixture: the seeded checker is CONTROLLER with GL-APPROVE. Platform keeps
+  // ownership of the approval engine; this root fixture selects its registered route.
+  await pool.query(
+    `UPDATE platform.approval_level level SET role_code = 'CONTROLLER'
+     FROM platform.approval_policy policy
+     WHERE level.policy_id = policy.id AND policy.type_code = 'journal'
+       AND level.permission_code = 'finance.journal.approve'`,
+  );
   for (const terminal of terminals) {
     if (await exists('SELECT 1 FROM pos.pos_terminal WHERE organization_id = $1 AND code = $2', [organizationId, terminal.code])) continue;
     await registerPosTerminal(pool, undefined, { organizationId, branchId, warehouseId, code: terminal.code, name: terminal.name, ...meta });
