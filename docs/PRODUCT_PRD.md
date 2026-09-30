@@ -23403,6 +23403,7 @@ Bentuk respons error mengikuti PLT-000.R50 (RFC 9457 + `code`, `message`, `reque
 | `EVIDENCE_PHOTO_REQUIRED` | 422 · VALIDATION | Foto bukti diperlukan | Ambil foto bukti transfer atau giro. | [Ambil Foto] | §41 |
 | `EVIDENCE_REQUIRED` | 422 · BUSINESS_RULE | Foto bukti diperlukan | Unggah foto surat jalan yang sudah ditandatangani toko. | [Ambil Foto] | §31 |
 | `EXTERNAL_FIELD_LOCKED` | 409 · CONFLICT | Data dari {sumber} | Ubah di {sumber}; PSS akan memperbarui otomatis. | [Mengerti] | §29 |
+| `FEATURE_DISABLED` | 403 · FORBIDDEN | Fitur belum aktif | Fitur ini belum diaktifkan di lingkungan ini. Hubungi admin. | [Kembali] | §46A |
 | `FILE_TEMPLATE_INVALID` | 422 · VALIDATION | Format file tidak sesuai | Kolom 'kode_toko' tidak ditemukan. | [Unduh Template] | §44 |
 | `FILE_TOO_LARGE` | 422 · BUSINESS_RULE | File terlalu besar | Maksimum 200 MB. Pecah file per tanggal. | [Unggah Ulang] | §59 |
 | `FORBIDDEN` | 422 · BUSINESS_RULE | Tidak bisa dibuka | Objek ini di luar akses Anda. | [Kembali] | §46 |

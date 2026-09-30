@@ -1149,6 +1149,15 @@ export const registryCatalog = {
       "copyComplete": true
     },
     {
+      "code": "FEATURE_DISABLED",
+      "httpCategory": "403 · FORBIDDEN",
+      "title": "Fitur belum aktif",
+      "explanation": "Fitur ini belum diaktifkan di lingkungan ini. Hubungi admin.",
+      "action": "[Kembali]",
+      "section": "§46A",
+      "copyComplete": true
+    },
+    {
       "code": "FILE_TEMPLATE_INVALID",
       "httpCategory": "422 · VALIDATION",
       "title": "Format file tidak sesuai",

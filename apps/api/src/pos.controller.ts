@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post, Req, UseGuards } from '@nestjs/common';
 import {
   AcceptPosTenderRequestSchema, CheckoutPosSaleResponseSchema, DomainError,
   KasirScanResponseSchema, KasirShiftSayaResponseSchema, OpenPosShiftRequestSchema,
@@ -17,6 +17,7 @@ import {
 import { findProductByBarcode } from '@pss/master-data';
 import { resolvePrice } from '@pss/commercial';
 import { Pool } from 'pg';
+import { DemoPosFeatureGuard } from './demo-pos-guard';
 import { IdentityService } from './identity.controller';
 
 type AuthedRequest = { headers: { authorization?: string; 'idempotency-key'?: string } };
@@ -136,6 +137,7 @@ export class PosService implements OnModuleDestroy {
  * controller has no independent auth of its own.
  */
 @Controller()
+@UseGuards(DemoPosFeatureGuard)
 export class PosController {
   constructor(
     @Inject(PosService) private readonly pos: PosService,
