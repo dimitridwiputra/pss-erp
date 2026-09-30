@@ -169,6 +169,20 @@ Its first runs found and fixed four things the mocked tests could not:
 
 Codex and OpenCode append their steps to this spec.
 
+### 7.1 Recording the demo video
+
+`apps/web/tests/e2e/demo-video.spec.ts` records the whole story as one video with Indonesian captions: the PSS logo intro, nine chapters (platform, back office, kasir, serah barang, tutup shift, setoran kas, penjualan, keuangan, persetujuan and tutup periode) and an outro. It needs all three streams merged, the API, finance-api and integration worker running, and a fresh reset.
+
+- **Run the web app as a production build** (`pnpm --filter @pss/web build`, then `pnpm --filter @pss/web start`). Under `next dev`, first-visit compiles on a busy machine stalled the recording.
+- **Reset first, then wait for the web to settle.** The reset rewrites `apps/web/.env.local`, which restarts `next dev`.
+- **Rebuild every workspace `dist`** after a merge (at least contracts, platform, reporting and finance). The worker loads them, and a stale `@pss/reporting` rejected `APPROVAL_DECIDED` v2, so an approved journal never posted.
+
+```bash
+PSS_VIDEO_DIR=/path/to/out pnpm --filter @pss/web exec playwright test -c playwright.e2e.config.ts tests/e2e/demo-video.spec.ts
+```
+
+`PSS_VIDEO_PART=operations` or `finance` records half the story. The output is a 1440×900 WebM. It opens in Chrome or VLC; QuickTime needs an MP4 conversion.
+
 ## 8. If something is down
 
 | Symptom | Likely cause | Fix |

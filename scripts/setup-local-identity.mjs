@@ -111,6 +111,37 @@ async function ensureApiAudience(token) {
   }
 }
 
+/**
+ * Keycloak 26's AMR mapper reports only the methods whose flow step names an authenticator
+ * reference, and the built-in browser flow names none, so `amr` came out empty even after an OTP
+ * login and every approval failed `requireRecentMfa` with MFA_REQUIRED. This gives the password
+ * step `pwd` and the OTP step `otp` (RFC 8176). It makes the MFA check work as designed; it does not
+ * relax it.
+ */
+async function ensureAuthenticationReferences(token) {
+  const references = { 'auth-username-password-form': 'pwd', 'auth-otp-form': 'otp' };
+  const executionsResponse = await keycloakRequest('/authentication/flows/browser/executions', token);
+  if (!executionsResponse.ok) throw new Error(`Local browser flow read returned HTTP ${executionsResponse.status}.`);
+  for (const execution of await executionsResponse.json()) {
+    const reference = references[execution.providerId];
+    if (!reference) continue;
+    if (execution.authenticationConfig) {
+      const configPath = `/authentication/config/${execution.authenticationConfig}`;
+      const existing = await (await keycloakRequest(configPath, token)).json();
+      if (existing.config?.['default.reference.value'] === reference) continue;
+      const updated = await keycloakRequest(configPath, token, {
+        method: 'PUT', body: JSON.stringify({ ...existing, config: { ...existing.config, 'default.reference.value': reference } }),
+      });
+      if (!updated.ok) throw new Error(`Local ${execution.providerId} reference update returned HTTP ${updated.status}.`);
+      continue;
+    }
+    const created = await keycloakRequest(`/authentication/executions/${execution.id}/config`, token, {
+      method: 'POST', body: JSON.stringify({ alias: `pss-amr-${reference}`, config: { 'default.reference.value': reference } }),
+    });
+    if (created.status !== 201) throw new Error(`Local ${execution.providerId} reference returned HTTP ${created.status}.`);
+  }
+}
+
 async function ensureDemoUser(token) {
   const username = 'pss-demo-admin';
   const usersPath = `/users?username=${encodeURIComponent(username)}&exact=true`;
@@ -278,6 +309,7 @@ async function ensureWebEnvironment() {
 await waitForKeycloak();
 const token = await adminToken();
 await ensureApiAudience(token);
+await ensureAuthenticationReferences(token);
 const subject = await ensureDemoUser(token);
 await ensurePssMapping(subject);
 await ensureMvpDemoUsers(token);
