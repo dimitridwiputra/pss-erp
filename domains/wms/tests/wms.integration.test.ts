@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { reserveStock } from '@pss/inventory';
@@ -34,7 +33,7 @@ import {
   getLocationUtilization,
   listWarehouseTasks,
 } from '../src/index';
-import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
+import { applyAuditMigrations, applyDomainMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_wms_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -83,11 +82,6 @@ async function financialBalanceOf(productId: string): Promise<{ qty_on_hand: str
   return result.rows[0];
 }
 
-async function applyMigration(relativePath: string): Promise<void> {
-  const sql = await readFile(new URL(relativePath, import.meta.url), 'utf8');
-  await pool.query(sql);
-}
-
 beforeAll(async () => {
   const baseUrl = process.env.PSS_TEST_DATABASE_URL;
   if (!baseUrl) throw new Error('PSS_TEST_DATABASE_URL is required for PostgreSQL integration tests.');
@@ -101,12 +95,14 @@ beforeAll(async () => {
   // The whole audit domain, not one file: a fixture that replays only
   // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
   await applyAuditMigrations(pool);
-  await applyMigration('../../inventory/infrastructure/database/migrations/0001_inventory.sql');
-  await applyMigration('../../inventory/infrastructure/database/migrations/0002_inventory_receive_adjust.sql');
-  await applyMigration('../infrastructure/database/migrations/0001_wms.sql');
-  await applyMigration('../infrastructure/database/migrations/0002_wms_reconciliation_and_units.sql');
-  await applyMigration('../infrastructure/database/migrations/0003_wms_pack_stage_load.sql');
-  await applyMigration('../infrastructure/database/migrations/0004_wms_presence_capacity_exceptions.sql');
+  // The ordered list of each domain's migrations, read from the directory. Naming the files meant
+  // this fixture silently stopped applying a migration added after it was written — which is how
+  // the inventory costing columns reached `receiveStock` with no schema behind them here
+  // (MIG-RISK-AUD-001, and the reason apply-migrations.mjs reads a directory rather than a list).
+  await applyDomainMigrations((sql) => pool.query(sql), 'inventory');
+  await applyDomainMigrations((sql) => pool.query(sql), 'wms');
+  // Inventory movements now append their events, so `platform.outbox_event` is a prerequisite too.
+  await applyDomainMigrations((sql) => pool.query(sql), 'platform');
 }, 30_000);
 
 afterAll(async () => {

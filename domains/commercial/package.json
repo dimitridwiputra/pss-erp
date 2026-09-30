@@ -11,7 +11,9 @@
     "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
+    "@pss/audit": "workspace:*",
     "@pss/contracts": "workspace:*",
+    "@pss/platform": "workspace:*",
     "pg": "8.23.0",
     "zod": "4.6.5"
   },
