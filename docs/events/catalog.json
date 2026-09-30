@@ -17,6 +17,42 @@
     {
       "name": "APPROVAL_DECIDED",
       "version": 1
+    },
+    {
+      "name": "INVENTORY_RECEIVED",
+      "version": 1
+    },
+    {
+      "name": "INVENTORY_ISSUED",
+      "version": 1
+    },
+    {
+      "name": "INVENTORY_ADJUSTED",
+      "version": 1
+    },
+    {
+      "name": "INVOICE_ISSUED",
+      "version": 1
+    },
+    {
+      "name": "PAYMENT_RECEIVED",
+      "version": 1
+    },
+    {
+      "name": "CASH_CUSTODY_VERIFIED",
+      "version": 1
+    },
+    {
+      "name": "JOURNAL_POSTED",
+      "version": 1
+    },
+    {
+      "name": "JOURNAL_REVERSED",
+      "version": 1
+    },
+    {
+      "name": "ACCOUNTING_PERIOD_CLOSED",
+      "version": 1
     }
   ],
   "events": [
