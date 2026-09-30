@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, readdir } from 'node:fs/promises';
 import { escapeIdentifier, escapeLiteral } from 'pg';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';import {
@@ -45,19 +44,15 @@ const PARTITION_BOUND_PATTERN = String.raw`FOR VALUES FROM \('([^']+)'\) TO \('(
 let admin: pg.Client;
 let pool: pg.Pool;
 
+/**
+ * Delegates to the shared helper rather than listing the files here.
+ *
+ * The previous local version carried a hand-written file list, which is the exact trap the shared
+ * helper documents: a hardcoded list is a migration that quietly stops running when someone adds
+ * 0007, and it had already drifted — 0001 was missing from it.
+ */
 async function applyMigrations(): Promise<void> {
-  const directory = new URL('../infrastructure/database/migrations/', import.meta.url);
-  const files = (await readdir(directory)).filter((file) => file.endsWith('.sql')).sort();
-  expect(files).toEqual([
-    '0002_audit_source_offline_paper.sql',
-    '0003_audit_entry_partitioning_prereq.sql',
-    '0004_audit_entry_retention_class.sql',
-    '0005_audit_partition_management.sql',
-    '0006_audit_entry_partition_swap.sql',
-  ]);
-  for (const file of files) {
-    await pool.query(await readFile(new URL(file, directory), 'utf8'));
-  }
+  await applyAuditMigrations(pool);
 }
 
 beforeAll(async () => {
@@ -73,7 +68,6 @@ beforeAll(async () => {
 
   // The whole audit domain, not one file: a fixture that replays only
   // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
-  await applyAuditMigrations(pool);
   await applyMigrations();
   // The retention job's own audit entries are written at `now()`, so the current month must have a
   // partition before the job can run at all. That is the real deployment order, and it is why

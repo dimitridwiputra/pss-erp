@@ -65,7 +65,7 @@ beforeAll(async () => {
     const platformMigrations = new URL('../../../domains/platform/infrastructure/database/migrations/', import.meta.url);
     // The whole audit domain, not one file: a fixture that replays only
     // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
-  await applyAuditMigrations(pool);
+    await applyAuditMigrations(setup);
     for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql']) {
       await setup.query(await readFile(new URL(file, platformMigrations), 'utf8'));
     }
