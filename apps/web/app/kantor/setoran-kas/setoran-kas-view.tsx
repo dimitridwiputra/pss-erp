@@ -23,7 +23,7 @@ const tabs: { value: Tab; label: string }[] = [
 /**
  * /kantor/setoran-kas for the finance cashier (POS-014, CSH-001): the counter cash handovers
  * waiting to be counted, and their verification. A count that differs needs a registered reason
- * (MVP-OD-9); the server refuses the cashier who handed the money over (SOD-06).
+ * (MVP-OD-26); the server refuses the cashier who handed the money over (SOD-06).
  */
 export function SetoranKasView() {
   const [tab, setTab] = useState<Tab>('DECLARED');

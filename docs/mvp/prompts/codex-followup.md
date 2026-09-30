@@ -21,8 +21,8 @@ You are stream B (accounting). Your original brief in `docs/mvp/prompts/codex.md
   - `CASH_CUSTODY_VERIFIED` (payments, when Finance verifies). `varianceAmount = counted − declared`, signed: `-1000.00` is a shortage. `sourceId` is the POS shift id.
   - `DELIVERY_ORDER_DELIVERED` (fulfillment) is also published. OpenCode will add `INVENTORY_RECEIVED/ISSUED/ADJUSTED`; until then no inventory events exist.
 - **Decisions that affect your posting (MVP_PLAN §10):**
-  - MVP-OD-9: a cash count that differs, verified with a registered `RC-CSH-*` reason, is `VERIFIED` and carries the variance, so you post Selisih Kas from `CASH_CUSTODY_VERIFIED` per §8. Without a reason it stays `DISCREPANCY`, and nothing is published.
-  - MVP-OD-11: the declaration is always the recorded cash payments, never the cashier's count, so crediting Kas Konter with `declaredAmount` balances.
+  - MVP-OD-26: a cash count that differs, verified with a registered `RC-CSH-*` reason, is `VERIFIED` and carries the variance, so you post Selisih Kas from `CASH_CUSTODY_VERIFIED` per §8. Without a reason it stays `DISCREPANCY`, and nothing is published.
+  - MVP-OD-29: the declaration is always the recorded cash payments, never the cashier's count, so crediting Kas Konter with `declaredAmount` balances.
 - **Demo users (MVP_PLAN §7):**
   - `keuangan.demo` holds `FINANCE_MAKER` (org) and `CASHIER` (branch).
   - `kepala.keuangan.demo` holds `CONTROLLER` (org): `GL-MAKE`, `GL-APPROVE`, `CLS-MANAGE`, `FIN-CONFIG` and `GL-PERIOD-DECISION`, **not** `CLS-APPROVE`. If your period close needs `finance.close.approve`, raise it in §10 first; do not grant it yourself.

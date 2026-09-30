@@ -12,6 +12,9 @@ const custody = base.extend({ countedAmount: money, declaredAmount: money, varia
 export const PostingTemplateSchema = z.strictObject({
   kind: z.enum(['RECEIPT','ISSUE','ADJUSTMENT','INVOICE','PAYMENT','CUSTODY']),
 });
+export const CompensationTemplateSchema = z.strictObject({
+  kind: z.literal('COMPENSATE'), originalEventType: z.literal('PAYMENT_RECEIVED'),
+});
 export type PostingTemplate = z.infer<typeof PostingTemplateSchema>;
 export type PostingEvent = { eventType: string; payload: unknown };
 export type JournalLine = { accountCode: string; debit: string; credit: string; memo: string };
@@ -26,6 +29,17 @@ export const demoPostingRules: ReadonlyArray<{ eventType: string; version: 1; te
   { eventType: 'PAYMENT_RECEIVED', version: 1, template: { kind: 'PAYMENT' } },
   { eventType: 'CASH_CUSTODY_VERIFIED', version: 1, template: { kind: 'CUSTODY' } },
 ];
+
+export const demoCompensationRules = [
+  { eventType: 'PAYMENT_REVERSED', version: 1, template: CompensationTemplateSchema.parse({
+    kind: 'COMPENSATE', originalEventType: 'PAYMENT_RECEIVED',
+  }) },
+] as const;
+
+export function buildCompensatingLines(originalLines: readonly JournalLine[]): BuildResult {
+  const lines = originalLines.map((entry) => ({ ...entry, debit: entry.credit, credit: entry.debit }));
+  return validateBalancedLines(lines) ? { ok: true, lines } : { ok: false, code: 'UNBALANCED_JOURNAL' };
+}
 
 const eventForKind: Record<PostingTemplate['kind'], string> = {
   RECEIPT: 'INVENTORY_RECEIVED', ISSUE: 'INVENTORY_ISSUED', ADJUSTMENT: 'INVENTORY_ADJUSTED',

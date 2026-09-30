@@ -98,7 +98,7 @@ beforeAll(async () => {
        VALUES ($1, $2, 'FINANCE_APPROVER', 'ORGANIZATION', $3)`,
       [randomUUID(), financeApproverId, organizationId],
     );
-    for (const file of ['0001_outbox_event.sql', '0003_approval.sql']) {
+    for (const file of ['0001_outbox_event.sql', '0003_approval.sql', '0011_approval_subject_version.sql']) {
       await setup.query(await readFile(new URL(`../../../domains/platform/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
     }
     const policyId = randomUUID();

@@ -1,10 +1,11 @@
 import { Controller, Get, Inject, Param, Query, Req } from '@nestjs/common';
 import {
-  DomainError, FinanceDateRangeQuerySchema, FinanceLedgerQuerySchema,
+  DomainError, FinanceDateRangeQuerySchema, FinanceGrossProfitSummaryQuerySchema,
+  FinanceGrossProfitSummarySchema, FinanceLedgerQuerySchema,
   FinancePageQuerySchema, FinanceThroughQuerySchema,
 } from '@pss/contracts';
 import {
-  balanceSheet, financeSummary, generalLedger, getJournal, listAccounts, listJournals,
+  balanceSheet, financeSummary, generalLedger, getJournal, grossProfitSummary, listAccounts, listJournals,
   listPeriods, listPostingExceptions, profitAndLoss, reconciliation, trialBalance,
 } from '@pss/finance';
 import { Pool } from 'pg';
@@ -56,7 +57,7 @@ export class FinanceController {
 
   @Get('profit-and-loss')
   async profitAndLoss(@Req() request: Request, @Query() query: unknown) {
-    const user = await this.auth.require(request.headers.authorization, readPermissions);
+    const user = await this.auth.require(request.headers.authorization, 'finance.report.pnl.view');
     const input = FinanceDateRangeQuerySchema.parse(query);
     return profitAndLoss(this.pool, user.organizationId, input.from, input.to);
   }
@@ -77,6 +78,17 @@ export class FinanceController {
   async summary(@Req() request: Request, @Query('businessDate') rawDate: string | undefined) {
     const user = await this.auth.require(request.headers.authorization, readPermissions);
     return financeSummary(this.pool, user.organizationId, date.parse(rawDate));
+  }
+
+  @Get('gross-profit-summary')
+  async controlStationGrossProfit(@Req() request: Request,
+    @Query('businessDate') rawDate: string | undefined, @Query('branchId') rawBranchId: string | undefined) {
+    const { businessDate, branchId } = FinanceGrossProfitSummaryQuerySchema.parse({
+      businessDate: rawDate, ...(rawBranchId === undefined ? {} : { branchId: rawBranchId }),
+    });
+    const scope = await this.auth.grossProfitScope(request.headers.authorization, branchId);
+    return FinanceGrossProfitSummarySchema.parse(
+      await grossProfitSummary(this.pool, scope.organizationId, businessDate, scope.branchId));
   }
 
   @Get('posting-exceptions')

@@ -23,7 +23,7 @@ Every command has the signature `(pool, client | undefined, input)` and runs thr
   - POS-000.R08 (one OPEN shift per terminal and per cashier) is enforced by two partial unique indexes and surfaces as `POS_SHIFT_ALREADY_OPEN`.
   - Close computes expected cash on the server: `opening_float + Σ ACCEPTED TUNAI tender.amount`, already net of change (POS-006.BR01).
   - Any variance needs a registered `RC-POS-*` reason code. No close tolerance is configured, so the default is 0 and it fails closed.
-- `createPosSale`, `addPosSaleLine`, `updatePosSaleLine`, `removePosSaleLine` (POS-003): cart building on an OPEN shift. `createPosSale` takes only the shift. The terminal and organization come from the shift, so a sale can't be attached to another terminal's shift. `addPosSaleLine` resolves the product from a scanned barcode (`@pss/master-data` `findProductByBarcode`) and its price (`@pss/commercial` `resolvePrice`), then snapshots both onto the line (POS-003.BR02). It no longer accepts a caller-supplied product id, SKU or name (see MVP-OD-10).
+- `createPosSale`, `addPosSaleLine`, `updatePosSaleLine`, `removePosSaleLine` (POS-003): cart building on an OPEN shift. `createPosSale` takes only the shift. The terminal and organization come from the shift, so a sale can't be attached to another terminal's shift. `addPosSaleLine` resolves the product from a scanned barcode (`@pss/master-data` `findProductByBarcode`) and its price (`@pss/commercial` `resolvePrice`), then snapshots both onto the line (POS-003.BR02). It no longer accepts a caller-supplied product id, SKU or name (see MVP-OD-27).
 - `selectPosCustomer` / `quickRegisterPosCustomer` (POS-004): implemented and audited, but not exposed by the MVP API, because the customer menu is hidden.
 - `checkoutPosSale` (POS-005): the checkout saga, all in one transaction.
   1. Lock the sale and require an OPEN shift. With no customer selected, default to the branch's walk-in customer.
@@ -85,7 +85,7 @@ Back office (`CounterBackofficeController`, also behind the switch). Lists are s
 | `GET pos/reports/sales?from&to&shiftId&cashierUserId&page&pageSize`, `GET pos/reports/sales/:id` | `pos.report.view` at the sale's warehouse (POS-015) |
 | `POST pos/reports/sales/:id/copies` | `invoicing.invoice.print` at the sale's branch (BIL-001); always a SALINAN with a reason |
 | `GET pos/reports/summary?date` | `pos.report.view`; the cash figure covers the branches of the viewer's warehouses |
-| `GET payments/cash-handovers?status&page&pageSize`, `GET …/:id`, `POST …/:id/verify` | `payments.cash_custody.verify` at the handover's branch; SOD-06 and the reason rule (MVP-OD-9) in `payments` |
+| `GET payments/cash-handovers?status&page&pageSize`, `GET …/:id`, `POST …/:id/verify` | `payments.cash_custody.verify` at the handover's branch; SOD-06 and the reason rule (MVP-OD-26) in `payments` |
 
 ## Events produced and consumed
 
@@ -116,7 +116,7 @@ Migration `0001_pos.sql` creates schema `pos`, owned solely by this domain per `
 
 ## Open decisions
 
-- MVP-OD-10: katalog pick needs a master-data "product by id with sellable units" query. Until then the katalog lists matches and adding is by barcode.
+- MVP-OD-27: katalog pick needs a master-data "product by id with sellable units" query. Until then the katalog lists matches and adding is by barcode.
 - POS-000.R07 (warehouse MANAGED before a terminal opens) is a no-op stub pending `organization`/`principal-policy`.
 - `checkoutPosSale`'s invoice `branchCode` is derived from the branch UUID as a placeholder, since `organization` doesn't exist yet.
 - Receipt numbering `KSR-…` awaits GAP-16. The receipt shows the invoice number.

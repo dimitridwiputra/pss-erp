@@ -1,6 +1,6 @@
 {
   "source": "docs/PRODUCT_PRD.md Appendix C",
-  "totalTypes": 174,
+  "totalTypes": 175,
   "registeredVersions": [
     {
       "name": "DELIVERY_ORDER_CLOSED",
@@ -15,7 +15,19 @@
       "version": 1
     },
     {
+      "name": "APPROVAL_REQUESTED",
+      "version": 2
+    },
+    {
       "name": "APPROVAL_DECIDED",
+      "version": 1
+    },
+    {
+      "name": "APPROVAL_DECIDED",
+      "version": 2
+    },
+    {
+      "name": "FINANCE_APPROVAL_SUBMITTED",
       "version": 1
     },
     {
@@ -39,6 +51,10 @@
       "version": 1
     },
     {
+      "name": "PAYMENT_REVERSED",
+      "version": 1
+    },
+    {
       "name": "CASH_CUSTODY_VERIFIED",
       "version": 1
     },
@@ -52,6 +68,10 @@
     },
     {
       "name": "ACCOUNTING_PERIOD_CLOSED",
+      "version": 1
+    },
+    {
+      "name": "ACCOUNTING_PERIOD_REOPENED",
       "version": 1
     }
   ],
@@ -565,21 +585,21 @@
       "section": "C.4",
       "producer": "payments",
       "aggregate": "Payment",
-      "payloadKeys": "paymentId, reason"
+      "payloadKeys": "paymentId, originalEventId (untuk pembalikan), reasonCode, businessDate"
     },
     {
       "name": "PAYMENT_BOUNCED",
       "section": "C.4",
       "producer": "payments",
       "aggregate": "Payment",
-      "payloadKeys": "paymentId, reason"
+      "payloadKeys": "paymentId, originalEventId (untuk pembalikan), reasonCode, businessDate"
     },
     {
       "name": "PAYMENT_REVERSED",
       "section": "C.4",
       "producer": "payments",
       "aggregate": "Payment",
-      "payloadKeys": "paymentId, reason"
+      "payloadKeys": "paymentId, originalEventId (untuk pembalikan), reasonCode, businessDate"
     },
     {
       "name": "PAYMENT_APPLIED",
@@ -810,14 +830,21 @@
       "section": "C.7",
       "producer": "approval",
       "aggregate": "ApprovalRequest",
-      "payloadKeys": "requestId, type, subjectRef, ownerDomain, decision"
+      "payloadKeys": "requestId, type, subjectRef, subjectVersion, ownerDomain, decision, step"
     },
     {
       "name": "APPROVAL_DECIDED",
       "section": "C.7",
       "producer": "approval",
       "aggregate": "ApprovalRequest",
-      "payloadKeys": "requestId, type, subjectRef, ownerDomain, decision"
+      "payloadKeys": "requestId, type, subjectRef, subjectVersion, ownerDomain, decision, step"
+    },
+    {
+      "name": "FINANCE_APPROVAL_SUBMITTED",
+      "section": "C.7",
+      "producer": "finance",
+      "aggregate": "FinanceApprovalEffect",
+      "payloadKeys": "requestId, type, subjectType, subjectRef, subjectVersion, ownerDomain, scope, contextHash, requestedBy"
     },
     {
       "name": "EXCEPTION_OPENED",

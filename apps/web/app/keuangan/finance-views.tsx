@@ -28,7 +28,8 @@ function sourceDocument(journal: Journal) {
 function economicEventLabel(eventType: string) {
   return ({ INVENTORY_RECEIVED: 'Penerimaan barang', INVENTORY_ISSUED: 'Barang keluar',
     INVENTORY_ADJUSTED: 'Penyesuaian stok', INVOICE_ISSUED: 'Faktur penjualan',
-    PAYMENT_RECEIVED: 'Pembayaran', CASH_CUSTODY_VERIFIED: 'Setoran kas' } as Record<string, string>)[eventType] ?? 'Transaksi lain';
+    PAYMENT_RECEIVED: 'Pembayaran', PAYMENT_REVERSED: 'Pembayaran dibalik',
+    CASH_CUSTODY_VERIFIED: 'Setoran kas' } as Record<string, string>)[eventType] ?? 'Transaksi lain';
 }
 
 function State({ loading, error }: { loading: boolean; error: string | null }) {
@@ -82,6 +83,22 @@ export function JournalList() {
 export function JournalDetail({ id }: { id: string }) {
   const result = useFinanceData<Journal & { lines: Array<{ line_number: number; account_code: string;
     account_name: string; debit: string; credit: string; memo: string | null }> }>(`finance/journals/${id}`);
+  const permissions = useFinancePermissions();
+  const [reversalReason, setReversalReason] = useState('');
+  const [reversalMessage, setReversalMessage] = useState('');
+  const canReverse = result.data?.status === 'POSTED'
+    && ['MANUAL','ADJUSTMENT','OPENING'].includes(result.data.source_type)
+    && permissions.includes('finance.journal.reverse.request');
+  async function requestReversal() {
+    if (!reversalReason.trim()) return;
+    const response = await fetch(`/api/bff/finance/finance/journals/${id}/reversal-requests`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ reason: reversalReason.trim() }),
+    });
+    setReversalMessage(response.ok
+      ? 'Pembalikan menunggu persetujuan petugas lain.'
+      : 'Pembalikan belum dapat diajukan. Periksa periode dan alasan, lalu coba lagi.');
+  }
   return <><Link href="/keuangan/jurnal">← Kembali ke jurnal</Link><h1>Detail Jurnal</h1>
     <State loading={result.loading} error={result.error} />
     {result.data && <section className="finance-panel"><h2>{result.data.number}</h2>
@@ -90,6 +107,11 @@ export function JournalDetail({ id }: { id: string }) {
       <table className="finance-table"><thead><tr><th>Akun</th><th>Catatan</th><th className="number">Debit</th><th className="number">Kredit</th></tr></thead>
         <tbody>{result.data.lines.map((line) => <tr key={line.line_number}><td>{line.account_code} · {line.account_name}</td>
           <td>{line.memo}</td><td className="number">{rupiah(line.debit)}</td><td className="number">{rupiah(line.credit)}</td></tr>)}</tbody></table>
+      {canReverse && <div className="finance-form"><label>Alasan pembalikan
+        <textarea value={reversalReason} onChange={(event) => setReversalReason(event.target.value)} required /></label>
+        <button className="finance-button" type="button" disabled={!reversalReason.trim()}
+          onClick={() => void requestReversal()}>Ajukan pembalikan</button></div>}
+      {reversalMessage && <p role="status" className="finance-message">{reversalMessage}</p>}
     </section>}
   </>;
 }

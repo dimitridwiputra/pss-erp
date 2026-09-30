@@ -90,12 +90,12 @@ Create a product with its barcode and price, then receive goods with a unit cost
 
 1. **Tutup Shift** (only with an empty cart) shows *Modal laci*, *Penjualan tunai* and *Seharusnya di laci*.
 2. Type the counted cash. To show a variance, type Rp1.000 less, then choose **Uang kurang**. Press **Tutup Shift**.
-3. **Serah Kas** says what to hand over; the float stays in the drawer. After a short count it shows the real amount beside the recorded sales (MVP-OD-11). Press **Serahkan Kas**.
+3. **Serah Kas** says what to hand over; the float stays in the drawer. After a short count it shows the real amount beside the recorded sales (MVP-OD-29). Press **Serahkan Kas**.
 
 ### 4.5 Finance counts the cash (keuangan.demo)
 
 1. Sign in with OTP, then open **Setoran Kas**. The handover waits in *Menunggu dihitung*, with the cashier, counter, recorded amount and the cashier's close count.
-2. Tap it and type the counted amount. If it differs, pick a reason (**Uang kurang** and so on). **Terima Setoran** stays disabled until one is chosen (MVP-OD-9).
+2. Tap it and type the counted amount. If it differs, pick a reason (**Uang kurang** and so on). **Terima Setoran** stays disabled until one is chosen (MVP-OD-26).
 3. Press **Terima Setoran** (CASH_CUSTODY_VERIFIED, journal Dr Kas Kantor / Cr Kas Konter ± Selisih Kas).
 4. Show that the cashier cannot verify their own cash: the server refuses (SOD-06).
 
@@ -126,8 +126,8 @@ MVP_PLAN §9: no QRIS, transfer, credit (tempo) sales, returns, purchase orders 
 From stream A:
 - The receipt carries the invoice number. `KSR-{CAB}-…` receipt numbering waits for the numbering template (GAP-16), and the branch code in the number is a placeholder derived from the branch id.
 - PPN is 0 on every invoice until PKP status and rate are decided (MVP-OD-3).
-- The catalog search lists products, but adding one is by barcode until master-data offers a product-by-id query (MVP-OD-10).
-- A handover counted differently without a reason stays "Perlu keputusan selisih": the CSH-002 approval is not built (MVP-OD-9).
+- The catalog search lists products, but adding one is by barcode until master-data offers a product-by-id query (MVP-OD-27).
+- A handover counted differently without a reason stays "Perlu keputusan selisih": the CSH-002 approval is not built (MVP-OD-26).
 - No customer selection, order list or returns on the counter.
 - Offline mode is not in the demo. The counter says so when the connection drops.
 

@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import type { Pool } from 'pg';
+import { DomainError } from '@pss/contracts';
 
 export interface PageInput { limit: number; offset: number }
 
@@ -160,6 +161,63 @@ export async function financeSummary(pool: Pool, organizationId: string, busines
   const today = await profitAndLoss(pool, organizationId, businessDate, businessDate);
   const month = await profitAndLoss(pool, organizationId, `${businessDate.slice(0, 7)}-01`, businessDate);
   return { businessDate, grossProfitToday: today.grossProfit, grossProfitMonthToDate: month.grossProfit };
+}
+
+/** CST-007: only posted Finance lines; branch restriction is applied in SQL before aggregation. */
+export async function grossProfitSummary(pool: Pool, organizationId: string, businessDate: string,
+  branchId: string | null) {
+  const dates = (await pool.query<{
+    prior_day: string; month_start: string; prior_month_start: string; prior_month_end: string;
+  }>(
+    `SELECT ($1::date - 1)::text AS prior_day,
+            date_trunc('month',$1::date)::date::text AS month_start,
+            (date_trunc('month',$1::date) - interval '1 month')::date::text AS prior_month_start,
+            LEAST((date_trunc('month',$1::date) - interval '1 day')::date,
+              ((date_trunc('month',$1::date) - interval '1 month')::date
+               + (extract(day from $1::date)::int - 1)))::text AS prior_month_end`, [businessDate],
+  )).rows[0]!;
+  if (branchId) {
+    const missing = (await pool.query<{ count: number }>(
+      `SELECT count(DISTINCT j.id)::int AS count FROM finance.journal j
+       JOIN finance.journal_line line ON line.journal_id = j.id
+       JOIN finance.account_role_mapping mapping ON mapping.account_code = line.account_code
+       WHERE j.organization_id = $1 AND j.branch_id IS NULL
+         AND j.status IN ('POSTED','REVERSED')
+         AND j.business_date BETWEEN $2::date AND $3::date
+         AND mapping.role_code IN ('SALES_REVENUE','COGS')
+         AND mapping.effective_from <= j.business_date
+         AND (mapping.effective_to IS NULL OR mapping.effective_to > j.business_date)`,
+      [organizationId, dates.prior_month_start, businessDate],
+    )).rows[0]!.count;
+    if (missing > 0) throw new DomainError('DEPENDENCY_UNAVAILABLE');
+  }
+  async function period(from: string, to: string) {
+    const result = (await pool.query<{ net_sales: string; cogs: string }>(
+      `SELECT
+         COALESCE(sum(CASE WHEN mapping.role_code = 'SALES_REVENUE' THEN line.credit - line.debit ELSE 0 END),0)::text AS net_sales,
+         COALESCE(sum(CASE WHEN mapping.role_code = 'COGS' THEN line.debit - line.credit ELSE 0 END),0)::text AS cogs
+       FROM finance.journal j JOIN finance.journal_line line ON line.journal_id = j.id
+       JOIN finance.account_role_mapping mapping ON mapping.account_code = line.account_code
+       WHERE j.organization_id = $1 AND j.status IN ('POSTED','REVERSED')
+         AND j.business_date BETWEEN $2::date AND $3::date
+         AND ($4::uuid IS NULL OR j.branch_id = $4::uuid)
+         AND mapping.role_code IN ('SALES_REVENUE','COGS')
+         AND mapping.effective_from <= j.business_date
+         AND (mapping.effective_to IS NULL OR mapping.effective_to > j.business_date)`,
+      [organizationId, from, to, branchId],
+    )).rows[0]!;
+    const netSales = new Decimal(result.net_sales);
+    const cogs = new Decimal(result.cogs);
+    const grossProfit = netSales.minus(cogs);
+    return { from, to, netSales: netSales.toFixed(2), cogs: cogs.toFixed(2),
+      grossProfit: grossProfit.toFixed(2),
+      grossMarginPercent: netSales.isZero() ? null : grossProfit.div(netSales).mul(100).toFixed(2) };
+  }
+  return { businessDate, scope: branchId ? 'BRANCH' : 'ORGANIZATION', branchId,
+    today: await period(businessDate, businessDate),
+    monthToDate: await period(dates.month_start, businessDate),
+    previousDay: await period(dates.prior_day, dates.prior_day),
+    previousComparableMonthToDate: await period(dates.prior_month_start, dates.prior_month_end) };
 }
 
 export async function listPostingExceptions(pool: Pool, organizationId: string, page: PageInput) {

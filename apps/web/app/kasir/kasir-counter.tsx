@@ -360,7 +360,7 @@ function CashHandover({ shift, onDone }: { shift: Shift; onDone: (result: Declar
       <h2 id="handover-title">Serah Kas</h2>
       {shift.variance && shift.variance !== '0.00' && shift.countedCash ? (
         <>
-          {/* MVP-OD-11: the declaration is the recorded sales; the cashier hands over what is actually there. */}
+          {/* MVP-OD-29: the declaration is the recorded sales; the cashier hands over what is actually there. */}
           <p className="pos-instruction">Serahkan semua uang penjualan, {rupiah(difference(shift.countedCash, shift.openingFloat))}, ke Kasir Keuangan. Modal laci {rupiah(shift.openingFloat)} tetap di laci.</p>
           <p className="pos-muted">Penjualan tunai tercatat {rupiah(shift.cashSalesTotal)}; uang {shift.variance.startsWith('-') ? 'kurang' : 'lebih'} {rupiah(shift.variance.replace(/^-/, ''))}. Keuangan mencatat selisihnya saat menghitung.</p>
         </>

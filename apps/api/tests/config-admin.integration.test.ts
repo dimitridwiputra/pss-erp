@@ -63,7 +63,7 @@ beforeAll(async () => {
     // The whole audit domain, not one file: a fixture that replays only
     // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
     await applyAuditMigrations(setup);
-    for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql', '0003_approval.sql', '0004_configuration.sql', '0009_config_flag_admin.sql', '0010_config_key_registry.sql']) {
+    for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql', '0003_approval.sql', '0004_configuration.sql', '0009_config_flag_admin.sql', '0010_config_key_registry.sql', '0012_branch_pnl_config_owner.sql']) {
       await setup.query(await readFile(new URL(`../../../domains/platform/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
     }
     await setup.query(

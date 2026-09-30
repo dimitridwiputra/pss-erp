@@ -37,6 +37,7 @@ beforeAll(async () => {
     // write, since an unclassified key raises CONFIG_KEY_UNKNOWN rather than defaulting, and it
     // depends on 0003_approval.sql for platform.approval_type.
     '../infrastructure/database/migrations/0010_config_key_registry.sql',
+    '../infrastructure/database/migrations/0012_branch_pnl_config_owner.sql',
   ]) {
     await pool.query(await readFile(new URL(relativePath, import.meta.url), 'utf8'));
   }
@@ -79,6 +80,13 @@ async function approve(valueId: string): Promise<void> {
 }
 
 describe('PLT-009 effective-dated configuration registry', () => {
+  it('keeps detailed branch P&L as a CFO-owned configuration, separate from summary access', async () => {
+    const key = (await pool.query<{ owner_role_code: string; sensitivity: string }>(
+      `SELECT owner_role_code, sensitivity FROM platform.config_key
+       WHERE key = 'finance.branch_pnl_visible'`,
+    )).rows[0];
+    expect(key).toEqual({ owner_role_code: 'CFO', sensitivity: 'SENSITIVE' });
+  });
   it('resolves by business date and most specific scope, and supersedes rather than deletes', async () => {
     const organizationValue = await proposeConfigValue(pool, proposal(), adminId);
     await approve(organizationValue.id);
