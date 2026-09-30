@@ -1,20 +1,16 @@
 import '@pss/ui/components.css';
+import './pos-design.css';
+import './pos-design-mobile.css';
 import './styles.css';
 import type { ReactNode } from 'react';
-import { notFound } from 'next/navigation';
 import { KasirProviders } from './providers';
-import { OfflineStatus } from './components/offline-status';
 
 export const metadata = { title: 'PSS Kasir' };
 
+/**
+ * No client-side gate here: whether the counter exists is the API's decision (MVP-OD-5,
+ * `PSS_DEMO_POS_ENABLED`), and the screen renders its FEATURE_DISABLED answer as a state.
+ */
 export default function KasirLayout({ children }: { children: ReactNode }) {
-  // The F11 cashier flow is still development work; the deployable POS API is
-  // intentionally unregistered. Do not present this screen as live in production.
-  if (process.env.NODE_ENV === 'production') notFound();
-  return (
-    <KasirProviders>
-      <OfflineStatus />
-      {children}
-    </KasirProviders>
-  );
+  return <KasirProviders>{children}</KasirProviders>;
 }

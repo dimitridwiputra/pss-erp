@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import { PosPreview } from './pos-preview';
-import './styles.css';
-import './mobile-home.css';
+// The design lives with the production screen that uses it, /kasir.
+import '../kasir/pos-design.css';
+import '../kasir/pos-design-mobile.css';
 
 export const metadata = { title: 'Pratinjau Penjualan POS | PSS' };
 

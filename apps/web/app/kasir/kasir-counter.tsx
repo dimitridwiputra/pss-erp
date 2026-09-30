@@ -1,190 +1,356 @@
 'use client';
 
-import type { CheckoutPosSaleResponse, KasirShiftSayaResponse, PosSaleLineResponse } from '@pss/contracts';
-import {
-  enqueueOfflineSale, openPosOfflineDatabase, syncPosOfflineBatch,
-  type CachedCatalogEntry,
-} from '@pss/offline';
-import { Button, CounterTemplate, StatusPill, TextField } from '@pss/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Decimal from 'decimal.js';
+import type {
+  AcceptPosTenderResponse, AddPosSaleLineResponse, CheckoutPosSaleResponse, DeclarePosCashHandoverResponse,
+  KasirKatalogResponse, KasirShiftSayaResponse, KasirTerminalListResponse, PosReceiptResponse, PosSaleResponse,
+} from '@pss/contracts';
+import { EmptyState, LoadingState } from '@pss/ui';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, CheckCircle2, Minus, Plus, Printer, ScanLine, Search, ShoppingCart, Trash2, Wallet } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { ProblemNotice } from './components/problem-notice';
+import { useCommand } from './hooks/use-command';
 import { useOnlineStatus } from './hooks/use-online-status';
-import { kasirFetch, newIdempotencyKey } from './lib/api-client';
+import { kasirFetch } from './lib/api-client';
+import { cashPresets, difference, isAtLeast, moneyInput, quantity, rupiah, sum } from './lib/money';
 
-type Step = 'NO_SHIFT' | 'CART' | 'TENDER' | 'DONE';
+type Shift = NonNullable<KasirShiftSayaResponse['shift']>;
 
-function sum(lines: PosSaleLineResponse[]): string {
-  return lines.reduce((total, line) => total.plus(line.lineTotal), new Decimal(0)).toFixed(2);
-}
+const post = <T,>(path: string, key: string, body: unknown = {}) =>
+  kasirFetch<T>(path, { method: 'POST', idempotencyKey: key, body: JSON.stringify(body) });
+
+/** Registered Appendix F reason codes (area POS); the cashier sees only the words. */
+const closeReasons = [
+  { code: 'RC-POS-COUNT_SHORT', label: 'Uang kurang' },
+  { code: 'RC-POS-COUNT_OVER', label: 'Uang lebih' },
+  { code: 'RC-POS-OTHER', label: 'Lainnya' },
+] as const;
 
 export function KasirCounter() {
+  const shiftSaya = useQuery({ queryKey: ['kasir-shift-saya'], queryFn: () => kasirFetch<KasirShiftSayaResponse>('/kasir/shift-saya') });
+  const [handedOver, setHandedOver] = useState<DeclarePosCashHandoverResponse | null>(null);
+
+  if (handedOver) return <CashHandedOver result={handedOver} onDone={() => { setHandedOver(null); void shiftSaya.refetch(); }} />;
+  if (shiftSaya.isPending) return <LoadingState label="Memuat shift kasir" />;
+  if (shiftSaya.isError) return <ProblemNotice error={shiftSaya.error} action={<button className="pos-outline" type="button" onClick={() => void shiftSaya.refetch()}>Coba Lagi</button>} />;
+
+  const { shift, openSales } = shiftSaya.data;
+  if (!shift) return <OpenShift />;
+  if (shift.status !== 'OPEN') return <CashHandover shift={shift} onDone={setHandedOver} />;
+  return <Selling shift={shift} resumeSale={openSales[0] ?? null} />;
+}
+
+function OpenShift() {
   const queryClient = useQueryClient();
-  const online = useOnlineStatus();
-  const db = openPosOfflineDatabase();
-
+  const terminals = useQuery({ queryKey: ['kasir-terminals'], queryFn: () => kasirFetch<KasirTerminalListResponse>('/kasir/terminals') });
   const [terminalId, setTerminalId] = useState('');
-  const [openingFloat, setOpeningFloat] = useState('500000');
-  const [barcode, setBarcode] = useState('');
-  const [saleId, setSaleId] = useState<string | null>(null);
-  const [lines, setLines] = useState<PosSaleLineResponse[]>([]);
-  const [cashReceived, setCashReceived] = useState('');
-  const [checkout, setCheckout] = useState<CheckoutPosSaleResponse | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const scanRef = useRef<HTMLInputElement>(null);
-
-  const shiftSaya = useQuery({
-    queryKey: ['kasir-shift-saya'],
-    queryFn: () => kasirFetch<KasirShiftSayaResponse>('/kasir/shift-saya'),
-    enabled: online,
-    retry: false,
-  });
-
-  useEffect(() => { scanRef.current?.focus(); });
-
-  const effectiveTerminalId = shiftSaya.data?.shift?.terminalId ?? terminalId;
-  const step: Step = checkout ? 'TENDER' : shiftSaya.data?.shift ? 'CART' : online ? 'NO_SHIFT' : 'CART';
-
-  const openShift = useMutation({
-    mutationFn: () => kasirFetch('/pos/shifts', {
-      method: 'POST', idempotencyKey: newIdempotencyKey(),
-      body: JSON.stringify({ terminalId, openingFloat }),
-    }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['kasir-shift-saya'] }),
-  });
-
-  async function handleScan() {
-    const code = barcode.trim();
-    setBarcode('');
-    if (!code) return;
-    if (online) {
-      let sid = saleId;
-      if (!sid) {
-        const created = await kasirFetch<{ id: string }>('/pos/sales', {
-          method: 'POST', idempotencyKey: newIdempotencyKey(),
-          body: JSON.stringify({ terminalId: effectiveTerminalId, shiftId: shiftSaya.data?.shift?.id }),
-        });
-        sid = created.id;
-        setSaleId(sid);
-      }
-      const line = await kasirFetch<PosSaleLineResponse>(`/pos/sales/${sid}/lines`, {
-        method: 'POST', idempotencyKey: newIdempotencyKey(), body: JSON.stringify({ barcode: code }),
-      });
-      setLines((current) => [...current, line]);
-    } else {
-      const cached = await db.catalog.where('barcode').equals(code).first();
-      if (!cached) { setFeedback('Barang tidak ditemukan di katalog offline.'); return; }
-      setLines((current) => appendOrMergeOfflineLine(current, cached));
-    }
-  }
-
-  const doCheckout = useMutation({
-    mutationFn: () => kasirFetch<CheckoutPosSaleResponse>(`/pos/sales/${saleId}/checkout`, {
-      method: 'POST', idempotencyKey: saleId ?? newIdempotencyKey(),
-    }),
-    onSuccess: (result: CheckoutPosSaleResponse) => setCheckout(result),
-  });
-
-  const acceptTender = useMutation({
-    mutationFn: () => kasirFetch(`/pos/sales/${saleId}/tenders`, {
-      method: 'POST', idempotencyKey: newIdempotencyKey(),
-      body: JSON.stringify({ method: 'TUNAI', cashReceived }),
-    }),
-    onSuccess: () => resetForNextSale(),
-  });
-
-  async function handleBayar() {
-    if (online) { doCheckout.mutate(); return; }
-    await enqueueOfflineSale(db, {
-      number: `OFFLINE-${Date.now()}`,
-      customerId: null,
-      lines: lines.map((line) => ({ productId: line.productId, uom: line.uom, sku: line.sku, name: line.name, qty: line.qty })),
-      cashReceived,
-    });
-    setFeedback('Tersimpan · menunggu sinkronisasi');
-    resetForNextSale();
-  }
-
-  function resetForNextSale() {
-    setSaleId(null);
-    setLines([]);
-    setCashReceived('');
-    setCheckout(null);
-  }
-
-  useEffect(() => {
-    if (!online) return;
-    void (async () => {
-      const result = await syncPosOfflineBatch(db, {
-        terminalId: effectiveTerminalId, endpoint: '/kasir/sync', idempotencyKey: newIdempotencyKey(),
-      }).catch(() => null);
-      if (result) queryClient.invalidateQueries({ queryKey: ['kasir-shift-saya'] });
-    })();
-  }, [online, db, effectiveTerminalId, queryClient]);
-
-  const total = checkout?.total ?? sum(lines);
-  const change = cashReceived ? new Decimal(cashReceived || '0').minus(total).toFixed(2) : null;
-
-  if (step === 'NO_SHIFT') {
-    return (
-      <main className="pss-page-template pss-mobile-task">
-        <header className="pss-template-header"><h1>Buka Shift</h1></header>
-        <section className="pss-template-panel">
-          <TextField id="terminal" label="Terminal" value={terminalId} onChange={(event) => setTerminalId(event.target.value)} required />
-          <TextField id="modal" label="Modal laci (Rp)" value={openingFloat} onChange={(event) => setOpeningFloat(event.target.value)} required />
-        </section>
-        <footer className="pss-mobile-action">
-          <Button label="Buka Shift" state={openShift.isPending ? 'loading' : 'default'} onClick={() => openShift.mutate()} />
-        </footer>
-      </main>
-    );
-  }
-
-  if (step === 'TENDER' && checkout) {
-    return (
-      <CounterTemplate
-        context={`Konter · Terminal ${effectiveTerminalId}`}
-        scan={<p>Total Rp{checkout.total} · Faktur {checkout.invoiceNumber}</p>}
-        lines={<ul>{lines.map((line) => <li key={line.id}>{line.name} · {line.qty} {line.uom}</li>)}</ul>}
-        summary={
-          <dl>
-            <dt>Total</dt><dd>Rp{checkout.total}</dd>
-            <dt>Diterima</dt><dd><TextField id="cash-received" label="Uang diterima" value={cashReceived} onChange={(event) => setCashReceived(event.target.value)} /></dd>
-            {change && <><dt>Kembalian</dt><dd>Rp{change}</dd></>}
-          </dl>
-        }
-        primaryAction={<Button label="Terima Uang" state={acceptTender.isPending ? 'loading' : 'default'} disabled={!cashReceived || Number(change) < 0} onClick={() => acceptTender.mutate()} />}
-      />
-    );
-  }
+  const [openingFloat, setOpeningFloat] = useState('');
+  const open = useCommand(
+    (input: { terminalId: string; openingFloat: string }, key) => post('/pos/shifts', key, input),
+    { onSuccess: () => queryClient.invalidateQueries({ queryKey: ['kasir-shift-saya'] }) },
+  );
+  const available = terminals.data?.items ?? [];
 
   return (
-    <CounterTemplate
-      context={`Konter · Terminal ${effectiveTerminalId}`}
-      status={<StatusPill label={online ? 'Shift Berjalan' : 'Mode Darurat · Tunai Saja'} tone={online ? 'info' : 'warning'} />}
-      scan={<TextField id="scan" label="Scan barang" ref={scanRef} value={barcode} onChange={(event) => setBarcode(event.target.value)}
-        onKeyDown={(event) => { if (event.key === 'Enter') void handleScan(); }} />}
-      lines={<ul>{lines.map((line) => <li key={line.id}>{line.name} · {line.qty} {line.uom} · Rp{line.lineTotal}</li>)}</ul>}
-      summary={<dl><dt>Total</dt><dd>Rp{total}</dd></dl>}
-      feedback={feedback}
-      primaryAction={<Button label="Bayar" state={doCheckout.isPending ? 'loading' : 'default'} disabled={lines.length === 0} onClick={() => void handleBayar()} />}
-    />
+    <section className="pos-card pos-kasir-narrow" aria-labelledby="open-shift-title">
+      <h2 id="open-shift-title">Buka Shift</h2>
+      <p className="pos-muted">Pilih konter, lalu hitung modal laci sebelum mulai berjualan.</p>
+      {terminals.isPending && <LoadingState label="Memuat konter" rows={2} />}
+      {terminals.isError && <ProblemNotice error={terminals.error} />}
+      {terminals.isSuccess && available.length === 0 && (
+        <EmptyState title="Belum ada konter untuk Anda" description="Minta admin menambahkan konter di gudang tempat Anda bertugas." />
+      )}
+      {available.length > 0 && (
+        <fieldset className="pos-field">
+          <legend>Konter</legend>
+          <div className="pos-methods">
+            {available.map((terminal) => (
+              <button key={terminal.id} type="button" disabled={terminal.inUse} aria-pressed={terminalId === terminal.id}
+                className={terminalId === terminal.id ? 'selected' : ''} onClick={() => setTerminalId(terminal.id)}>
+                {terminal.name}<small>{terminal.inUse ? 'Sedang dipakai' : terminal.code}</small>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      <label className="pos-field">Modal laci (Rp)
+        <input inputMode="numeric" value={openingFloat} onChange={(event) => setOpeningFloat(moneyInput(event.target.value))} placeholder="0" />
+      </label>
+      <ProblemNotice error={open.error} />
+      <button className="pos-primary" type="button" disabled={!terminalId || openingFloat === '' || open.isPending}
+        onClick={() => open.mutate({ terminalId, openingFloat })}>
+        {open.isPending ? 'Sedang memproses…' : 'Buka Shift'}
+      </button>
+    </section>
   );
 }
 
-function appendOrMergeOfflineLine(current: PosSaleLineResponse[], cached: CachedCatalogEntry): PosSaleLineResponse[] {
-  const existingIndex = current.findIndex((line) => line.productId === cached.productId && line.uom === cached.uom);
-  if (existingIndex === -1) {
-    const line: PosSaleLineResponse = {
-      id: crypto.randomUUID(), productId: cached.productId, sku: cached.sku, name: cached.name,
-      uom: cached.uom, qty: '1', unitPrice: cached.unitPrice, lineTotal: cached.unitPrice,
-    };
-    return [...current, line];
+type Stage = { name: 'cart' } | { name: 'receipt'; receipt: PosReceiptResponse } | { name: 'close' };
+
+function Selling({ shift, resumeSale }: { shift: Shift; resumeSale: PosSaleResponse | null }) {
+  const queryClient = useQueryClient();
+  const [saleId, setSaleId] = useState<string | null>(resumeSale?.id ?? null);
+  const [stage, setStage] = useState<Stage>({ name: 'cart' });
+  const sale = useQuery({
+    queryKey: ['pos-sale', saleId], enabled: saleId !== null,
+    queryFn: () => kasirFetch<PosSaleResponse>(`/pos/sales/${saleId}`),
+  });
+  const refreshSale = () => queryClient.invalidateQueries({ queryKey: ['pos-sale', saleId] });
+  const refreshShift = () => queryClient.invalidateQueries({ queryKey: ['kasir-shift-saya'] });
+
+  function finishSale() { setSaleId(null); setStage({ name: 'cart' }); void refreshShift(); }
+
+  if (stage.name === 'close') return <CloseShift shift={shift} onCancel={() => setStage({ name: 'cart' })} />;
+  if (stage.name === 'receipt') return <Receipt saleId={stage.receipt.saleId} initial={stage.receipt} onNext={finishSale} />;
+  // Only a resumed sale waits here. A sale the cart just created keeps the cart mounted, so the
+  // add-line command that created it finishes and reports its own outcome.
+  if (saleId && sale.isPending && saleId === resumeSale?.id) return <LoadingState label="Memuat transaksi" />;
+  if (saleId && sale.isError) return <ProblemNotice error={sale.error} action={<button className="pos-outline" type="button" onClick={finishSale}>Mulai Transaksi Baru</button>} />;
+
+  if (sale.data?.status === 'PENDING_PAYMENT') {
+    return <Payment sale={sale.data} onPaid={(receipt) => { setStage({ name: 'receipt', receipt }); void refreshShift(); }} />;
   }
-  const existing = current[existingIndex]!;
-  const qty = new Decimal(existing.qty).plus(1).toString();
-  const lineTotal = new Decimal(existing.unitPrice).times(qty).toFixed(2);
-  const updated = [...current];
-  updated[existingIndex] = { ...existing, qty, lineTotal };
-  return updated;
+  return (
+    <Cart shift={shift} sale={sale.data ?? null} onSaleCreated={setSaleId} onChanged={refreshSale}
+      onCheckedOut={refreshSale} onCloseShift={() => setStage({ name: 'close' })} />
+  );
+}
+
+function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShift }: {
+  shift: Shift; sale: PosSaleResponse | null; onSaleCreated: (id: string) => void;
+  onChanged: () => Promise<void>; onCheckedOut: () => Promise<void>; onCloseShift: () => void;
+}) {
+  const online = useOnlineStatus();
+  const [barcode, setBarcode] = useState('');
+  const [search, setSearch] = useState('');
+  const scanRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { scanRef.current?.focus(); }, [sale?.lines.length]);
+
+  const katalog = useQuery({
+    queryKey: ['kasir-katalog', search.trim()], enabled: search.trim().length >= 2,
+    queryFn: () => kasirFetch<KasirKatalogResponse>(`/kasir/products?q=${encodeURIComponent(search.trim())}`),
+  });
+
+  const addLine = useCommand(async (input: { barcode: string }, key) => {
+    let id = sale?.id;
+    if (!id) {
+      const created = await post<{ id: string }>('/pos/sales', `${key}:sale`, { shiftId: shift.id });
+      id = created.id;
+      onSaleCreated(id);
+    }
+    return post<AddPosSaleLineResponse>(`/pos/sales/${id}/lines`, key, { barcode: input.barcode });
+  }, { onSuccess: async () => { setBarcode(''); await onChanged(); } });
+
+  const setQty = useCommand((input: { lineId: string; qty: string }, key) => kasirFetch(`/pos/sales/${sale?.id}/lines/${input.lineId}`, {
+    method: 'PATCH', idempotencyKey: key, body: JSON.stringify({ qty: input.qty }),
+  }), { onSuccess: onChanged });
+  const removeLine = useCommand((input: { lineId: string }, key) => kasirFetch(`/pos/sales/${sale?.id}/lines/${input.lineId}`, {
+    method: 'DELETE', idempotencyKey: key,
+  }), { onSuccess: onChanged });
+  const checkout = useCommand((_input: { saleId: string }, key) => post<CheckoutPosSaleResponse>(`/pos/sales/${sale?.id}/checkout`, key), { onSuccess: onCheckedOut });
+
+  const lines = sale?.lines ?? [];
+  const busy = addLine.isPending || setQty.isPending || removeLine.isPending || checkout.isPending;
+
+  return (
+    <div className="pos-two-col pos-order-layout">
+      <section className="pos-card" aria-labelledby="scan-title">
+        <div className="pos-card-title"><h2 id="scan-title">Scan Barang</h2>
+          <button className="pos-outline" type="button" onClick={onCloseShift} disabled={lines.length > 0}>Tutup Shift</button>
+        </div>
+        <form className="pos-toolbar" onSubmit={(event) => { event.preventDefault(); if (barcode.trim()) addLine.mutate({ barcode: barcode.trim() }); }}>
+          <label className="pos-search pos-scan-field"><ScanLine size={22} />
+            <input ref={scanRef} aria-label="Scan barang" value={barcode} onChange={(event) => setBarcode(event.target.value)}
+              placeholder="Scan atau ketik barcode" autoComplete="off" disabled={!online} />
+          </label>
+          <button className="pos-primary" type="submit" disabled={!barcode.trim() || busy || !online}>Tambah</button>
+        </form>
+        <ProblemNotice error={addLine.error} />
+        <label className="pos-search pos-katalog-search"><Search size={20} />
+          <input aria-label="Cari produk" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama atau SKU produk" />
+        </label>
+        {katalog.isFetching && <LoadingState label="Mencari produk" rows={2} />}
+        {katalog.isError && <ProblemNotice error={katalog.error} />}
+        {katalog.data && (katalog.data.items.length === 0
+          ? <p className="pos-empty">Produk tidak ditemukan.</p>
+          : <>
+            <p className="pos-muted">Scan barcode di kemasan untuk menambahkan barang ke keranjang.</p>
+            <ul className="pos-katalog-list">{katalog.data.items.map((item) => <li key={item.productId}><strong>{item.name}</strong><small>{item.sku}</small></li>)}</ul>
+          </>)}
+      </section>
+
+      <section className="pos-card pos-cart" aria-labelledby="cart-title">
+        <div className="pos-card-title"><h2 id="cart-title">Keranjang</h2><span className="pos-muted">{shift.terminalName}</span></div>
+        {lines.length === 0
+          ? <div className="pos-empty"><ShoppingCart size={28} /><p>Keranjang masih kosong. Scan barang untuk memulai.</p></div>
+          : lines.map((line) => (
+            <div className="pos-cart-item" key={line.id}>
+              <div><strong>{line.name}</strong><small>{line.sku} · {rupiah(line.unitPrice)} / {line.uom}</small>
+                <div className="pos-qty">
+                  <button type="button" aria-label={`Kurangi ${line.name}`} disabled={busy}
+                    onClick={() => (quantity(line.qty) === '1' ? removeLine.mutate({ lineId: line.id }) : setQty.mutate({ lineId: line.id, qty: difference(line.qty, '1') }))}>
+                    <Minus size={18} />
+                  </button>
+                  <span>{quantity(line.qty)} {line.uom}</span>
+                  <button type="button" aria-label={`Tambah ${line.name}`} disabled={busy} onClick={() => setQty.mutate({ lineId: line.id, qty: sum(line.qty, '1') })}><Plus size={18} /></button>
+                  <button type="button" aria-label={`Hapus ${line.name}`} disabled={busy} onClick={() => removeLine.mutate({ lineId: line.id })}><Trash2 size={18} /></button>
+                </div>
+              </div>
+              <b>{rupiah(line.lineTotal)}</b>
+            </div>
+          ))}
+        <ProblemNotice error={setQty.error ?? removeLine.error ?? checkout.error} />
+        <div className="pos-total pos-total-final"><span>Total</span><strong>{rupiah(sale?.total ?? '0')}</strong></div>
+        <button className="pos-primary" type="button" disabled={!sale || lines.length === 0 || busy || !online}
+          onClick={() => sale && checkout.mutate({ saleId: sale.id })}>
+          {checkout.isPending ? 'Sedang memproses…' : <>Bayar <ArrowRight size={18} /></>}
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function Payment({ sale, onPaid }: { sale: PosSaleResponse; onPaid: (receipt: PosReceiptResponse) => void }) {
+  const [received, setReceived] = useState('');
+  const enough = isAtLeast(received, sale.total);
+  const accept = useCommand(async (input: { cashReceived: string }, key) => {
+    await post<AcceptPosTenderResponse>(`/pos/sales/${sale.id}/tenders`, key, { method: 'TUNAI', cashReceived: input.cashReceived });
+    return post<PosReceiptResponse>(`/pos/sales/${sale.id}/receipt-prints`, `${key}:receipt`);
+  }, { onSuccess: (receipt) => onPaid(receipt) });
+
+  return (
+    <section className="pos-card pos-mobile-checkout" aria-labelledby="payment-title">
+      <h2 id="payment-title">Terima Uang</h2>
+      <small>Total belanja · {sale.invoiceNumber}</small>
+      <strong className="pos-mobile-checkout-total">{rupiah(sale.total)}</strong>
+      <label className="pos-field">Uang diterima (Rp)
+        <input inputMode="numeric" value={received} onChange={(event) => setReceived(moneyInput(event.target.value))} placeholder="0" autoFocus />
+      </label>
+      <div className="pos-presets">
+        {cashPresets(sale.total).map((value) => <button type="button" key={value} onClick={() => setReceived(value)}>{rupiah(value)}</button>)}
+      </div>
+      <div className="pos-change"><span>Kembalian</span><strong>{enough ? rupiah(difference(received, sale.total)) : '—'}</strong></div>
+      {received !== '' && !enough && <p className="pos-muted">Uang kurang {rupiah(difference(sale.total, received))}.</p>}
+      <ProblemNotice error={accept.error} />
+      <button className="pos-primary" type="button" disabled={!enough || accept.isPending} onClick={() => accept.mutate({ cashReceived: received })}>
+        {accept.isPending ? 'Sedang memproses…' : <><Wallet size={18} /> Terima Uang</>}
+      </button>
+    </section>
+  );
+}
+
+function Receipt({ saleId, initial, onNext }: { saleId: string; initial: PosReceiptResponse; onNext: () => void }) {
+  const [receipt, setReceipt] = useState(initial);
+  const [reprinting, setReprinting] = useState(false);
+  const [reason, setReason] = useState('');
+  const reprint = useCommand((input: { reprintReason: string }, key) => post<PosReceiptResponse>(`/pos/sales/${saleId}/receipt-prints`, key, input), {
+    onSuccess: (next) => { setReceipt(next); setReprinting(false); setReason(''); window.print(); },
+  });
+
+  return (
+    <div className="pos-kasir-narrow">
+      <div className="pos-success-banner"><span className="pos-success-icon"><CheckCircle2 size={30} /></span>
+        <div><h2>Pembayaran diterima</h2><p>Berikan kembalian {rupiah(receipt.changeAmount)} dan struk kepada pembeli. Barang diambil di gudang.</p></div>
+      </div>
+      <article className="pos-card pos-receipt" aria-label="Struk">
+        {receipt.isCopy && <p className="pos-receipt-copy">SALINAN {receipt.copyNumber - 1}</p>}
+        <h3>{receipt.terminalName}</h3>
+        <p className="pos-muted">{receipt.invoiceNumber} · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(receipt.paidAt))}</p>
+        <ul>{receipt.lines.map((line) => <li key={line.id}><span>{quantity(line.qty)} {line.uom} {line.name}</span><b>{rupiah(line.lineTotal)}</b></li>)}</ul>
+        <div className="pos-total"><span>Total</span><strong>{rupiah(receipt.total)}</strong></div>
+        <div className="pos-total"><span>Tunai</span><strong>{rupiah(receipt.cashReceived)}</strong></div>
+        <div className="pos-total pos-total-final"><span>Kembalian</span><strong>{rupiah(receipt.changeAmount)}</strong></div>
+        <p className="pos-muted">Tunjukkan struk ini di gudang untuk mengambil barang.</p>
+      </article>
+      {reprinting && (
+        <div className="pos-card">
+          <label className="pos-field">Alasan cetak ulang
+            <input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={200} placeholder="Contoh: kertas macet" />
+          </label>
+          <ProblemNotice error={reprint.error} />
+          <button className="pos-primary" type="button" disabled={!reason.trim() || reprint.isPending} onClick={() => reprint.mutate({ reprintReason: reason.trim() })}>Cetak Salinan</button>
+        </div>
+      )}
+      <div className="pos-footer-actions">
+        {receipt.copyNumber === 1
+          ? <button className="pos-outline" type="button" onClick={() => window.print()}><Printer size={18} /> Cetak Struk</button>
+          : null}
+        <button className="pos-outline" type="button" onClick={() => setReprinting(true)} disabled={reprinting}>Cetak Ulang</button>
+        <button className="pos-primary" type="button" onClick={onNext}>Transaksi Baru <ArrowRight size={18} /></button>
+      </div>
+    </div>
+  );
+}
+
+function CloseShift({ shift, onCancel }: { shift: Shift; onCancel: () => void }) {
+  const queryClient = useQueryClient();
+  const [counted, setCounted] = useState('');
+  const [reasonCode, setReasonCode] = useState<string | null>(null);
+  const expected = sum(shift.openingFloat, shift.cashSalesTotal);
+  const variance = counted === '' ? null : difference(counted, expected);
+  const differs = variance !== null && variance !== '0.00';
+  const close = useCommand((input: { countedCash: string; reasonCode?: string }, key) => post(`/pos/shifts/${shift.id}/close`, key, input), {
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['kasir-shift-saya'] }),
+  });
+
+  return (
+    <section className="pos-card pos-kasir-narrow" aria-labelledby="close-title">
+      <h2 id="close-title">Tutup Shift</h2>
+      <dl className="pos-definition">
+        <div><dt>Modal laci</dt><dd>{rupiah(shift.openingFloat)}</dd></div>
+        <div><dt>Penjualan tunai ({shift.paidSaleCount} transaksi)</dt><dd>{rupiah(shift.cashSalesTotal)}</dd></div>
+        <div><dt>Seharusnya di laci</dt><dd><strong>{rupiah(expected)}</strong></dd></div>
+      </dl>
+      <label className="pos-field">Uang di laci setelah dihitung (Rp)
+        <input inputMode="numeric" value={counted} onChange={(event) => setCounted(moneyInput(event.target.value))} placeholder="0" autoFocus />
+      </label>
+      {differs && variance && (
+        <fieldset className="pos-field">
+          <legend>Ada selisih {rupiah(variance)}. Kenapa?</legend>
+          <div className="pos-methods">
+            {closeReasons.map((reason) => (
+              <button key={reason.code} type="button" aria-pressed={reasonCode === reason.code}
+                className={reasonCode === reason.code ? 'selected' : ''} onClick={() => setReasonCode(reason.code)}>{reason.label}</button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      <ProblemNotice error={close.error} />
+      <div className="pos-footer-actions">
+        <button className="pos-outline" type="button" onClick={onCancel}>Kembali Berjualan</button>
+        <button className="pos-primary" type="button" disabled={counted === '' || (differs && !reasonCode) || close.isPending}
+          onClick={() => close.mutate(differs && reasonCode ? { countedCash: counted, reasonCode } : { countedCash: counted })}>
+          {close.isPending ? 'Sedang memproses…' : 'Tutup Shift'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function CashHandover({ shift, onDone }: { shift: Shift; onDone: (result: DeclarePosCashHandoverResponse) => void }) {
+  const declare = useCommand((_input: { shiftId: string }, key) => post<DeclarePosCashHandoverResponse>(`/pos/shifts/${shift.id}/cash-handover`, key), {
+    onSuccess: (result) => onDone(result),
+  });
+  return (
+    <section className="pos-card pos-kasir-narrow" aria-labelledby="handover-title">
+      <h2 id="handover-title">Serah Kas</h2>
+      <p className="pos-instruction">Serahkan {rupiah(shift.cashSalesTotal)} ke Kasir Keuangan. Modal laci {rupiah(shift.openingFloat)} tetap di laci.</p>
+      {shift.variance && shift.variance !== '0.00' && <p className="pos-muted">Selisih saat tutup shift: {rupiah(shift.variance)}. Keuangan akan memeriksanya saat menghitung.</p>}
+      <ProblemNotice error={declare.error} />
+      <button className="pos-primary" type="button" disabled={declare.isPending} onClick={() => declare.mutate({ shiftId: shift.id })}>
+        {declare.isPending ? 'Sedang memproses…' : 'Serahkan Kas'}
+      </button>
+    </section>
+  );
+}
+
+function CashHandedOver({ result, onDone }: { result: DeclarePosCashHandoverResponse; onDone: () => void }) {
+  return (
+    <section className="pos-card pos-kasir-narrow" aria-labelledby="handed-title">
+      <div className="pos-success-banner"><span className="pos-success-icon"><CheckCircle2 size={30} /></span>
+        <div><h2 id="handed-title">Kas sudah diserahkan</h2><p>{rupiah(result.declaredAmount)} menunggu dihitung Kasir Keuangan.</p></div>
+      </div>
+      <button className="pos-primary" type="button" onClick={onDone}>Selesai</button>
+    </section>
+  );
 }

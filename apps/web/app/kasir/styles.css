@@ -1,3 +1,68 @@
+/*
+ * PSS Kasir on the /pos-preview design (pos-design.css), adjusted to DESIGN_SYSTEM.md where the
+ * preview predates it: body text 16 px (§4.2), every target at least 48 px and the primary action
+ * 56 px (§6.3, §8.1), and a navy primary button, red being reserved for destructive or critical
+ * actions (§3.2, §8.1).
+ */
+.pos-kasir { font-size: 16px; }
+.pos-kasir .pos-primary { background: var(--pss-navy-900); border-color: var(--pss-navy-900); min-height: 56px; font-size: 17px; }
+.pos-kasir .pos-outline { min-height: 48px; }
+.pos-kasir .pos-primary:not(:disabled):hover { background: var(--pss-navy-950); }
+.pos-kasir .pos-card h2 { font-size: 22px; }
+.pos-kasir .pos-muted, .pos-kasir .pos-field { font-size: 15px; }
+.pos-kasir .pos-field input { min-height: 48px; font-size: 18px; font-variant-numeric: tabular-nums; }
+.pos-kasir .pos-search { min-height: 48px; }
+.pos-kasir .pos-search input { height: 46px; font-size: 16px; }
+.pos-kasir .pos-scan-field { min-height: 56px; border-width: 2px; border-color: var(--pss-navy-900); }
+.pos-kasir .pos-scan-field input { font-size: 20px; }
+.pos-kasir .pos-methods { flex-wrap: wrap; }
+.pos-kasir .pos-methods button { min-height: 56px; min-width: 140px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.pos-kasir .pos-methods button small { font-weight: 500; color: var(--gray-600); }
+.pos-kasir .pos-methods button.selected { border: 2px solid var(--pss-navy-900); background: var(--info-100); }
+.pos-kasir .pos-qty button { width: 48px; height: 48px; }
+.pos-kasir .pos-qty span { min-width: 72px; text-align: center; font-variant-numeric: tabular-nums; }
+.pos-kasir .pos-presets button { min-height: 48px; font-size: 15px; font-variant-numeric: tabular-nums; }
+.pos-kasir .pos-change strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+.pos-kasir .pos-mobile-checkout-total, .pos-kasir .pos-total strong { font-variant-numeric: tabular-nums; }
+.pos-kasir .pos-total-final strong { font-size: 24px; }
+.pos-kasir .pos-action-row { min-height: 64px; }
+.pos-kasir .pos-action-row small { display: block; color: var(--gray-600); }
+.pos-kasir .pos-sidebar-bottom a, .pos-kasir .pos-bottom-nav a, .pos-kasir .pos-bottom-nav button {
+  display: flex; align-items: center; gap: 17px; min-height: 48px; padding: 12px 14px; color: inherit; text-decoration: none; border: 0; background: transparent; border-radius: 8px;
+}
+.pos-kasir .pos-sidebar-bottom a { color: var(--gray-50); }
+.pos-kasir .pos-sidebar-bottom a:hover { background: var(--gray-700); }
+.pos-kasir .pos-bottom-nav a, .pos-kasir .pos-bottom-nav button { flex-direction: column; gap: 2px; font-size: 12px; color: var(--pss-navy-950); }
+.pos-kasir .pos-bottom-nav .active { font-weight: 700; color: var(--pss-navy-900); }
+
+.pos-kasir-narrow { max-width: 620px; margin: 0 auto; }
+.pos-kasir-narrow .pos-primary { width: 100%; margin-top: 8px; }
+.pos-kasir .pos-footer-actions .pos-primary { width: auto; margin-top: 0; }
+.pos-instruction { font-size: 18px; line-height: 1.5; margin: 12px 0 16px; }
+.pos-katalog-search { margin-top: 16px; }
+.pos-katalog-list, .pos-pickup-lines { list-style: none; margin: 8px 0 0; padding: 0; }
+.pos-katalog-list li, .pos-pickup-lines li { display: flex; flex-direction: column; padding: 10px 0; border-top: 1px solid var(--gray-100); }
+.pos-katalog-list small, .pos-pickup-lines small { color: var(--gray-600); }
+.pos-pickup-lines strong { font-variant-numeric: tabular-nums; }
+.pos-kasir .pos-definition { grid-template-columns: 1fr; }
+.pos-kasir .pos-definition div { display: flex; justify-content: space-between; gap: 12px; }
+.pos-kasir .pos-definition dd { margin: 0; font-variant-numeric: tabular-nums; }
+.pos-kasir .pos-inline-success { display: flex; align-items: center; gap: 8px; font-size: 16px; margin-bottom: 12px; }
+
+.pos-callout-danger { background: var(--danger-100); color: var(--danger-700); font-size: 15px; margin: 12px 0; }
+.pos-callout-danger strong { display: block; font-size: 16px; }
+.pos-callout-danger p { margin: 4px 0 0; }
+.pos-callout-danger ul { margin: 6px 0 0; padding-left: 18px; }
+.pos-callout-danger details { margin-top: 8px; font-size: 13px; color: var(--gray-700); }
+.pos-callout-danger .pos-outline { margin-top: 10px; }
+
+.pos-receipt { max-width: 380px; margin: 0 auto 12px; font-variant-numeric: tabular-nums; }
+.pos-receipt h3 { margin: 0; text-align: center; }
+.pos-receipt > p { text-align: center; }
+.pos-receipt ul { list-style: none; padding: 0; margin: 12px 0; border-top: 1px dashed var(--gray-300); }
+.pos-receipt li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; }
+.pos-receipt-copy { text-align: center; font-weight: 800; letter-spacing: .12em; border: 2px solid var(--gray-900); padding: 4px; }
+
 .pss-kasir-offline-banner {
   position: sticky;
   top: 0;
@@ -5,7 +70,15 @@
   padding: var(--space-sm) var(--space-lg);
   background: var(--warning-100);
   color: var(--warning-700);
-  font-size: .875rem;
+  font-size: 16px;
   font-weight: 700;
   text-align: center;
+}
+
+/* Only the receipt is printed (POS-011, 80 mm counter printer). */
+@media print {
+  .pos-kasir .pos-sidebar, .pos-kasir .pos-topbar, .pos-kasir .pos-bottom-nav, .pos-kasir .pos-success-banner,
+  .pos-kasir .pos-footer-actions, .pos-kasir .pss-kasir-offline-banner, .pos-kasir-narrow > .pos-card:not(.pos-receipt) { display: none !important; }
+  .pos-kasir, .pos-kasir .pos-content { background: var(--pss-white); padding: 0; }
+  .pos-receipt { border: 0; box-shadow: none; max-width: 80mm; }
 }

@@ -1,5 +1,5 @@
-import { KasirCounter } from './kasir-counter';
+import { KasirApp } from './kasir-app';
 
 export default function KasirPage() {
-  return <KasirCounter />;
+  return <KasirApp />;
 }

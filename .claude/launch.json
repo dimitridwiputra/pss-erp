@@ -4,8 +4,22 @@
     {
       "name": "web",
       "runtimeExecutable": "apps/web/node_modules/.bin/next",
-      "runtimeArgs": ["dev", "apps/web", "--webpack", "-p", "3000"],
+      "runtimeArgs": [
+        "dev",
+        "apps/web",
+        "--webpack",
+        "-p",
+        "3000"
+      ],
       "port": 3000
+    },
+    {
+      "name": "api-demo",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "scripts/dev-mvp-api.sh"
+      ],
+      "port": 4000
     }
   ]
 }
