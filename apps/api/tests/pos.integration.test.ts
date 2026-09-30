@@ -425,6 +425,19 @@ describe('Counter back office: Penjualan, dashboard, Setoran Kas', () => {
     expect((await call('GET', '/pos/reports/summary', { as: 'cashierA' })).body.code).toBe('PERMISSION_DENIED');
   });
 
+  it('gives the dashboard chart one point per day, zero-filled, in the viewer scope', async () => {
+    const trend = await call('GET', '/pos/reports/sales-trend?days=7', { as: 'adminA' });
+    const points = trend.body.points as { businessDate: string; salesTotal: string; saleCount: number }[];
+    expect(points).toHaveLength(7);
+    expect(points.at(-1)?.businessDate).toBe(today);
+    expect(points.at(-1)?.saleCount).toBe((await call('GET', '/pos/reports/summary', { as: 'adminA' })).body.saleCount);
+    expect(points.slice(0, -1).every((point) => point.salesTotal === '0.00' && point.saleCount === 0)).toBe(true);
+    const outside = (await call('GET', '/pos/reports/sales-trend?days=3', { as: 'supervisorB' })).body.points as { saleCount: number }[];
+    expect(outside.map((point) => point.saleCount)).toEqual([0, 0, 0]);
+    expect((await call('GET', '/pos/reports/sales-trend?days=90', { as: 'adminA' })).body.code).toBe('VALIDATION_FAILED');
+    expect((await call('GET', '/pos/reports/sales-trend', { as: 'cashierA' })).body.code).toBe('PERMISSION_DENIED');
+  });
+
   it('lets the branch finance cashier verify a handover, with a reason for a short count', async () => {
     const pending = await call('GET', '/payments/cash-handovers?status=DECLARED', { as: 'keuangan' });
     expect(pending.status, JSON.stringify(pending.body)).toBe(200);

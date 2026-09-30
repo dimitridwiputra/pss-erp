@@ -30,7 +30,7 @@ async function scan(page: Page, barcode: string) {
 
 test('kasir.demo opens a shift, sells two karton for cash, and gets a receipt', async ({ browser }) => {
   const page = await personPage(browser, 'kasir.demo');
-  await page.getByRole('link', { name: /Kasir/ }).first().click();
+  await page.getByRole('main').getByRole('link', { name: /Kasir/ }).first().click();
   await expect(page.getByRole('heading', { name: 'Buka Shift' }), 'Reset the demo first: CONFIRM_RESET=yes bash scripts/reset-mvp-demo.sh').toBeVisible();
   await page.getByRole('button', { name: /Konter 1/ }).click();
   await page.getByLabel('Modal laci').fill('500000');
@@ -71,7 +71,7 @@ test('exception: checkout with more than the stock refuses and leaves the cart a
 
 test('gudang.demo hands over the goods for the paid receipt', async ({ browser }) => {
   const page = await personPage(browser, 'gudang.demo');
-  await page.getByRole('link', { name: /Serah Barang/ }).click();
+  await page.getByRole('main').getByRole('link', { name: /Serah Barang/ }).click();
   await page.getByRole('textbox', { name: 'Scan nomor struk' }).fill(invoiceNumber);
   await page.getByRole('button', { name: 'Cari Struk' }).click();
   await expect(page.getByRole('heading', { name: 'Serahkan Barang' })).toBeVisible();
@@ -96,7 +96,7 @@ test('kasir.demo closes the shift with an exact count and hands over the cash', 
 
 test('keuangan.demo (with OTP) counts the handover and receives it', async ({ browser }) => {
   const page = await personPage(browser, 'keuangan.demo');
-  await page.getByRole('link', { name: /Setoran Kas/ }).click();
+  await page.getByRole('main').getByRole('link', { name: /Setoran Kas/ }).click();
   await page.getByRole('button', { name: /Konter 1 · Kasir Demo/ }).first().click();
   await page.getByLabel('Uang yang Anda hitung').fill('236000');
   await page.getByRole('button', { name: /Terima Setoran/ }).click();
@@ -107,7 +107,7 @@ test('keuangan.demo (with OTP) counts the handover and receives it', async ({ br
 test('admin.demo finds the sale in Penjualan and prints a SALINAN', async ({ browser }) => {
   const page = await personPage(browser, 'admin.demo');
   await page.addInitScript(() => { window.print = () => undefined; });
-  await page.getByRole('link', { name: /Penjualan Konter/ }).click();
+  await page.getByRole('main').getByRole('link', { name: /Penjualan Konter/ }).click();
   await page.getByRole('button', { name: invoiceNumber }).click();
   await expect(page.getByText('Barang diambil')).toBeVisible();
   await page.getByLabel('Alasan').fill('Diminta pelanggan');

@@ -2,6 +2,7 @@ import '@pss/ui/components.css';
 import './pos-design.css';
 import './pos-design-mobile.css';
 import './styles.css';
+import './terminal.css';
 import type { ReactNode } from 'react';
 import { KasirProviders } from './providers';
 

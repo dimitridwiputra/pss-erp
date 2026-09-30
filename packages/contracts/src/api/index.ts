@@ -21,3 +21,4 @@ export * from './wms-task';
 export * from './wms-discrepancy';
 export * from './wms-fulfillment';
 export * from './wms-operations';
+export * from './experience-shell';

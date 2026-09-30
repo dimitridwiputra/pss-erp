@@ -23,5 +23,8 @@
   "devDependencies": {
     "@types/react": "19.2.11",
     "react": "19.3.0"
+  },
+  "dependencies": {
+    "lucide-react": "0.468.0"
   }
 }

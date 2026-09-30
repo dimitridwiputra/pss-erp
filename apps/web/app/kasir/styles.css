@@ -18,8 +18,8 @@
 .pos-kasir .pos-methods { flex-wrap: wrap; }
 .pos-kasir .pos-methods button { min-height: 56px; min-width: 140px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .pos-kasir .pos-methods button small { font-weight: 500; color: var(--gray-600); }
-.pos-kasir .pos-methods button.selected { border: 2px solid var(--pss-navy-900); background: var(--info-100); color: var(--pss-navy-950); }
-.pos-kasir .pos-methods button.selected small { color: var(--pss-navy-900); }
+.pos-kasir .pos-methods button.selected { border: 2px solid var(--pss-navy-900); background: var(--info-100); color: var(--color-heading); }
+.pos-kasir .pos-methods button.selected small { color: var(--color-link); }
 .pos-kasir .pos-qty button { width: 48px; height: 48px; }
 .pos-kasir .pos-qty span { min-width: 96px; padding: 0 8px; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pos-kasir .pos-presets button { min-height: 48px; font-size: 15px; font-variant-numeric: tabular-nums; }
@@ -33,8 +33,8 @@
 }
 .pos-kasir .pos-sidebar-bottom a { color: var(--gray-50); }
 .pos-kasir .pos-sidebar-bottom a:hover { background: var(--gray-700); }
-.pos-kasir .pos-bottom-nav a, .pos-kasir .pos-bottom-nav button { flex-direction: column; gap: 2px; font-size: 12px; color: var(--pss-navy-950); }
-.pos-kasir .pos-bottom-nav .active { font-weight: 700; color: var(--pss-navy-900); }
+.pos-kasir .pos-bottom-nav a, .pos-kasir .pos-bottom-nav button { flex-direction: column; gap: 2px; font-size: 12px; color: var(--color-heading); }
+.pos-kasir .pos-bottom-nav .active { font-weight: 700; color: var(--color-link); }
 
 .pos-money-input { display: flex; align-items: center; gap: 8px; border: 1px solid var(--gray-300); border-radius: 7px; padding-left: 12px; background: var(--pss-white); color: var(--gray-600); font-size: 18px; }
 .pos-money-input:focus-within { outline: 3px solid var(--info-700); outline-offset: 2px; }
@@ -45,8 +45,8 @@
 .pos-filter-row { flex-wrap: wrap; align-items: flex-end; }
 .pos-filter-row .pos-field { margin: 0; min-width: 180px; }
 .pos-kasir .pos-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
-.pos-kasir .pos-chips button { min-height: 48px; padding: 0 14px; border: 1px solid var(--gray-300); border-radius: 999px; background: var(--pss-white); color: var(--pss-navy-950); display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
-.pos-kasir .pos-chips button.selected { background: var(--pss-navy-900); border-color: var(--pss-navy-900); color: var(--pss-white); }
+.pos-kasir .pos-chips button { min-height: 48px; padding: 0 14px; border: 1px solid var(--gray-300); border-radius: 999px; background: var(--pss-white); color: var(--color-heading); display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
+.pos-kasir .pos-chips button.selected { background: var(--pss-navy-900); border-color: var(--pss-navy-900); color: var(--color-on-accent); }
 .pos-kasir .pos-table td, .pos-kasir .pos-table th { padding: 12px 10px; font-size: 15px; }
 .pos-number { text-align: right; font-variant-numeric: tabular-nums; }
 .pos-kasir .pos-status { font-size: 14px; padding: 6px 12px; }

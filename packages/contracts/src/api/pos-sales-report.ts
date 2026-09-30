@@ -70,3 +70,16 @@ export const PosDashboardSummaryResponseSchema = z.strictObject({
   undepositedPaymentCount: z.int().nonnegative(),
 });
 export type PosDashboardSummaryResponse = z.infer<typeof PosDashboardSummaryResponseSchema>;
+
+/**
+ * GET /pos/reports/sales-trend?to=&days= — paid counter sales per business date for the dashboard
+ * chart, every date in the window present (zero when nothing sold). Same scope as the summary.
+ */
+export const PosSalesTrendQuerySchema = z.strictObject({
+  to: BusinessDateSchema,
+  days: z.coerce.number().int().min(1).max(31).default(7),
+});
+export const PosSalesTrendResponseSchema = z.strictObject({
+  points: z.array(z.strictObject({ businessDate: BusinessDateSchema, salesTotal: MoneyAmountSchema, saleCount: z.int().nonnegative() })),
+});
+export type PosSalesTrendResponse = z.infer<typeof PosSalesTrendResponseSchema>;

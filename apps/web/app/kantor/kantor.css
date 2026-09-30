@@ -1,0 +1,17 @@
+/* /kantor inside the app shell. Building blocks live in @pss/ui/components.css (pss-*). */
+
+/* A counter screen's own styles (pos-*) inside the shell's surface. */
+.pss-embedded { display: grid; gap: var(--space-xl); color: var(--color-text); }
+.pss-embedded .pos-status { font-size: 12px; }
+.pss-embedded fieldset.pos-field { margin: 0; padding: 0; border: 0; }
+.pss-embedded fieldset.pos-field legend { margin-bottom: var(--space-sm); padding: 0; font-size: 14px; font-weight: 700; color: var(--warning-700); }
+.pss-embedded .pos-methods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
+.pss-embedded .pos-methods button { min-height: 48px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-default); background: var(--color-surface); color: var(--color-text); font-weight: 700; }
+.pss-embedded .pos-methods button.selected { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-accent); }
+
+/* Only the SALINAN is printed from Penjualan (BIL-001). */
+@media print {
+  .pss-embedded > :not(.pss-detail-grid), .pss-detail-grid > :not(.pss-side-stack), .pss-side-stack > :not(.pos-receipt) { display: none !important; }
+  .pss-detail-grid { display: block; }
+  .pos-receipt { border: 0; box-shadow: none; max-width: 80mm; }
+}

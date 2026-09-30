@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { mockShell, snapshot } from './shell.fixture';
 
 /**
  * /kantor/penjualan and /kantor/setoran-kas against a stand-in for the BFF, as in kasir.fixture.ts.
@@ -32,11 +33,14 @@ test('the finance cashier counts a short handover, must give a reason, and it mo
     return { body: handover('VERIFIED') };
   });
 
+  await mockShell(page);
   await page.goto('/kantor/setoran-kas');
+  await snapshot(page, 'kantor-setoran-list');
   await page.getByRole('button', { name: /Konter 1 · Kasir Demo/ }).click();
   await expect(page.getByText('Hitungan kasir saat tutup shift')).toBeVisible();
   await page.getByLabel('Uang yang Anda hitung').fill('247000');
   await expect(page.getByText(/Uang kurang Rp\s1\.000 dari yang tercatat/)).toBeVisible();
+  await snapshot(page, 'kantor-setoran-count');
   const accept = page.getByRole('button', { name: /Terima Setoran/ });
   await expect(accept).toBeDisabled();
   await page.getByRole('button', { name: 'Uang kurang' }).click();
@@ -87,6 +91,7 @@ test('Penjualan lists the day, opens a sale, and prints a copy marked SALINAN', 
       total: '236000.00', cashReceived: '250000.00', changeAmount: '14000.00' },
   }));
 
+  await mockShell(page);
   await page.goto('/kantor/penjualan');
   await expect(page.getByRole('cell', { name: 'Selesai' })).toBeVisible();
   await page.getByRole('button', { name: 'INV-DMO-2026-000001' }).click();
@@ -95,6 +100,7 @@ test('Penjualan lists the day, opens a sale, and prints a copy marked SALINAN', 
   await page.getByLabel('Alasan').fill('Diminta pelanggan');
   await page.getByRole('button', { name: /Cetak Salinan/ }).click();
   await expect(page.getByRole('article', { name: 'Salinan faktur' })).toContainText('SALINAN');
+  await snapshot(page, 'kantor-penjualan-detail');
 });
 
 test('a back-office page says so when the account has no access', async ({ page }) => {

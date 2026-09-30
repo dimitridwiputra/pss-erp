@@ -1,18 +1,7 @@
 import type { ExperienceHomeView } from '@pss/contracts';
+import { screensFor } from '../navigation/work-screens';
 import { sourceReport } from './approval-view';
 import type { IdentityGrants, IdentityNavigation, IdentitySelf, SourceOutcome } from './sources';
-
-/**
- * MVP work screens, each shown only to someone holding its permission somewhere (the screen and
- * the API still check scope on every record). The POS screens answer FEATURE_DISABLED when the
- * demo switch is off (MVP-OD-5). Another stream adds its screen here once its route exists.
- */
-const workTileDefinitions = [
-  { key: 'kasir', label: 'Kasir', description: 'Buka shift dan layani pembeli di konter.', href: '/kasir', permission: 'pos.shift.open' },
-  { key: 'serah-barang', label: 'Serah Barang', description: 'Serahkan barang yang sudah dibayar di konter.', href: '/kasir', permission: 'fulfillment.pickup.handover' },
-  { key: 'penjualan', label: 'Penjualan Konter', description: 'Lihat transaksi kasir dan fakturnya.', href: '/kantor/penjualan', permission: 'pos.report.view' },
-  { key: 'setoran-kas', label: 'Setoran Kas', description: 'Hitung dan terima uang dari kasir.', href: '/kantor/setoran-kas', permission: 'payments.cash_custody.verify' },
-] as const;
 
 /** RBAC-003: consume the identity service's entitlement decision; do not rebuild it in UI. */
 export function buildHomeView(input: {
@@ -39,9 +28,11 @@ export function buildHomeView(input: {
     // Approval is the only F0 work surface ready for general navigation. F9 WMS and
     // F11 POS code existing locally does not make their release gates complete.
     primaryAction: canApprove ? { label: 'Buka persetujuan', href: '/persetujuan' } : null,
+    // The tiles are the permitted work screens (lib/navigation/work-screens.ts), the same list the
+    // app shell's sidebar reads.
     workTiles: input.grants.state === 'OK'
-      ? workTileDefinitions
-        .filter((tile) => input.grants.state === 'OK' && input.grants.data.grants.some((grant) => grant.permission === tile.permission))
+      ? screensFor(new Set(input.grants.data.grants.map((grant) => grant.permission)))
+        .filter((screen) => screen.tile !== false)
         .map(({ key, label, description, href }) => ({ key, label, description, href }))
       : [],
     sources,

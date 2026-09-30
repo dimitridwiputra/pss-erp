@@ -85,6 +85,7 @@ Back office (`CounterBackofficeController`, also behind the switch). Lists are s
 | `GET pos/reports/sales?from&to&shiftId&cashierUserId&page&pageSize`, `GET pos/reports/sales/:id` | `pos.report.view` at the sale's warehouse (POS-015) |
 | `POST pos/reports/sales/:id/copies` | `invoicing.invoice.print` at the sale's branch (BIL-001); always a SALINAN with a reason |
 | `GET pos/reports/summary?date` | `pos.report.view`; the cash figure covers the branches of the viewer's warehouses |
+| `GET pos/reports/sales-trend?to&days` | `pos.report.view`; paid sales per business date, 1–31 days, zero-filled, in the viewer's warehouses |
 | `GET payments/cash-handovers?status&page&pageSize`, `GET …/:id`, `POST …/:id/verify` | `payments.cash_custody.verify` at the handover's branch; SOD-06 and the reason rule (MVP-OD-9) in `payments` |
 
 ## Events produced and consumed

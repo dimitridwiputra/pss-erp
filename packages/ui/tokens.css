@@ -38,3 +38,73 @@
   --shadow-sm: 0 1px 2px rgba(17,24,39,.06);
   --shadow-md: 0 4px 12px rgba(17,24,39,.08);
 }
+
+/*
+ * Semantic layer. New CSS uses these, not the palette, so a theme is one remap. The shell and the
+ * screens built on it are written against them; older CSS still reads the palette, which the dark
+ * theme below also remaps.
+ */
+:root {
+  color-scheme: light;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-bg: var(--pss-cream-50);
+  --color-surface: var(--pss-white);
+  --color-surface-muted: var(--gray-50);
+  --color-surface-hover: var(--gray-100);
+  --color-border: var(--gray-200);
+  --color-border-strong: var(--gray-300);
+  --color-text: var(--gray-950);
+  --color-text-muted: var(--gray-600);
+  --color-text-subtle: var(--gray-500);
+  --color-heading: var(--pss-navy-950);
+  --color-link: var(--pss-navy-900);
+  --color-primary: var(--pss-navy-900);
+  --color-primary-hover: var(--pss-navy-950);
+  --color-accent: var(--pss-red-600);
+  --color-on-accent: #FFFFFF;
+  --color-focus: #2563EB;
+  --color-sidebar-bg: var(--pss-navy-950);
+  --color-sidebar-hover: rgba(255, 255, 255, .08);
+  --color-sidebar-text: #D7DEEC;
+  --color-sidebar-heading: #8EA0C2;
+  --color-sidebar-active-bg: rgba(255, 255, 255, .12);
+  --color-sidebar-active-bar: var(--pss-red-600);
+  --color-sidebar-positive: #BBF7D0;
+  --color-sidebar-caution: #FDE68A;
+  --shadow-lg: 0 16px 40px rgba(17, 24, 39, .16);
+}
+
+/* Dark: opt-in from the account menu (ThemeChoice), never forced by the device alone. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --pss-navy-900: #3151A6;
+  --pss-navy-950: #0A1633;
+  --pss-cream-50: #0B1120;
+  --pss-white: #121A2B;
+  --gray-950: #EEF2F8;
+  --gray-900: #E2E8F0;
+  --gray-700: #C8D1DE;
+  --gray-600: #A6B1C3;
+  --gray-500: #8793A7;
+  --gray-400: #5E6B80;
+  --gray-300: #364257;
+  --gray-200: #263045;
+  --gray-100: #1B2437;
+  --gray-50: #151E30;
+  --success-700: #4ADE80;
+  --success-100: #10301F;
+  --warning-700: #FACC15;
+  --warning-100: #332A0B;
+  --danger-700: #F87171;
+  --danger-100: #3A1418;
+  --info-700: #93B4FF;
+  --info-100: #14223F;
+  --color-heading: #E8EEFA;
+  --color-link: #A9BEFF;
+  --color-primary-hover: #3E61C0;
+  --color-sidebar-bg: #070E1F;
+  --color-focus: #7AA2FF;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, .45);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, .55);
+}

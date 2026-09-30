@@ -1,9 +1,9 @@
 'use client';
 
 import type { CashHandover, CashHandoverListResponse } from '@pss/contracts';
-import { EmptyState, LoadingState } from '@pss/ui';
+import { EmptyState, LoadingState, PageHeader, Panel } from '@pss/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, Wallet } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { BackofficeFrame, BackofficeProblem } from '../../kasir/components/backoffice-frame';
 import { MoneyField } from '../../kasir/components/money-field';
@@ -45,37 +45,52 @@ export function SetoranKasView() {
 
   return (
     <BackofficeFrame title="Setoran Kas">
-      <div className="pos-page-heading"><div><h1>Setoran Kas Konter</h1><p>Hitung uang dari kasir, lalu terima setorannya.</p></div></div>
+      <PageHeader eyebrow="Kas" title="Setoran Kas Konter" description="Hitung uang dari kasir, lalu terima setorannya. Selisih perlu alasan." />
       {done && (
-        <div className="pos-inline-success" role="status"><CheckCircle2 size={20} />
+        <div className="pss-notice-success" role="status"><CheckCircle2 size={20} aria-hidden="true" />
           Setoran {done.shift?.terminalName ?? ''} {rupiah(done.countedAmount ?? done.declaredAmount)} sudah diterima.
         </div>
       )}
-      <div className="pos-chips" role="tablist" aria-label="Keadaan setoran">
-        {tabs.map((item) => (
-          <button key={item.value} type="button" role="tab" aria-selected={tab === item.value} className={tab === item.value ? 'selected' : ''} onClick={() => setTab(item.value)}>{item.label}</button>
-        ))}
-      </div>
-      <section className="pos-card">
-        {list.isPending && <LoadingState label="Memuat setoran" />}
-        {list.isError && <BackofficeProblem error={list.error} onRetry={() => void list.refetch()} />}
+      <Panel flush title="Setoran dari kasir" description={list.data ? `${list.data.total} setoran` : undefined}
+        actions={(
+          <div className="pss-segmented" role="tablist" aria-label="Keadaan setoran">
+            {tabs.map((item) => (
+              <button key={item.value} type="button" role="tab" aria-selected={tab === item.value} className={tab === item.value ? 'active' : undefined} onClick={() => setTab(item.value)}>{item.label}</button>
+            ))}
+          </div>
+        )}>
+        {list.isPending && <div className="pss-panel-pad"><LoadingState label="Memuat setoran" /></div>}
+        {list.isError && <div className="pss-panel-pad"><BackofficeProblem error={list.error} onRetry={() => void list.refetch()} /></div>}
         {list.data && (list.data.items.length === 0
-          ? <EmptyState title={tab === 'DECLARED' ? 'Tidak ada setoran menunggu' : 'Belum ada setoran di sini'} description={tab === 'DECLARED' ? 'Semua uang dari kasir sudah dihitung.' : 'Setoran akan muncul di sini setelah dihitung.'} />
-          : list.data.items.map((item) => {
-            const state = handoverStatusLabel[item.status] ?? { label: 'Lainnya', tone: 'blue' as const };
-            return (
-              <button type="button" className="pos-action-row" key={item.id} disabled={item.status !== 'DECLARED'} onClick={() => setOpen(item)}>
-                <span className="pos-icon-box"><Wallet size={22} /></span>
-                <span>
-                  <strong>{item.shift?.terminalName ?? 'Konter'} · {item.collectorName ?? 'Kasir'}</strong>
-                  <small>{rupiah(item.declaredAmount)} tercatat · {item.paymentCount} transaksi · {jakartaDateTime(item.declaredAt)}</small>
-                  {item.varianceAmount && item.varianceAmount !== '0.00' && <small>Selisih {rupiah(item.varianceAmount)} · {reasonLabel(item.reasonCode) ?? 'tanpa alasan'}</small>}
-                </span>
-                <span className={`pos-status pos-status-${state.tone}`}>{state.label}</span>
-              </button>
-            );
-          }))}
-      </section>
+          ? <div className="pss-panel-pad"><EmptyState title={tab === 'DECLARED' ? 'Tidak ada setoran menunggu' : 'Belum ada setoran di sini'} description={tab === 'DECLARED' ? 'Semua uang dari kasir sudah dihitung.' : 'Setoran akan muncul di sini setelah dihitung.'} /></div>
+          : (
+            <div className="pss-table-scroll">
+              <table className="pss-data-table">
+                <thead><tr><th>Konter · Kasir</th><th>Diserahkan</th><th className="pss-number">Transaksi</th><th className="pss-number">Tercatat</th><th className="pss-number">Selisih</th><th>Keadaan</th></tr></thead>
+                <tbody>
+                  {list.data.items.map((item) => {
+                    const state = handoverStatusLabel[item.status] ?? { label: 'Lainnya', tone: 'blue' as const };
+                    const variance = item.varianceAmount && item.varianceAmount !== '0.00' ? item.varianceAmount : null;
+                    return (
+                      <tr key={item.id}>
+                        <td>
+                          {item.status === 'DECLARED'
+                            ? <button type="button" className="pss-link" onClick={() => setOpen(item)}>{item.shift?.terminalName ?? 'Konter'} · {item.collectorName ?? 'Kasir'} <ChevronRight size={16} aria-hidden="true" /></button>
+                            : <strong>{item.shift?.terminalName ?? 'Konter'} · {item.collectorName ?? 'Kasir'}</strong>}
+                        </td>
+                        <td className="pss-muted">{jakartaDateTime(item.declaredAt)}</td>
+                        <td className="pss-number">{item.paymentCount}</td>
+                        <td className="pss-number"><strong>{rupiah(item.declaredAmount)}</strong></td>
+                        <td className="pss-number">{variance ? <span className={variance.startsWith('-') ? 'pss-negative' : undefined}>{rupiah(variance)}<small>{reasonLabel(item.reasonCode) ?? 'tanpa alasan'}</small></span> : '—'}</td>
+                        <td><span className={`pos-status pos-status-${state.tone}`}>{state.label}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ))}
+      </Panel>
     </BackofficeFrame>
   );
 }
@@ -92,35 +107,42 @@ function Verify({ handover, onBack, onVerified }: { handover: CashHandover; onBa
 
   const closeVariance = handover.shift?.closeVariance;
   return (
-    <div className="pos-kasir-narrow">
-      <button className="pos-outline" type="button" onClick={onBack}><ArrowLeft size={18} /> Kembali ke Daftar</button>
-      <section className="pos-card" aria-labelledby="verify-title">
-        <h2 id="verify-title">Hitung Setoran</h2>
-        <p className="pos-instruction">{handover.collectorName ?? 'Kasir'} menyerahkan uang penjualan {handover.shift?.terminalName ?? 'konter'}.</p>
-        <dl className="pos-definition">
-          <div><dt>Tercatat di sistem</dt><dd><strong>{rupiah(handover.declaredAmount)}</strong></dd></div>
-          <div><dt>Jumlah transaksi tunai</dt><dd>{handover.paymentCount}</dd></div>
-          {closeVariance && closeVariance !== '0.00' && handover.shift?.countedCash && (
-            <div><dt>Hitungan kasir saat tutup shift</dt><dd>{rupiah(difference(handover.shift.countedCash, handover.shift.openingFloat))} ({closeVariance.startsWith('-') ? 'kurang' : 'lebih'} {rupiah(closeVariance.replace(/^-/, ''))})</dd></div>
-          )}
-        </dl>
-        <MoneyField label="Uang yang Anda hitung" value={counted} onChange={(value) => { setCounted(value); setReasonCode(null); }} autoFocus />
-        {differs && variance && (
-          <fieldset className="pos-field">
-            <legend>Uang {variance.startsWith('-') ? 'kurang' : 'lebih'} {rupiah(variance.replace(/^-/, ''))} dari yang tercatat. Kenapa?</legend>
-            <div className="pos-methods">
-              {cashVarianceReasons.map((reason) => (
-                <button key={reason.code} type="button" aria-pressed={reasonCode === reason.code} className={reasonCode === reason.code ? 'selected' : ''} onClick={() => setReasonCode(reason.code)}>{reason.label}</button>
-              ))}
-            </div>
-          </fieldset>
-        )}
-        <ProblemNotice error={verify.error} />
-        <button className="pos-primary" type="button" disabled={counted === '' || (differs && !reasonCode) || verify.isPending}
-          onClick={() => verify.mutate(differs && reasonCode ? { countedAmount: counted, reasonCode } : { countedAmount: counted })}>
-          {verify.isPending ? 'Sedang memproses…' : `Terima Setoran ${counted === '' ? '' : rupiah(counted)}`}
-        </button>
-      </section>
-    </div>
+    <>
+      <PageHeader eyebrow="Setoran Kas" title="Hitung Setoran"
+        description={`${handover.collectorName ?? 'Kasir'} menyerahkan uang penjualan ${handover.shift?.terminalName ?? 'konter'}.`}
+        actions={<button className="pss-button pss-button-secondary" type="button" onClick={onBack}><ArrowLeft size={18} aria-hidden="true" /> Kembali ke Daftar</button>} />
+      <div className="pss-detail-grid">
+        <Panel title="Yang tercatat">
+          <dl className="pss-facts">
+            <div><dt>Tercatat di sistem</dt><dd><strong className="pss-big">{rupiah(handover.declaredAmount)}</strong></dd></div>
+            <div><dt>Jumlah transaksi tunai</dt><dd>{handover.paymentCount}</dd></div>
+            <div><dt>Diserahkan</dt><dd>{jakartaDateTime(handover.declaredAt)}</dd></div>
+            {closeVariance && closeVariance !== '0.00' && handover.shift?.countedCash && (
+              <div><dt>Hitungan kasir saat tutup shift</dt><dd>{rupiah(difference(handover.shift.countedCash, handover.shift.openingFloat))} ({closeVariance.startsWith('-') ? 'kurang' : 'lebih'} {rupiah(closeVariance.replace(/^-/, ''))})</dd></div>
+            )}
+          </dl>
+        </Panel>
+        <Panel title="Hitungan Anda" description="Hitung uang fisik yang Anda terima, lalu masukkan jumlahnya.">
+          <div className="pos-kasir pss-count-form">
+            <MoneyField label="Uang yang Anda hitung" value={counted} onChange={(value) => { setCounted(value); setReasonCode(null); }} autoFocus />
+            {differs && variance && (
+              <fieldset className="pos-field">
+                <legend>Uang {variance.startsWith('-') ? 'kurang' : 'lebih'} {rupiah(variance.replace(/^-/, ''))} dari yang tercatat. Kenapa?</legend>
+                <div className="pos-methods">
+                  {cashVarianceReasons.map((reason) => (
+                    <button key={reason.code} type="button" aria-pressed={reasonCode === reason.code} className={reasonCode === reason.code ? 'selected' : ''} onClick={() => setReasonCode(reason.code)}>{reason.label}</button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+            <ProblemNotice error={verify.error} />
+            <button className="pss-button pss-button-primary pss-full pss-tall" type="button" disabled={counted === '' || (differs && !reasonCode) || verify.isPending}
+              onClick={() => verify.mutate(differs && reasonCode ? { countedAmount: counted, reasonCode } : { countedAmount: counted })}>
+              {verify.isPending ? 'Sedang memproses…' : `Terima Setoran ${counted === '' ? '' : rupiah(counted)}`}
+            </button>
+          </div>
+        </Panel>
+      </div>
+    </>
   );
 }

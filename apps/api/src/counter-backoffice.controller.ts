@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import {
   CashHandoverListQuerySchema, CashHandoverListResponseSchema, CashHandoverSchema, DomainError,
-  PosDashboardSummaryQuerySchema, PosDashboardSummaryResponseSchema, PosInvoiceCopyResponseSchema, PosSalesListQuerySchema,
+  PosDashboardSummaryQuerySchema, PosSalesTrendQuerySchema, PosSalesTrendResponseSchema, PosDashboardSummaryResponseSchema, PosInvoiceCopyResponseSchema, PosSalesListQuerySchema,
   PosSalesListResponseSchema, PosSalesReportDetailSchema, PrintPosInvoiceCopyRequestSchema, VerifyCashHandoverRequestSchema,
   type CashHandover, type CurrentUserResponse, type PrintPosInvoiceCopyRequest, type VerifyCashHandoverRequest,
 } from '@pss/contracts';
@@ -12,7 +12,7 @@ import {
   getCashCustodyRecord, getUndepositedPosCash, listCashCustodyRecords, verifyCashCustody, type CashCustodyRecordView,
 } from '@pss/payments';
 import {
-  getBranchesOfWarehouses, getPosSale, getPosSaleScope, getPosSalesListItem, getPosSalesSummary, getPosShiftSummaries, listPosSales, printPosReceipt,
+  getBranchesOfWarehouses, getPosSale, getPosSaleScope, getPosSalesListItem, getPosSalesSummary, getPosSalesTrend, getPosShiftSummaries, listPosSales, printPosReceipt,
 } from '@pss/pos';
 import { Pool } from 'pg';
 import { createApiPool } from './database-pool';
@@ -130,6 +130,16 @@ export class CounterBackofficeService implements OnModuleDestroy {
     });
   }
 
+  async salesTrend(context: CommandContext, rawQuery: unknown) {
+    requireHeldPermission(context, SALES_REPORT);
+    const query = parseQuery(PosSalesTrendQuerySchema, { to: jakartaBusinessDate(), ...(rawQuery as object) });
+    const scope = scopeIdsFor(context.assignments, context.user.organizationId, SALES_REPORT, 'WAREHOUSE');
+    const points = await getPosSalesTrend(this.requirePool(), {
+      organizationId: context.user.organizationId, warehouseIds: scope.ids, allWarehouses: scope.all, to: query.to, days: query.days,
+    });
+    return PosSalesTrendResponseSchema.parse({ points });
+  }
+
   private async toHandovers(context: CommandContext, records: CashCustodyRecordView[]): Promise<CashHandover[]> {
     const shifts = await getPosShiftSummaries(this.requirePool(), records.map((record) => record.sourceId).filter((id): id is string => id !== null));
     const names = await this.names(context, records.flatMap((record) => [record.collectorId, record.verifiedBy]));
@@ -220,6 +230,11 @@ export class CounterBackofficeController {
   @Get('pos/reports/summary')
   async dashboardSummary(@Req() request: ApiRequest, @Query() query: Record<string, string>) {
     return this.backoffice.dashboardSummary(await this.currentUser(request), query);
+  }
+
+  @Get('pos/reports/sales-trend')
+  async salesTrend(@Req() request: ApiRequest, @Query() query: Record<string, string>) {
+    return this.backoffice.salesTrend(await this.currentUser(request), query);
   }
 
   @Get('payments/cash-handovers')

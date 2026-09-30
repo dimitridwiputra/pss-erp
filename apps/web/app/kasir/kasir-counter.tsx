@@ -178,13 +178,28 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
 
   const lines = sale?.lines ?? [];
   const busy = addLine.isPending || setQty.isPending || removeLine.isPending || checkout.isPending;
+  const canPay = Boolean(sale) && lines.length > 0 && !busy && online;
+
+  // Counter shortcuts: F2 scan field, F4 katalog search, F9 pay. The scanner types into the focused field.
+  const pay = useRef<() => void>(() => undefined);
+  pay.current = () => { if (canPay && sale) checkout.mutate({ saleId: sale.id }); };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'F2') { event.preventDefault(); scanRef.current?.focus(); }
+      if (event.key === 'F4') { event.preventDefault(); document.querySelector<HTMLInputElement>('input[aria-label="Cari produk"]')?.focus(); }
+      if (event.key === 'F9') { event.preventDefault(); pay.current(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
-    <div className="pos-two-col pos-order-layout">
-      <section className="pos-card" aria-labelledby="scan-title">
+    <div className="pos-two-col pos-order-layout pos-counter">
+      <section className="pos-card pos-counter-work" aria-labelledby="scan-title">
         <div className="pos-card-title"><h2 id="scan-title">Scan Barang</h2>
           <button className="pos-outline" type="button" onClick={onCloseShift} disabled={lines.length > 0}>Tutup Shift</button>
         </div>
+        <p className="pos-shortcuts" aria-hidden="true"><kbd>F2</kbd> Scan <kbd>F4</kbd> Cari produk <kbd>F9</kbd> Bayar</p>
         <form className="pos-toolbar" onSubmit={(event) => { event.preventDefault(); if (barcode.trim()) scan(barcode.trim()); }}>
           <label className="pos-search pos-scan-field"><ScanLine size={22} />
             <input ref={scanRef} aria-label="Scan barang" value={barcode} onChange={(event) => setBarcode(event.target.value)}
@@ -208,7 +223,7 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
       </section>
 
       <section className="pos-card pos-cart" aria-labelledby="cart-title">
-        <div className="pos-card-title"><h2 id="cart-title">Keranjang</h2><span className="pos-muted">{shift.terminalName}</span></div>
+        <div className="pos-card-title"><h2 id="cart-title">Keranjang</h2><span className="pos-cart-count">{lines.length} barang</span></div>
         {lines.length === 0
           ? <div className="pos-empty"><ShoppingCart size={28} /><p>Keranjang masih kosong. Scan barang untuk memulai.</p></div>
           : lines.map((line) => (
@@ -229,9 +244,9 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
           ))}
         <ProblemNotice error={setQty.error ?? removeLine.error ?? checkout.error} />
         <div className="pos-total pos-total-final"><span>Total</span><strong>{rupiah(sale?.total ?? '0')}</strong></div>
-        <button className="pos-primary" type="button" disabled={!sale || lines.length === 0 || busy || !online}
-          onClick={() => sale && checkout.mutate({ saleId: sale.id })}>
-          {checkout.isPending ? 'Sedang memproses…' : <>Bayar <ArrowRight size={18} /></>}
+        <button className="pos-primary pos-pay" type="button" disabled={!canPay}
+          onClick={() => pay.current()}>
+          {checkout.isPending ? 'Sedang memproses…' : <>Bayar <ArrowRight size={18} /><kbd aria-hidden="true">F9</kbd></>}
         </button>
       </section>
     </div>

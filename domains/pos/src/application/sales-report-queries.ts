@@ -81,6 +81,30 @@ export async function getPosSalesListItem(executor: Queryable, saleId: string): 
 }
 
 /** Today's counter sales for the dashboard: sales paid on `businessDate`, whether or not the goods were collected yet. */
+/** Paid sales per Asia/Jakarta business date over `days` dates ending at `to`, zero-filled. */
+export async function getPosSalesTrend(executor: Queryable, input: {
+  organizationId: string; warehouseIds: readonly string[]; allWarehouses: boolean; to: string; days: number;
+}): Promise<Array<{ businessDate: string; salesTotal: string; saleCount: number }>> {
+  const params: unknown[] = [input.organizationId, input.to, input.days];
+  const warehouseClause = input.allWarehouses ? '' : ` AND t.warehouse_id = ANY($${params.push(input.warehouseIds)}::uuid[])`;
+  const result = await executor.query<{ business_date: string; sales_total: string; sale_count: number }>(
+    `WITH days AS (
+       SELECT generate_series($2::date - ($3::int - 1), $2::date, interval '1 day')::date AS business_date
+     ), paid AS (
+       SELECT (sale.paid_at AT TIME ZONE 'Asia/Jakarta')::date AS business_date, sale.total
+       FROM pos.pos_sale sale JOIN pos.pos_terminal t ON t.id = sale.terminal_id
+       WHERE sale.organization_id = $1 AND sale.status IN ('PAID', 'HANDED_OVER')
+         AND (sale.paid_at AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $2::date - ($3::int - 1) AND $2::date${warehouseClause}
+     )
+     SELECT to_char(days.business_date, 'YYYY-MM-DD') AS business_date,
+            COALESCE(SUM(paid.total), 0)::numeric(18,2)::text AS sales_total, count(paid.total)::int AS sale_count
+     FROM days LEFT JOIN paid ON paid.business_date = days.business_date
+     GROUP BY days.business_date ORDER BY days.business_date`,
+    params,
+  );
+  return result.rows.map((row) => ({ businessDate: row.business_date, salesTotal: row.sales_total, saleCount: row.sale_count }));
+}
+
 export async function getPosSalesSummary(executor: Queryable, input: {
   organizationId: string; warehouseIds: readonly string[]; allWarehouses: boolean; businessDate: string;
 }): Promise<{ salesTotal: string; saleCount: number }> {
