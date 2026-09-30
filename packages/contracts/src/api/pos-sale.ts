@@ -10,13 +10,14 @@ export const CreatePosSaleRequestSchema = z.strictObject({ shiftId: z.uuid() });
 export type CreatePosSaleRequest = z.infer<typeof CreatePosSaleRequestSchema>;
 
 /**
- * POST /pos/sales/{id}/lines. The product is resolved on the server from the barcode; the client
- * never supplies a product name, SKU or price.
+ * POST /pos/sales/{id}/lines — a scanned barcode, or a katalog pick of one product in one of its
+ * units (MVP-OD-10). The product is resolved on the server either way; the client never supplies a
+ * product name, SKU or price.
  */
-export const AddPosSaleLineRequestSchema = z.strictObject({
-  barcode: z.string().trim().min(1).max(64),
-  qty: CounterQuantitySchema.optional(),
-});
+export const AddPosSaleLineRequestSchema = z.union([
+  z.strictObject({ barcode: z.string().trim().min(1).max(64), qty: CounterQuantitySchema.optional() }),
+  z.strictObject({ productId: z.uuid(), uom: z.string().trim().min(1).max(16), qty: CounterQuantitySchema.optional() }),
+]);
 export type AddPosSaleLineRequest = z.infer<typeof AddPosSaleLineRequestSchema>;
 
 /** PATCH /pos/sales/{id}/lines/{lineId} */

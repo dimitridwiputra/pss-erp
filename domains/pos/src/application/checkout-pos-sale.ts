@@ -27,8 +27,10 @@ interface LineRow { product_id: string; uom: string; qty: string; unit_price: st
  * Inventory keeps one reservation per sale and product, and the invoice matches delivered lines by
  * product and unit, so a cart reaching checkout must hold each product once. Scanning merges
  * repeats; a product still on two lines is either a price that changed between scans
- * (REPRICE_REQUIRED, POS-003.AC04) or two units of one product, which inventory cannot reserve
- * separately yet (MVP_PLAN §10, MVP-OD-12).
+ * (REPRICE_REQUIRED, POS-003.AC04) or two units of one product. Inventory now keys a reservation
+ * by unit, but a stock balance is still counted in one unit with no conversion, so a PCS line would
+ * reserve against a KARTON balance one for one. That cart stays refused until inventory converts
+ * or refuses a unit other than the balance's (MVP_PLAN §10, MVP-OD-12).
  */
 function assertOneLinePerProduct(lines: readonly LineRow[]): void {
   const seen = new Map<string, LineRow>();

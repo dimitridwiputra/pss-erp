@@ -46,3 +46,12 @@ export const KasirKatalogItemSchema = z.strictObject({
 });
 export const KasirKatalogResponseSchema = z.strictObject({ items: z.array(KasirKatalogItemSchema) });
 export type KasirKatalogResponse = z.infer<typeof KasirKatalogResponseSchema>;
+
+/** GET /kasir/products/{productId}/units — the units a katalog pick can add, each with its counter price. */
+export const KasirProductUnitsResponseSchema = z.strictObject({
+  productId: z.uuid(),
+  sku: z.string(),
+  name: z.string(),
+  units: z.array(z.strictObject({ uom: z.string(), unitPrice: MoneyAmountSchema })),
+});
+export type KasirProductUnitsResponse = z.infer<typeof KasirProductUnitsResponseSchema>;

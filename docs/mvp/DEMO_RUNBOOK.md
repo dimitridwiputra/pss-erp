@@ -126,7 +126,8 @@ MVP_PLAN §9: no QRIS, transfer, credit (tempo) sales, returns, purchase orders 
 From stream A:
 - The receipt carries the invoice number. `KSR-{CAB}-…` receipt numbering waits for the numbering template (GAP-16), and the branch code in the number is a placeholder derived from the branch id.
 - PPN is 0 on every invoice until PKP status and rate are decided (MVP-OD-3).
-- The catalog search lists products, but adding one is by barcode until master-data offers a product-by-id query (MVP-OD-10).
+- Only units with a counter price can be sold. The demo prices each product in one unit, so the katalog offers one unit per product.
+- One product in two units (KARTON and PCS) can't be paid in one sale yet (MVP-OD-12). The counter says so and asks to split the sale.
 - A handover counted differently without a reason stays "Perlu keputusan selisih": the CSH-002 approval is not built (MVP-OD-9).
 - No customer selection, order list or returns on the counter.
 - Offline mode is not in the demo. The counter says so when the connection drops.

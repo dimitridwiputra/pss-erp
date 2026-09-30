@@ -23,7 +23,7 @@ Every command has the signature `(pool, client | undefined, input)` and runs thr
   - POS-000.R08 (one OPEN shift per terminal and per cashier) is enforced by two partial unique indexes and surfaces as `POS_SHIFT_ALREADY_OPEN`.
   - Close computes expected cash on the server: `opening_float + Σ ACCEPTED TUNAI tender.amount`, already net of change (POS-006.BR01).
   - Any variance needs a registered `RC-POS-*` reason code. No close tolerance is configured, so the default is 0 and it fails closed.
-- `createPosSale`, `addPosSaleLine`, `updatePosSaleLine`, `removePosSaleLine` (POS-003): cart building on an OPEN shift. `createPosSale` takes only the shift. The terminal and organization come from the shift, so a sale can't be attached to another terminal's shift. `addPosSaleLine` resolves the product from a scanned barcode (`@pss/master-data` `findProductByBarcode`) and its price (`@pss/commercial` `resolvePrice`), then snapshots both onto the line (POS-003.BR02). It no longer accepts a caller-supplied product id, SKU or name (see MVP-OD-10).
+- `createPosSale`, `addPosSaleLine`, `updatePosSaleLine`, `removePosSaleLine` (POS-003): cart building on an OPEN shift. `createPosSale` takes only the shift. The terminal and organization come from the shift, so a sale can't be attached to another terminal's shift. `addPosSaleLine` resolves the product from a scanned barcode (`@pss/master-data` `findProductByBarcode`) and its price (`@pss/commercial` `resolvePrice`), then snapshots both onto the line (POS-003.BR02). A katalog pick sends a product id and one of its units instead of a barcode; the unit is checked against `@pss/master-data` `getProductSaleUnits` (MVP-OD-10), and a unit the product doesn't have is `NOT_FOUND`. The name, SKU and price are never taken from the caller.
 - `selectPosCustomer` / `quickRegisterPosCustomer` (POS-004): implemented and audited, but not exposed by the MVP API, because the customer menu is hidden.
 - `checkoutPosSale` (POS-005): the checkout saga, all in one transaction.
   1. Lock the sale and require an OPEN shift. With no customer selected, default to the branch's walk-in customer.
@@ -70,7 +70,7 @@ Each route resolves the caller, resolves every supplied id through a scope query
 | `POST pos/shifts` | `pos.shift.open` |
 | `POST pos/shifts/:id/close` | `pos.shift.close`, own shift |
 | `POST pos/shifts/:id/cash-handover` | `payments.cash_handover.declare`, own shift |
-| `GET kasir/shift-saya`, `GET kasir/products?q=`, `GET kasir/scan/:barcode` | `pos.shift.open` / `pos.sale.create` held |
+| `GET kasir/shift-saya`, `GET kasir/products?q=`, `GET kasir/products/:productId/units`, `GET kasir/scan/:barcode` | `pos.shift.open` / `pos.sale.create` held |
 | `POST pos/sales`, `POST/PATCH/DELETE pos/sales/:id/lines[/:lineId]` | `pos.sale.create`, own shift |
 | `GET pos/sales/:id` | own sale with `pos.sale.create`, or `fulfillment.pickup.handover` at the warehouse |
 | `POST pos/sales/:id/checkout` | `pos.sale.checkout`, own shift |
@@ -116,7 +116,7 @@ Migration `0001_pos.sql` creates schema `pos`, owned solely by this domain per `
 
 ## Open decisions
 
-- MVP-OD-10: katalog pick needs a master-data "product by id with sellable units" query. Until then the katalog lists matches and adding is by barcode.
+- MVP-OD-12: one product in two units in one sale stays refused at checkout. Inventory's reservation key now includes the unit, but the stock balance is counted in one unit without conversion.
 - POS-000.R07 (warehouse MANAGED before a terminal opens) is a no-op stub pending `organization`/`principal-policy`.
 - `checkoutPosSale`'s invoice `branchCode` is derived from the branch UUID as a placeholder, since `organization` doesn't exist yet.
 - Receipt numbering `KSR-…` awaits GAP-16. The receipt shows the invoice number.
