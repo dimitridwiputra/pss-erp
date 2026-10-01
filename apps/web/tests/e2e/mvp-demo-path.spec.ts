@@ -132,19 +132,22 @@ test('admin.demo sets up a new product, prices it, and receives it with a cost',
   await expect(row).toContainText('82.000');
   await expect(row).toContainText('984.000');
 
-  // The dashboard: the tiles that have a source carry numbers, and the one that does not yet says so
-  // in words rather than showing a zero (MVP-OD-31).
+  // The dashboard: every tile this viewer may see carries its number, and the one they may not see is
+  // absent rather than blank (MVP-OD-10).
   await page.getByRole('link', { name: 'Dasbor Harian' }).click();
   const card = (label: string) => page.locator('.pss-kpi-card').filter({ hasText: label });
   await expect(card('Penjualan hari ini')).toContainText('Rp', { timeout: 20_000 });
   await expect(card('Kas konter belum dihitung')).toContainText('Rp');
   await expect(card('Nilai stok gudang')).toContainText('Rp');
-  // The gross-profit tile has no source yet and says so in words. It must never render Rp 0, which
-  // would read as "no profit" (MVP-OD-31). Which words it uses depends on whether the accounting
-  // service is running at all, so the step asserts the property, not the wording: a reason, and no
-  // rupiah amount.
-  await expect(card('Laba kotor hari ini')).not.toContainText('Rp');
-  await expect(card('Laba kotor hari ini')).toContainText(/belum tersedia|Keuangan/);
+  // The gross-profit tile is not on the screen at all. `admin.demo` holds no Control Station
+  // permission, so organisation profit is not theirs to see, and a card with an explanation would turn
+  // a permission into something an operator has to read about (MVP-OD-10, ADR-0015). Asserted by its
+  // absence: an empty card would still leave the label behind.
+  await expect(card('Laba kotor hari ini')).toHaveCount(0);
+  await expect(card('Laba kotor bulan ini')).toHaveCount(0);
+  // The tiles that remain all carry their numbers, so hiding one did not cost the morning its figures.
+  await expect(card('Penjualan hari ini')).toContainText('Rp');
+  await expect(card('Nilai stok gudang')).toContainText('Rp');
   // The threshold travels with the low-stock count, so the number is never a mystery (MVP-OD-17).
   await expect(page.getByRole('region', { name: 'Perlu diisi ulang' })).toContainText('di bawah 10 per satuan');
 

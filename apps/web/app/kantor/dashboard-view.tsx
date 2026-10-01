@@ -60,7 +60,17 @@ export function DashboardView() {
               {(sales) => rupiah(sales.undepositedCash)}
             </Tile>
             <Tile state={data.grossProfit} icon={<TrendingUp />} tone="info" label="Laba kotor hari ini">
-              {(profit) => rupiah(profit.today)}
+              {(profit) => (
+                <>
+                  {rupiah(profit.today)}
+                  {/* Finance's own margin, shown as it was published. It is absent rather than zero
+                      when Finance withholds it, so it reads as absent here too. */}
+                  {profit.todayMarginPercent === null ? null : <small> &middot; margin {percent(profit.todayMarginPercent)}</small>}
+                </>
+              )}
+            </Tile>
+            <Tile state={data.grossProfit} icon={<TrendingUp />} tone="success" label="Laba kotor bulan ini">
+              {(profit) => rupiah(profit.monthToDate)}
             </Tile>
             <Tile state={data.stockValue} icon={<Boxes />} tone="info" label="Nilai stok gudang">
               {(value) => (value.totalValue === null ? 'Belum dapat dihitung' : rupiah(value.totalValue))}
@@ -83,8 +93,8 @@ export function DashboardView() {
                   <Link className="pss-button pss-button-secondary" href="/kantor/terima">Terima barang</Link>
                 </div>
               </div>
-              {data.lowStock.state === 'UNAVAILABLE' ? (
-                <p>{data.lowStock.reason}</p>
+              {data.lowStock.state !== 'OK' ? (
+                <p>{data.lowStock.state === 'HIDDEN' ? 'Anda tidak punya hak untuk melihat stok yang menipis.' : data.lowStock.reason}</p>
               ) : data.lowStock.data.items.length === 0 ? (
                 <p>Tidak ada barang di bawah batas minimum hari ini.</p>
               ) : (
@@ -117,9 +127,15 @@ export function DashboardView() {
   );
 }
 
+/** A published percentage in the operator's format. The string is Finance's; only the separators are added here. */
+function percent(value: string): string {
+  return `${new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value))}%`;
+}
+
 /**
  * One tile. `state` decides everything it shows, so a tile can never render a blank as though it were
- * a zero: unavailable is its own state, with a registered code behind it and a reason in words.
+ * a zero: unavailable is its own state, with a registered code behind it and a reason in words, and a
+ * hidden tile — one the viewer holds no permission for — is not rendered at all.
  */
 function Tile<T>({ state, icon, tone, label, children }: {
   state: DashboardTile<T>;
@@ -128,6 +144,11 @@ function Tile<T>({ state, icon, tone, label, children }: {
   label: string;
   children: (data: T) => ReactNode;
 }) {
+  if (state.state === 'HIDDEN') {
+    // Nothing at all. An empty card with a reason would advertise a figure the viewer may not see and
+    // turn a permission into an error (MVP-OD-10).
+    return null;
+  }
   if (state.state === 'UNAVAILABLE') {
     // The error state shows a dash for the value and the reason underneath, so nothing here passes a
     // value: the reason is the whole message, and it says who owes the number.

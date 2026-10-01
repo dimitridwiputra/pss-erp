@@ -43,7 +43,28 @@ const grants = {
   grants: [
     { permission: 'pos.report.view', scopeType: 'WAREHOUSE' as const, scopeId: WAREHOUSE_ID },
     { permission: 'master_data.product.manage', scopeType: 'ORGANIZATION' as const, scopeId: null },
+    // MVP-OD-10 / ADR-0015. Held at ORGANIZATION scope, as the Control Station roles receive it.
+    { permission: 'control_station.gross_profit_summary.view', scopeType: 'ORGANIZATION' as const, scopeId: null },
   ],
+};
+
+/** Finance's published gross-profit answer, shaped exactly as `FinanceGrossProfitSummarySchema` requires. */
+const financeGrossProfit = {
+  businessDate: BUSINESS_DATE,
+  scope: 'ORGANIZATION',
+  branchId: null,
+  today: { from: BUSINESS_DATE, to: BUSINESS_DATE, netSales: '236000.00', cogs: '190000.00', grossProfit: '46000.00', grossMarginPercent: '19.49' },
+  monthToDate: { from: '2026-09-01', to: BUSINESS_DATE, netSales: '612000.00', cogs: '492000.00', grossProfit: '120000.00', grossMarginPercent: '19.61' },
+  previousDay: { from: '2026-09-29', to: '2026-09-29', netSales: '0.00', cogs: '0.00', grossProfit: '0.00', grossMarginPercent: null },
+  previousComparableMonthToDate: { from: '2026-08-01', to: '2026-08-30', netSales: '540000.00', cogs: '441000.00', grossProfit: '99000.00', grossMarginPercent: '18.33' },
+};
+
+const profitPath = `/finance/gross-profit-summary?businessDate=${BUSINESS_DATE}`;
+
+/** `grants` without the Control Station permission — what every operational demo role actually holds. */
+const operationalGrants = {
+  userId: USER_ID,
+  grants: grants.grants.filter((grant) => grant.permission !== 'control_station.gross_profit_summary.view'),
 };
 
 const posSummary = {
@@ -102,8 +123,8 @@ const happyCore = {
 
 describe('kantor dashboard: composition', () => {
   it('reports every tile from the owning domain, and computes nothing itself', async () => {
-    const { transports, coreReads } = transportsOf(happyCore, {
-      [`/finance/summary/daily?date=${BUSINESS_DATE}`]: () => json({ today: '46000.00', monthToDate: '120000.00' }),
+    const { transports, coreReads, financeReads } = transportsOf(happyCore, {
+      [profitPath]: () => json(financeGrossProfit),
     });
 
     const dashboard = await resolveKantorDashboard({ accessToken: 'token', businessDate: BUSINESS_DATE, transports });
@@ -116,7 +137,15 @@ describe('kantor dashboard: composition', () => {
       data: { salesTotal: '236000.00', saleCount: 2, undepositedCash: '236000.00', undepositedPaymentCount: 1 },
     });
     expect(dashboard.stockValue).toEqual({ state: 'OK', data: { totalValue: '40732000.00', unvaluedCount: 0, balanceCount: 1 } });
-    expect(dashboard.grossProfit).toEqual({ state: 'OK', data: { today: '46000.00', monthToDate: '120000.00' } });
+    // The tile shows Finance's own figures, in the places it put them: today's gross profit, the
+    // month-to-date gross profit, and the margin percentage Finance published. The dashboard does not
+    // divide net sales by anything to produce that margin (MVP-OD-4).
+    expect(dashboard.grossProfit).toEqual({
+      state: 'OK', data: { today: '46000.00', monthToDate: '120000.00', todayMarginPercent: '19.49' },
+    });
+    // No branch is chosen here: Finance scopes the read from the caller's own grant, so the BFF sends
+    // the date alone.
+    expect(financeReads.map((read) => read.path)).toEqual([profitPath]);
     // The threshold the low-stock tile was built with travels with the answer, so the screen can show
     // the number it used rather than an unexplained list (MVP-OD-17).
     expect(dashboard.lowStock).toMatchObject({ state: 'OK', data: { threshold: '10', total: 1 } });
@@ -145,33 +174,68 @@ describe('kantor dashboard: composition', () => {
     }
   });
 
-  it('reports the gross-profit tile as unavailable while the accounting read does not exist (MVP-OD-31)', async () => {
-    const { transports } = transportsOf(happyCore, {
-      [`/finance/summary/daily?date=${BUSINESS_DATE}`]: () => refusal('NOT_FOUND', 404)(),
+  it('hides the gross-profit tile from a viewer without the permission, without asking Finance (MVP-OD-10)', async () => {
+    // `admin.demo` holds no Control Station permission, and organisation-wide profit is not theirs to
+    // see. The tile is absent, not an error: there is no dash, no reason, and no read issued, because
+    // a refused read that never happens cannot leak the figure and cannot make the screen look broken.
+    const { transports, financeReads } = transportsOf({
+      ...happyCore,
+      '/me/permissions': () => json(operationalGrants),
     });
 
     const dashboard = await resolveKantorDashboard({ accessToken: 'token', businessDate: BUSINESS_DATE, transports });
 
-    // The tile is present and says so. It is never rendered as Rp 0, which would read as "no profit".
-    expect(dashboard.grossProfit).toMatchObject({ state: 'UNAVAILABLE', problemCode: 'NOT_FOUND' });
+    expect(dashboard.grossProfit).toEqual({ state: 'HIDDEN' });
+    expect(financeReads).toHaveLength(0);
+    // The rest of the morning still stands: one hidden tile is not a blank dashboard.
     expect(dashboard.sales.state).toBe('OK');
+    expect(dashboard.stockValue.state).toBe('OK');
   });
 
-  it('names the missing source when the accounting read cannot be reached at all', async () => {
-    // The finance API is not running: a transport fault, not a refusal. "Sedang tidak dapat dimuat"
-    // would be the wrong sentence for a read that has not been written yet, so the tile says who owes
-    // it instead — and the registered code is still the honest DEPENDENCY_UNAVAILABLE.
+  it('still asks Finance when the caller’s own grants could not be read', async () => {
+    // An unreadable permission list means *unknown*, not *denied*. Hiding the tile on a transport fault
+    // would take a figure away from a viewer who is entitled to it, so the read is attempted and the
+    // owning domain — which resolves the caller itself — is the one that refuses it if need be.
+    const { transports, financeReads } = transportsOf({
+      ...happyCore,
+      '/me/permissions': () => refusal('DEPENDENCY_UNAVAILABLE', 503)(),
+    });
+
+    const dashboard = await resolveKantorDashboard({ accessToken: 'token', businessDate: BUSINESS_DATE, transports });
+
+    expect(financeReads.map((read) => read.path)).toEqual([profitPath]);
+    expect(dashboard.grossProfit.state).not.toBe('HIDDEN');
+  });
+
+  it('reports the gross-profit tile as unavailable when the Finance service is down, never as Rp 0', async () => {
+    // The read exists now (MVP-OD-31 answered), so a failure really is transient: the tile says so in
+    // the transient wording, and the registered code is the honest DEPENDENCY_UNAVAILABLE.
     const { transports } = transportsOf(happyCore);
 
     const dashboard = await resolveKantorDashboard({ accessToken: 'token', businessDate: BUSINESS_DATE, transports });
 
     expect(dashboard.grossProfit).toMatchObject({ state: 'UNAVAILABLE', problemCode: 'DEPENDENCY_UNAVAILABLE' });
     if (dashboard.grossProfit.state === 'UNAVAILABLE') {
-      expect(dashboard.grossProfit.reason).toContain('Keuangan');
-      expect(dashboard.grossProfit.reason).not.toContain('Muat ulang');
+      expect(dashboard.grossProfit.reason).toContain('laba kotor');
+      expect(dashboard.grossProfit.reason).toContain('Muat ulang');
     }
-    // And the reason a *transient* source gets is still the transient one.
-    expect(dashboard.stockValue).toMatchObject({ state: 'OK' });
+    expect(dashboard.sales.state).toBe('OK');
+  });
+
+  it('explains a refusal from Finance in words, when the grant list said the read was allowed', async () => {
+    // The permission was held when the tile was decided and Finance still refused — a narrower branch
+    // scope, most likely. The operator gets the reason, and the code stays the domain's.
+    const { transports } = transportsOf(happyCore, {
+      [profitPath]: () => refusal('PERMISSION_DENIED', 403)(),
+    });
+
+    const dashboard = await resolveKantorDashboard({ accessToken: 'token', businessDate: BUSINESS_DATE, transports });
+
+    expect(dashboard.grossProfit).toMatchObject({ state: 'UNAVAILABLE', problemCode: 'PERMISSION_DENIED' });
+    if (dashboard.grossProfit.state === 'UNAVAILABLE') {
+      expect(dashboard.grossProfit.reason).toContain('tidak punya hak');
+      expect(dashboard.grossProfit.reason).not.toContain('PERMISSION_DENIED');
+    }
   });
 
   it('treats a body that no longer matches the contract as unavailable, not as an answer', async () => {
@@ -193,6 +257,9 @@ describe('kantor dashboard: composition', () => {
 
     expect(dashboard.lowStock).toMatchObject({ state: 'UNAVAILABLE', problemCode: 'PERMISSION_DENIED' });
     expect(dashboard.stockValue).toMatchObject({ state: 'UNAVAILABLE', problemCode: 'PERMISSION_DENIED' });
+    // No grants at all means no Control Station permission either, so the tile is absent rather than
+    // an error about a figure the caller may not see.
+    expect(dashboard.grossProfit).toEqual({ state: 'HIDDEN' });
     // The sales tile is independent of the warehouse and still answers.
     expect(dashboard.sales.state).toBe('UNAVAILABLE');
     // And no stock read was attempted at all, rather than attempted against a guessed warehouse.

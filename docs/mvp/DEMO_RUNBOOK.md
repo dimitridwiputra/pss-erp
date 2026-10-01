@@ -170,13 +170,14 @@ The three stock screens carry a **Gudang** control in their own heading, not in 
 
 ### 4.8 Dashboard (admin.demo)
 
-Open **Dasbor Harian** — under *Hari Ini* in the sidebar, and a tile on `/beranda`. Five tiles, and the point of the screen is that **each one answers for itself**: a tile that cannot be read says so in words under a dash, and the other four keep their numbers. Nothing is ever shown as Rp 0 to cover a failed read.
+Open **Dasbor Harian** — under *Hari Ini* in the sidebar, and a tile on `/beranda`. The point of the screen is that **each one answers for itself**: a tile that cannot be read says so in words under a dash, and the others keep their numbers. Nothing is ever shown as Rp 0 to cover a failed read, and a tile the viewer has no permission to see is not on the screen at all.
 
 | Tile | What it says | Where it comes from |
 |---|---|---|
 | Penjualan hari ini | The day's counter sales and how many transactions | `GET /api/bff/core/pos/reports/summary` (`pos.report.view`) |
 | Kas konter belum dihitung | Counter cash Finance has not yet counted, and how many payments are waiting | the same read — it is one domain's answer, so the two tiles stand or fall together |
-| Laba kotor hari ini | Today's gross profit, with the month to date under it | Finance (MVP-OD-31) — **not built yet**, so this tile reads *Belum tersedia*. Say so; do not read it as a zero margin |
+| Laba kotor hari ini | Today's gross profit, with Finance's own margin beside it | `GET finance/gross-profit-summary` (`control_station.gross_profit_summary.view`) — **absent for `admin.demo`**, which holds no Control Station permission. Nothing is drawn in its place |
+| Laba kotor bulan ini | Gross profit from the first of the month to today | the same read |
 | Nilai stok gudang | The warehouse's inventory value, and how many goods have no cost yet | `GET /api/bff/core/inventory/stock-balances` |
 | Stok menipis | How many goods are below the threshold, with the five lowest listed | the same read, filtered by `maxQty` |
 
@@ -185,6 +186,8 @@ Below the tiles, **Perlu diisi ulang** lists the low-stock goods with their rema
 `/beranda` itself carries a **Gudang** widget for a viewer who may open the stock screen: the warehouse's value, the count of goods running out, and the same five rows — so the operator does not have to enter the back office to know the shelf is short before the day starts.
 
 The threshold is not a constant: the BFF supplies `PSS_DASHBOARD_LOW_STOCK_MIN_QTY` (default 10) as an input to the query, and the tile shows the threshold it used (MVP-OD-17). The warehouse comes from the signed-in user's own WAREHOUSE-scoped grants, not from configuration — nobody sees another branch's stock.
+
+The two gross-profit tiles are the dashboard's only permission-aware ones. They need `control_station.gross_profit_summary.view` (MVP-OD-10, ADR-0015), which PRD Appendix D.2 gives to CEO, COO and CFO at ORGANIZATION scope and to BRANCH_MANAGER at BRANCH scope — **no demo account holds it**, so on this branch the tiles are simply not on `admin.demo`'s dashboard, and no demo step can show them. Their figures are Finance's own: the day, the month to date, and the margin percentage Finance published. A margin Finance withholds (`grossMarginPercent: null`) reads as absent rather than as `0,00%`, because "nothing sold to take a margin of" and "sold at no margin" are different facts. If the tile is ever shown and the accounting service is down, the tile says so under a dash; it is never Rp 0.
 
 Press **Muat Ulang** (the tiles also refresh every minute) after the cashier's sale to watch Penjualan hari ini and Kas konter belum dihitung move.
 
@@ -210,7 +213,7 @@ From stream A:
 - Offline mode is not in the demo. The counter says so when the connection drops.
 
 From stream C (back office):
-- **The dashboard's gross-profit tile has no source.** `apps/finance-api` publishes only `/health`, so *Laba kotor hari ini* reads *Belum tersedia* and says the accounting report is the missing piece (MVP-OD-31). It is never shown as Rp 0, which would read as "no profit".
+- **The dashboard's gross-profit tiles cannot be shown in this demo.** They read Finance's real published answer (`finance/gross-profit-summary`) and are correct, but they require `control_station.gross_profit_summary.view`, which PRD Appendix D.2 reserves for CEO, COO, CFO and BRANCH_MANAGER. No demo account holds it, so the tiles are absent from `admin.demo`'s dashboard — no demo step exercises them (MVP-OD-10, MVP-OD-31). The tile is never rendered as Rp 0, and a margin Finance withholds is never rendered as `0,00%`.
 - **A price change needs no approval.** COM-001 requires one and rejects proposer = approver; the MVP activates a draft directly and audits the activation (MVP-OD-14).
 - **A stock correction needs no approval either.** `inventory.adjustment.approve` belongs to `BRANCH_MANAGER`, which no demo user holds, so a correction posted from Penyesuaian Stok is final.
 - **A goods receipt may leave stock unvalued.** Leaving the cost empty is a real state (a physical count has no invoice), and the movement is published with `unitCost: null` for Finance to resolve. There is no revaluation, so a later valued receipt does not value a balance that already holds unvalued stock (MVP-OD-16).

@@ -1,5 +1,6 @@
 import {
-  CurrentUserPermissionsResponseSchema, PosDashboardSummaryResponseSchema, ProblemDetailsSchema, StockBalanceListResponseSchema,
+  CurrentUserPermissionsResponseSchema, FinanceGrossProfitSummarySchema, PosDashboardSummaryResponseSchema,
+  ProblemDetailsSchema, StockBalanceListResponseSchema,
 } from '@pss/contracts';
 import { z } from 'zod';
 import type { UpstreamRead, UpstreamTransport } from '../experience/sources';
@@ -31,6 +32,8 @@ const LOW_STOCK_PREVIEW = 5;
 
 export type DashboardTile<T> =
   | { readonly state: 'OK'; readonly data: T }
+  /** The viewer does not hold the read's permission, so there is no tile at all (AGENTS.md §5, §15). */
+  | { readonly state: 'HIDDEN' }
   | { readonly state: 'UNAVAILABLE'; readonly problemCode: string; readonly reason: string };
 
 export interface DashboardSales {
@@ -64,6 +67,12 @@ export interface DashboardStockValue {
 export interface DashboardGrossProfit {
   readonly today: string;
   readonly monthToDate: string;
+  /**
+   * Finance's own margin percentage, or null when it publishes none. Null is a real answer — "no sales
+   * to take a margin of" — and is rendered as such rather than as a computed zero, because the margin
+   * is Finance's arithmetic (MVP-OD-4) and redoing it here would be a second answer to one question.
+   */
+  readonly todayMarginPercent: string | null;
 }
 
 export interface KantorDashboard {
@@ -76,14 +85,17 @@ export interface KantorDashboard {
 }
 
 /**
- * PROVISIONAL — MVP-OD-31. The gross-profit tile needs a read that the accounting stream has not
- * published yet, so the path it will answer on and the two fields it must return are stated here, in
- * the one place that changes when that stream answers. The endpoint does not exist yet, the read is
- * refused, and the tile says so in words. If the accounting answer's shape differs, this schema is
- * what changes — the tile above does not care where the numbers came from.
+ * The gross-profit read, as Finance publishes it (MVP-OD-10, ADR-0015): today, month-to-date, the
+ * previous day and the previous comparable month, each with net sales, COGS, gross profit and margin.
+ * The tile shows the first two and the day's margin; the comparatives exist for the Control Station's
+ * own view, and inventing a trend line here would be this dashboard deciding what a change means.
+ *
+ * No `branchId` is sent. Finance scopes the read from the caller's own grant (`grossProfitScope`), so the
+ * BFF does not choose which branch to report — a guess would either be refused or, worse, be right by
+ * accident.
  */
-const FINANCE_SUMMARY_PATH = '/finance/summary/daily';
-const FinanceGrossProfitSchema = z.strictObject({ today: z.string(), monthToDate: z.string() });
+const GROSS_PROFIT_PATH = '/finance/gross-profit-summary';
+const GROSS_PROFIT_PERMISSION = 'control_station.gross_profit_summary.view';
 
 export type DashboardTransports = { readonly core: UpstreamTransport; readonly finance: UpstreamTransport };
 
@@ -161,10 +173,16 @@ export async function resolveKantorDashboard(input: ResolveDashboardInput): Prom
   }
 
   const token = input.accessToken;
-  // The warehouse comes from the caller's own grants rather than from configuration: a value is scoped
-  // per warehouse (MVP-OD-4), and guessing one would either 404 or, worse, show another branch's
-  // stock. With none in scope there is nothing to report, and the tiles say so.
-  const warehouseId = (await warehousesInScope(transports.core, token))[0] ?? null;
+  // One read of the caller's own grants answers two questions: which warehouses they may act on, and
+  // whether the Control Station gross-profit read may be attempted at all. A value is scoped per
+  // warehouse (MVP-OD-4) and the profit summary is a separate permission (MVP-OD-10), so neither can be
+  // assumed from configuration.
+  const held = await permissionsHeld(transports.core, token);
+  // An unreadable grants answer is *unknown*, not *absent*: the read is still attempted and Finance
+  // refuses it if the caller has no right to it. Hiding a tile because the permission list could not be
+  // read would remove a number from a viewer who is entitled to it.
+  const warehouseId = held.ok ? (held.data.warehouses[0] ?? null) : null;
+  const grossProfitAllowed = held.ok ? held.data.has(GROSS_PROFIT_PERMISSION) : true;
   const [sales, lowStock, stockValue, grossProfit] = await Promise.all([
     readJson(transports.core, { method: 'GET', path: `/pos/reports/summary?date=${input.businessDate}`, accessToken: token },
       PosDashboardSummaryResponseSchema.transform((summary) => ({
@@ -189,8 +207,11 @@ export async function resolveKantorDashboard(input: ResolveDashboardInput): Prom
         path: `/inventory/stock-balances?warehouseId=${warehouseId}&sort=value&pageSize=1`,
         accessToken: token,
       }, StockBalanceListResponseSchema.transform(stockValueOf)),
-    readJson(transports.finance, { method: 'GET', path: `${FINANCE_SUMMARY_PATH}?date=${input.businessDate}`, accessToken: token },
-      FinanceGrossProfitSchema),
+    grossProfitAllowed
+      ? readJson(transports.finance, {
+        method: 'GET', path: `${GROSS_PROFIT_PATH}?businessDate=${input.businessDate}`, accessToken: token,
+      }, FinanceGrossProfitSummarySchema.transform(grossProfitOf))
+      : Promise.resolve<Read<DashboardGrossProfit>>({ ok: false, problemCode: 'HIDDEN' }),
   ]);
 
   return {
@@ -198,25 +219,49 @@ export async function resolveKantorDashboard(input: ResolveDashboardInput): Prom
     sales: tileOf(sales, 'penjualan hari ini'),
     lowStock: tileOf(lowStock, 'stok yang menipis'),
     stockValue: tileOf(stockValue, 'nilai stok'),
-    grossProfit: tileOf(
-      grossProfit,
-      'laba kotor',
-      'Bagian Keuangan belum menerbitkan laporan harian untuk demonstrasi ini.',
-    ),
+    grossProfit: grossProfit.ok
+      ? { state: 'OK', data: grossProfit.data }
+      : grossProfit.problemCode === 'HIDDEN'
+        ? { state: 'HIDDEN' }
+        : unavailable(grossProfit.problemCode, 'laba kotor'),
   };
 }
 
 /**
- * The WAREHOUSE-scoped ids the caller may act on, read from their own grants. An unreadable or
- * malformed answer yields no warehouses: the two stock tiles then report "no warehouse in scope",
- * which is the truth, rather than defaulting to a warehouse id that might belong to someone else.
+ * What the caller's own grants say: the warehouses they may act on, and whether a permission is held.
+ *
+ * A read that fails or no longer matches the contract is reported as *unknown*, which is not the same
+ * as holding nothing — the caller may well have the right and the identity service may be the thing
+ * that is down.
  */
-async function warehousesInScope(core: UpstreamTransport, accessToken: string): Promise<string[]> {
+async function permissionsHeld(core: UpstreamTransport, accessToken: string): Promise<
+  Read<{ readonly warehouses: readonly string[]; readonly has: (permission: string) => boolean }>
+> {
   const grants = await readJson(core, { method: 'GET', path: '/me/permissions', accessToken }, CurrentUserPermissionsResponseSchema);
-  if (!grants.ok) return [];
-  return [...new Set(grants.data.grants
-    .filter((grant) => grant.scopeType === 'WAREHOUSE' && grant.scopeId !== null)
-    .map((grant) => grant.scopeId as string))];
+  if (!grants.ok) return { ok: false, problemCode: grants.problemCode };
+  const all = grants.data.grants;
+  return {
+    ok: true,
+    data: {
+      warehouses: [...new Set(all
+        .filter((grant) => grant.scopeType === 'WAREHOUSE' && grant.scopeId !== null)
+        .map((grant) => grant.scopeId as string))],
+      has: (permission) => all.some((grant) => grant.permission === permission),
+    },
+  };
+}
+
+/**
+ * Finance's four published periods reduced to what one tile shows. The mapping is field selection only:
+ * no comparison, no percentage, no rounding — the margin is the number Finance published, or null
+ * because it published none.
+ */
+function grossProfitOf(summary: z.infer<typeof FinanceGrossProfitSummarySchema>): DashboardGrossProfit {
+  return {
+    today: summary.today.grossProfit,
+    monthToDate: summary.monthToDate.grossProfit,
+    todayMarginPercent: summary.today.grossMarginPercent,
+  };
 }
 
 function lowStockOf(response: z.infer<typeof StockBalanceListResponseSchema>): DashboardLowStock {
