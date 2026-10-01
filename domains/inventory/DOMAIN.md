@@ -39,7 +39,10 @@ transaction the same way `withAuditedTransaction` does.
   `(referenceType, referenceId)` in one all-or-nothing transaction (POS-005.BR02: FULL reservation
   only). Locks each balance row, checks `qty_on_hand - qty_reserved >= qty` in SQL, inserts one
   `ACTIVE` reservation per line, appends one `STOCK_RESERVED` audit entry. A short line throws
-  `INSUFFICIENT_STOCK` with one field error per short line and rolls the whole thing back.
+  `INSUFFICIENT_STOCK` with one field error per short line and rolls the whole thing back. A line whose
+  `uom` is not the balance's own unit throws `VALIDATION_FAILED` with a `unit_mismatch` field error
+  naming both units (MVP-OD-28) — never `INSUFFICIENT_STOCK`, because a shortage and a mixed unit have
+  different fixes and POS translates the shortage code into its own message.
 - `releaseReservation(pool, client, input)` — releases every `ACTIVE` reservation for a reference.
   Retry-safe: nothing `ACTIVE` left is a no-op (`{ releasedCount: 0 }`) that also writes no audit
   entry, because nothing was mutated.
@@ -48,7 +51,9 @@ transaction the same way `withAuditedTransaction` does.
   reservation `CONSUMED`, values the movement at the balance's current average, and publishes
   `INVENTORY_ISSUED`. The qty issued may be less than the qty reserved (partial pickup, POS-010);
   reconciling the remainder is the caller's responsibility. A non-positive qty is refused
-  (`VALIDATION_FAILED`): a negative issue would be a receipt nobody priced.
+  (`VALIDATION_FAILED`): a negative issue would be a receipt nobody priced. The line's unit must be the
+  balance's (`unit_mismatch`), the same invariant `reserveStock` enforces: the ledger line is written
+  from that balance and would otherwise be valued in a unit the average does not use.
 - `receiveStock(pool, client, input)` — increases on-hand and publishes `INVENTORY_RECEIVED`.
   `input.sourceType` is required (`GOODS_RECEIPT` | `WMS_RECEIPT`) because it is the whole of the
   event's `sourceType` and finance's posting rules switch on it; `input.referenceType`/

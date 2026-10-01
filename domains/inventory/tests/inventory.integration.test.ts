@@ -251,52 +251,75 @@ describe('inventory: filtering balances and movements by a set of product ids', 
 });
 
 describe('inventory: one product in two units in one sale (MVP-OD-28)', () => {
-  it('reserves and issues KARTON and PCS of the same product as two lines', async () => {
+  it('refuses a line in a unit the balance is not counted in, and names both units', async () => {
+    // The balance holds 20 KARTON. Reserving 3 PCS against it one for one would promise three
+    // pieces and subtract three cartons, so the line is refused rather than converted — converting
+    // would change what the balance is valued at, which is Finance's call (MVP-OD-4, MVP-OD-12).
     const productId = randomUUID();
     await seedBalance(productId, 'KARTON', '20');
     const referenceId = randomUUID();
 
-    // The reservation key is (reference, product, uom), so both units of one product are one
-    // reservation each. Before MVP-OD-28 the second line collided with the first and checkout failed.
+    const attempt = await reserveStock(pool, undefined, {
+      organizationId, warehouseId, referenceType: 'POS_SALE', referenceId,
+      lines: [{ productId, uom: 'PCS', qty: '3' }], ...auditMeta(),
+    }).catch((error) => error);
+
+    expect((attempt as DomainError).code).toBe('VALIDATION_FAILED');
+    expect((attempt as DomainError).fieldErrors).toEqual([{
+      path: 'lines[0].uom',
+      code: 'unit_mismatch',
+      message: 'Stok barang ini dihitung dalam KARTON, bukan PCS. '
+        + 'Satu transaksi memakai satu satuan: pindai ulang dalam KARTON atau pisahkan ke transaksi lain.',
+    }]);
+    // Nothing was promised, so the balance is exactly as it was.
+    const balance = await balanceOf(productId);
+    expect(balance.qty_reserved).toBe('0.000');
+    const reservations = await pool.query('SELECT 1 FROM inventory.stock_reservation WHERE reference_id = $1', [referenceId]);
+    expect(reservations.rowCount).toBe(0);
+  });
+
+  it('reserves and issues the unit the balance is counted in', async () => {
+    const productId = randomUUID();
+    await seedBalance(productId, 'KARTON', '20');
+    const referenceId = randomUUID();
+
     const reserved = await reserveStock(pool, undefined, {
-      organizationId,
-      warehouseId,
-      referenceType: 'POS_SALE',
-      referenceId,
-      lines: [
-        { productId, uom: 'KARTON', qty: '2' },
-        { productId, uom: 'PCS', qty: '3' },
-      ],
-      ...auditMeta(),
+      organizationId, warehouseId, referenceType: 'POS_SALE', referenceId,
+      lines: [{ productId, uom: 'KARTON', qty: '2' }], ...auditMeta(),
     });
-    expect(reserved.reservationIds).toHaveLength(2);
+    expect(reserved.reservationIds).toHaveLength(1);
+    expect((await balanceOf(productId)).qty_reserved).toBe('2.000');
 
-    const reservations = await pool.query<{ uom: string; qty: string }>(
-      'SELECT uom, qty FROM inventory.stock_reservation WHERE reference_id = $1 ORDER BY uom',
-      [referenceId],
-    );
-    expect(reservations.rows).toEqual([{ uom: 'KARTON', qty: '2.000' }, { uom: 'PCS', qty: '3.000' }]);
-    expect((await balanceOf(productId)).qty_reserved).toBe('5.000');
-
-    // And the handover consumes each line for the unit it is handing over, not whichever came first.
     await issueInventory(pool, undefined, {
-      organizationId,
-      warehouseId,
-      referenceType: 'POS_SALE',
-      referenceId,
-      lines: [
-        { productId, uom: 'KARTON', qty: '2' },
-        { productId, uom: 'PCS', qty: '3' },
-      ],
+      organizationId, warehouseId, referenceType: 'POS_SALE', referenceId,
+      lines: [{ productId, uom: 'KARTON', qty: '2' }],
     });
-
-    const consumed = await pool.query<{ uom: string; status: string }>(
-      `SELECT uom, status FROM inventory.stock_reservation WHERE reference_id = $1 ORDER BY uom`,
-      [referenceId],
-    );
-    expect(consumed.rows).toEqual([{ uom: 'KARTON', status: 'CONSUMED' }, { uom: 'PCS', status: 'CONSUMED' }]);
-    expect((await balanceOf(productId)).qty_on_hand).toBe('15.000');
+    expect((await balanceOf(productId)).qty_on_hand).toBe('18.000');
     expect((await balanceOf(productId)).qty_reserved).toBe('0.000');
+  });
+
+  it('reports both offending lines of a mixed cart, and reserves neither', async () => {
+    // Two products, both refused, because neither unit matches its own balance. One answer carrying
+    // both lines is what lets the cashier fix the cart in a single pass rather than one error per scan.
+    const cartons = randomUUID();
+    const pieces = randomUUID();
+    await seedBalance(cartons, 'KARTON', '20');
+    await seedBalance(pieces, 'PCS', '100');
+
+    const attempt = await reserveStock(pool, undefined, {
+      organizationId, warehouseId, referenceType: 'POS_SALE', referenceId: randomUUID(),
+      lines: [
+        { productId: cartons, uom: 'PCS', qty: '3' },
+        { productId: pieces, uom: 'KARTON', qty: '1' },
+      ], ...auditMeta(),
+    }).catch((error) => error);
+
+    expect((attempt as DomainError).fieldErrors).toEqual([
+      expect.objectContaining({ path: 'lines[0].uom', code: 'unit_mismatch' }),
+      expect.objectContaining({ path: 'lines[1].uom', code: 'unit_mismatch' }),
+    ]);
+    expect((await balanceOf(cartons)).qty_reserved).toBe('0.000');
+    expect((await balanceOf(pieces)).qty_reserved).toBe('0.000');
   });
 
   it('refuses a second line for the same product and the same unit, which is one line already', async () => {
@@ -335,6 +358,31 @@ describe('inventory: one product in two units in one sale (MVP-OD-28)', () => {
       lines: [{ productId, uom: 'PCS', qty: '1' }],
     }).catch((error) => error);
     expect((attempt as DomainError).code).toBe('NOT_FOUND');
+  });
+
+  it('refuses a handover whose line disagrees with the balance, even with a matching reservation', async () => {
+    // The state this guards against is one a reservation in the wrong unit would have created. The
+    // reservation is written straight here to reach it, because `reserveStock` no longer allows it.
+    const productId = randomUUID();
+    await seedBalance(productId, 'KARTON', '20');
+    const referenceId = randomUUID();
+    await pool.query(
+      `INSERT INTO inventory.stock_reservation (
+         id, organization_id, warehouse_id, product_id, uom, qty, status, reference_type, reference_id
+       ) VALUES ($1, $2, $3, $4, 'PCS', '3.000', 'ACTIVE', 'POS_SALE', $5)`,
+      [randomUUID(), organizationId, warehouseId, productId, referenceId],
+    );
+
+    const attempt = await issueInventory(pool, undefined, {
+      organizationId, warehouseId, referenceType: 'POS_SALE', referenceId,
+      lines: [{ productId, uom: 'PCS', qty: '3' }],
+    }).catch((error) => error);
+
+    expect((attempt as DomainError).code).toBe('VALIDATION_FAILED');
+    expect((attempt as DomainError).fieldErrors?.[0]?.code).toBe('unit_mismatch');
+    // And no movement was written, so the ledger never carries a line valued in the wrong unit.
+    const movements = await pool.query('SELECT 1 FROM inventory.stock_movement WHERE reference_id = $1', [referenceId]);
+    expect(movements.rowCount).toBe(0);
   });
 });
 

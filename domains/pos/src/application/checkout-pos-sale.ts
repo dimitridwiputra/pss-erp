@@ -24,13 +24,19 @@ interface SaleRow {
 interface LineRow { product_id: string; uom: string; qty: string; unit_price: string }
 
 /**
- * Inventory keeps one reservation per sale and product, and the invoice matches delivered lines by
- * product and unit, so a cart reaching checkout must hold each product once. Scanning merges
+ * Inventory keeps one reservation per sale, product and unit, and the invoice matches delivered lines
+ * by product and unit, so a cart reaching checkout must hold each product once. Scanning merges
  * repeats; a product still on two lines is either a price that changed between scans
- * (REPRICE_REQUIRED, POS-003.AC04) or two units of one product. Inventory now keys a reservation
- * by unit, but a stock balance is still counted in one unit with no conversion, so a PCS line would
- * reserve against a KARTON balance one for one. That cart stays refused until inventory converts
- * or refuses a unit other than the balance's (MVP_PLAN §10, MVP-OD-28).
+ * (REPRICE_REQUIRED, POS-003.AC04) or two units of one product.
+ *
+ * **This refusal stays, and inventory now refuses the same cart behind it.** A stock balance is counted
+ * in one unit, so a PCS line against a KARTON balance is refused by inventory rather than converted
+ * (MVP-OD-28), which means checkout would fail either way — but it would fail with a sentence about
+ * stock units instead of the advice the cashier actually needs. This check runs first, on the cart
+ * lines, where the answer is "one sale, one unit: split it", and the cart is untouched because it
+ * throws before the transaction opens. Inventory's refusal is the backstop for a cart that reaches it
+ * another way — the WMS issues against a balance directly, and nothing above this line would have
+ * stopped that (MVP-OD-28).
  */
 function assertOneLinePerProduct(lines: readonly LineRow[]): void {
   const seen = new Map<string, LineRow>();

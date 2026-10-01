@@ -117,7 +117,7 @@ Migration `0001_pos.sql` creates schema `pos`, owned solely by this domain per `
 
 ## Open decisions
 
-- MVP-OD-28: one product in two units in one sale stays refused at checkout. Inventory's reservation key now includes the unit, but the stock balance is counted in one unit without conversion.
+- MVP-OD-28: one product in two units in one sale stays refused at checkout, and now by inventory too. The reservation key includes the unit, but a stock balance is counted in one unit without conversion, so inventory refuses any line whose unit is not the balance's own (`unit_mismatch`) rather than converting — converting would change the valuation, which is Finance's (MVP-OD-4, MVP-OD-12). POS keeps its own earlier refusal: it reads the cart lines, so it can say "one sale, one unit: split it" and it fires before the transaction opens, whereas inventory's answer reaches the cashier as a units problem with no advice attached. Inventory's is the backstop for anything that reaches it another way — the WMS issues against a balance directly, and no POS check would have stopped that.
 - POS-000.R07 (warehouse MANAGED before a terminal opens) is a no-op stub pending `organization`/`principal-policy`.
 - `checkoutPosSale`'s invoice `branchCode` is derived from the branch UUID as a placeholder, since `organization` doesn't exist yet.
 - Receipt numbering `KSR-…` awaits GAP-16. The receipt shows the invoice number.

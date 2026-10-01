@@ -214,6 +214,55 @@ describe('W-14 PSS Kasir counter sale (cash, full happy path)', () => {
     expect(reserved.rows[0]!.count).toBe(0);
   });
 
+  it('refuses a scanned unit the stock is not counted in, in the sentence a cashier can act on', async () => {
+    // The katalog pick (MVP-OD-27) lets a cashier scan a piece where the shelf is counted in cartons.
+    // Inventory refuses it rather than converting: subtracting 1 PCS from a KARTON balance would take a
+    // carton off the shelf and value it as a piece (MVP-OD-28, MVP-OD-4).
+    const pieceBarcode = `PC-${randomUUID().slice(0, 8)}`;
+    // The base unit has no explicit `product_uom` row yet, and a barcode resolves through one, so both
+    // are added here rather than changing the shared fixture.
+    await pool.query(
+      `INSERT INTO core.product_uom (id, product_id, uom, conversion_factor, is_base) VALUES ($1, $2, 'PCS', 1, true)`,
+      [randomUUID(), productId],
+    );
+    await pool.query(`INSERT INTO core.product_barcode (id, product_id, uom, barcode) VALUES ($1, $2, 'PCS', $3)`, [randomUUID(), productId, pieceBarcode]);
+    const counterList = await pool.query<{ id: string }>("SELECT id FROM core.price_list WHERE organization_id = $1 AND scope = 'KONTER'", [organizationId]);
+    await pool.query(
+      `INSERT INTO core.price_list_item (id, price_list_id, product_id, uom, unit_price) VALUES ($1, $2, $3, 'PCS', '2950.00')`,
+      [randomUUID(), counterList.rows[0]!.id, productId],
+    );
+
+    const cashier = randomUUID();
+    const terminal = await registerPosTerminal(pool, undefined, { organizationId, branchId, warehouseId, code: 'KSR-04', name: 'Konter 4', ...meta(cashier) });
+    const shift = await openPosShift(pool, undefined, { organizationId, terminalId: terminal.id, cashierUserId: cashier, openingFloat: '0', ...meta(cashier) });
+    const sale = await createPosSale(pool, undefined, { shiftId: shift.id, ...meta(cashier) });
+    await addPosSaleLine(pool, undefined, { saleId: sale.id, priceListScope: 'KONTER', barcode: pieceBarcode, qty: '1', ...meta(cashier) });
+    // Read rather than hard-code the on-hand figure: an earlier case in this file already issued from
+    // the same balance, and what matters here is that this checkout moved nothing.
+    const before = await pool.query<{ qty_on_hand: string }>(
+      'SELECT qty_on_hand FROM inventory.stock_balance WHERE warehouse_id = $1 AND product_id = $2', [warehouseId, productId],
+    );
+
+    // One line, so POS's own two-unit refusal does not fire first and this really is inventory's
+    // answer reaching the cashier.
+    await expect(checkoutPosSale(pool, undefined, { saleId: sale.id, ...meta(cashier) })).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      fieldErrors: [{ path: 'lines[0].uom', code: 'unit_mismatch' }],
+    });
+
+    // Not "stok tidak cukup": a shortage and a mixed unit are different faults with different fixes, so
+    // the cart says which one this is and the sale stays in CART with nothing reserved.
+    const attempt = await checkoutPosSale(pool, undefined, { saleId: sale.id, ...meta(cashier) }).catch((error) => error);
+    expect((attempt as { fieldErrors?: Array<{ message: string }> }).fieldErrors?.[0]?.message).toContain('dihitung dalam KARTON');
+    expect((attempt as { fieldErrors?: Array<{ message: string }> }).fieldErrors?.[0]?.message).not.toContain('Stok tidak cukup');
+    const reserved = await pool.query<{ count: number }>('SELECT count(*)::int AS count FROM inventory.stock_reservation WHERE reference_id = $1', [sale.id]);
+    expect(reserved.rows[0]!.count).toBe(0);
+    const after = await pool.query<{ qty_on_hand: string }>(
+      'SELECT qty_on_hand FROM inventory.stock_balance WHERE warehouse_id = $1 AND product_id = $2', [warehouseId, productId],
+    );
+    expect(after.rows[0].qty_on_hand).toBe(before.rows[0].qty_on_hand);
+  });
+
   it('rejects checkout when stock is insufficient and leaves the sale in CART', async () => {
     const secondCashierId = randomUUID();
     const terminal = await registerPosTerminal(pool, undefined, {

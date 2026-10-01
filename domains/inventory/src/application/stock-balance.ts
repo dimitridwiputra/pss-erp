@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { DomainError } from '@pss/contracts';
+import { DomainError, type FieldError } from '@pss/contracts';
 
 /**
  * The costing inputs `applyMovingAverage` needs, read as strings because a `numeric` never touches a
@@ -9,6 +9,11 @@ import { DomainError } from '@pss/contracts';
 export interface BalanceState {
   warehouseId: string;
   productId: string;
+  /**
+   * The unit this row's quantities are expressed in. One balance is counted in exactly one unit, and
+   * its moving average is held in that unit, so this is what a movement line has to agree with.
+   */
+  uom: string;
   qtyOnHand: string;
   qtyReserved: string;
   /** `null` when the balance has never been valued (MVP-OD-15). */
@@ -55,16 +60,49 @@ export async function lockBalance(
      ON CONFLICT (warehouse_id, product_id) DO NOTHING`,
     [randomUUID(), organizationId, warehouseId, productId, uom],
   );
-  const locked = await tx.query<{ qty_on_hand: string; qty_reserved: string; avg_unit_cost: string | null }>(
-    `SELECT qty_on_hand, qty_reserved, avg_unit_cost FROM inventory.stock_balance
+  const locked = await tx.query<{ uom: string; qty_on_hand: string; qty_reserved: string; avg_unit_cost: string | null }>(
+    `SELECT uom, qty_on_hand, qty_reserved, avg_unit_cost FROM inventory.stock_balance
      WHERE warehouse_id = $1 AND product_id = $2 FOR UPDATE`,
     [warehouseId, productId],
   );
   const row = locked.rows[0];
   if (!row) throw new Error('Stock balance row disappeared while it was locked.');
   return {
-    warehouseId, productId,
+    warehouseId, productId, uom: row.uom,
     qtyOnHand: row.qty_on_hand, qtyReserved: row.qty_reserved, avgUnitCost: row.avg_unit_cost,
+  };
+}
+
+/**
+ * A movement line's unit must be the balance's own unit.
+ *
+ * `stock_balance` holds one quantity per `(warehouse, product)` in one unit, and the moving average
+ * beside it is in that same unit. Subtracting `3 PCS` from a balance counted in KARTON therefore takes
+ * three cartons off the shelf and values them as though they were three pieces — a quantity and a
+ * valuation both wrong, silently, and both only visible later in a margin nobody can explain.
+ *
+ * The alternative is to convert by the master-data factor, and it is refused here for the reason in
+ * MVP-OD-28: converting changes what the balance is valued at, the valuation is Finance's
+ * (MVP-OD-4, MVP-OD-12), and a movement would stop being the document the ledger already agrees with.
+ *
+ * So the line is refused with a stable field code and a sentence a cashier can act on — re-scan in the
+ * unit the stock is held in, or split the transaction — rather than converted.
+ */
+export function assertBalanceUnit(balance: Pick<BalanceState, 'uom'>, lineUom: string, path: string): void {
+  if (balance.uom === lineUom) return;
+  throw new DomainError('VALIDATION_FAILED', [], [unitMismatchFieldError(path, balance.uom, lineUom)]);
+}
+
+/**
+ * The same refusal as a field error, for a caller that reports several bad lines at once. The wording
+ * and the `unit_mismatch` code are defined once here so no path can answer in different words.
+ */
+export function unitMismatchFieldError(path: string, balanceUom: string, lineUom: string): FieldError {
+  return {
+    path,
+    code: 'unit_mismatch',
+    message: `Stok barang ini dihitung dalam ${balanceUom}, bukan ${lineUom}. `
+      + `Satu transaksi memakai satu satuan: pindai ulang dalam ${balanceUom} atau pisahkan ke transaksi lain.`,
   };
 }
 

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { OptionalAuditContextSchema, resolveAuditContext } from './support/audit-context';
 import { applyMovingAverage } from '../domain/rules/moving-average-cost';
 import { requirePositiveQuantity } from '../domain/rules/quantity';
-import { lockBalance, writeBalanceQuantity } from './stock-balance';
+import { assertBalanceUnit, lockBalance, writeBalanceQuantity } from './stock-balance';
 import { resolveBusinessDate } from './business-date';
 import { publishInventoryIssued, type InventoryMovementFacts } from '../infrastructure/events/inventory-movement-events';
 
@@ -60,7 +60,7 @@ export async function issueInventory(
     const movementIds: string[] = [];
     const facts: InventoryMovementFacts[] = [];
 
-    for (const line of input.lines) {
+    for (const [index, line] of input.lines.entries()) {
       // The unit is part of the match, not just the insert key (MVP-OD-28): a sale may hold 2 KARTON
       // and 3 PCS of one product, and the handover has to consume the line for the unit it is
       // handing over rather than whichever line the query found first.
@@ -74,6 +74,11 @@ export async function issueInventory(
       if (!reservationRow) throw new DomainError('NOT_FOUND');
 
       const balance = await lockBalance(tx, input.organizationId, input.warehouseId, line.productId, line.uom);
+      // The reservation above already matched on unit, so this is the backstop for a balance that is
+      // counted in a different unit from the reservation it carries — the corruption MVP-OD-28 refuses
+      // at reservation time, checked again here because the ledger line is written from this balance
+      // and would otherwise be valued in the wrong unit.
+      assertBalanceUnit(balance, line.uom, `lines[${index}].uom`);
       const costing = applyMovingAverage({
         balanceQtyOnHand: balance.qtyOnHand,
         balanceAvgUnitCost: balance.avgUnitCost,
