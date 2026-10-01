@@ -759,7 +759,9 @@ describe('OD-19 archive-and-drop against a real partitioned table', () => {
         WHERE i.inhparent = 'audit.audit_entry'::regclass
           AND $1::timestamptz >= ((regexp_match(pg_get_expr(c.relpartbound, c.oid), $2))[1])::timestamptz
           AND $1::timestamptz <  ((regexp_match(pg_get_expr(c.relpartbound, c.oid), $2))[2])::timestamptz`,
-      [asOf.toISOString(), PARTITION_BOUND_PATTERN],
+      // The month the run's own entry was written in, which is now() and not the pinned `asOf`: the two
+      // are different months once the calendar passes asOf's, and the entry is what this test is about.
+      [new Date().toISOString(), PARTITION_BOUND_PATTERN],
     )).rows[0]?.partition;
     expect(currentMonthPartition).toBeDefined();
     const partition = currentMonthPartition as string;
