@@ -21,3 +21,13 @@ Operational runbooks will be added with the owning feature. The implementation p
 ## Local restore rehearsal (PLT-012 foundation)
 
 Run `pnpm dr:rehearse:local` with Docker Desktop running. The script creates two temporary PostgreSQL databases, applies current audit/platform/identity migrations to the source, inserts synthetic records, streams a PostgreSQL dump into the restored database, compares counts and identifiers, and drops both temporary databases. It does not touch the development database's records and does not create a backup file. This proves only that current local schemas and synthetic records can be restored; PITR, finance invariants, managed backup retention, separate-account storage, and production two-person approval remain open under OD-188/OD-40.
+
+## Audit archive and restore (OD-19)
+
+`docs/runbooks/audit-archive-restore.md`. Covers the `audit.audit_entry` partition lifecycle, the
+difference between `audit.hot_months` and `audit.retention_years`, the restore drill, and the three
+conditions that hold a partition instead of dropping it.
+
+**Partition rotation must not run in production until that drill has been completed against the real
+archive target.** The currently registered client is `FileAuditArchive`, which writes to a local
+directory and is therefore not independent of the database host.

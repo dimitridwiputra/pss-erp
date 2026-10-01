@@ -112,6 +112,9 @@ export async function checkoutPosSale(pool: Pool, client: PoolClient | undefined
     // `branchCode` should come from `organization` (not yet built) — derived here from the
     // branch UUID as a documented placeholder (see domains/pos/DOMAIN.md "Open decisions").
     const branchCode = sale.branch_id.replace(/-/g, '').slice(0, 6).toUpperCase();
+    // The customer is named so `invoicing` can resolve the line tax codes (TAX-002). Without it the
+    // invoice has no tax treatment and preparation is refused rather than issued at no tax, which
+    // is POS-005.E2's intended behaviour when tax is not configured.
     const invoice = await prepareInvoice(pool, client, {
       organizationId: sale.organization_id, branchCode, salesOrderId: order.salesOrderId,
       channel: 'POS', customerId, branchId: sale.branch_id,

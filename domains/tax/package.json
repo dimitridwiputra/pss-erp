@@ -1,21 +1,21 @@
 {
-  "name": "@pss/invoicing",
+  "name": "@pss/tax",
   "version": "0.1.0",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint src scripts",
+    "lint": "eslint src",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@pss/audit": "workspace:*",
+    "@pss/configuration": "workspace:*",
     "@pss/contracts": "workspace:*",
-    "@pss/master-data": "workspace:*",
     "@pss/platform": "workspace:*",
-    "@pss/tax": "workspace:*",
+    "decimal.js": "10.4.3",
     "pg": "8.23.0",
     "zod": "4.6.5"
   },

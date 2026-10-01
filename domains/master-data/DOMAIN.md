@@ -1,6 +1,7 @@
 # master-data domain
 
-Status: product master and customer list implemented (MDM-001..004). The full product attribute set,
+Status: product master and customer list implemented (MDM-001..004), plus the two tax classification
+fields TAX-001 asks for (`customer.tax_treatment`, `product.tax_code`). The full product attribute set,
 customer merge governance, and duplicate-person detection are not.
 
 ## Purpose
@@ -12,9 +13,11 @@ Own canonical customer master data and the product master — identity, units, a
 ## Owns
 
 - `core.customer`: one row per customer, including exactly one system-provisioned walk-in customer
-  per branch.
+  per branch, and `customer.tax_treatment` — the sales tax code applied to that customer
+  (VAT_OUTPUT / EXEMPT / NON_VAT, or NULL for undetermined).
 - `core.product`, `core.product_uom`, `core.product_barcode`: product identity, its unit-of-measure
-  conversions, and barcode-to-UOM mapping.
+  conversions, and barcode-to-UOM mapping, plus `product.tax_code`, the default sales tax code for
+  lines of that product.
 - The fact that a product is `DRAFT` / `ACTIVE` / `INACTIVE`, and that its `order_capture` is `PSS`
   or `EXTERNAL`. Nothing else in the system decides whether a product may be sold.
 
@@ -33,7 +36,7 @@ belong to `credit`/`commercial`.
 | `updateProduct(pool, client, input)` | Carries `expectedVersion`; a mismatch is `STALE_DATA` rather than a silent overwrite. A no-op still writes its audit entry (ADR-0013 4b). |
 | `addProductBarcode(pool, client, input)` | MDM-003. A barcode belongs to a **unit** (`uom`), because a case label is not a piece label. A duplicate is `DUPLICATE_CODE` on the `barcode` field. |
 | `addProductUom(pool, client, input)` | MDM-003. The conversion factor is written once and never edited (`UOM_FACTOR_LOCKED`). |
-| `createCustomer(pool, client, input)` | Quick-registers a prospect as `PENDING_REVIEW` with a collision-retried `code`. `phone`/`npwp` are `PERSONAL` in the audit changes (AGENTS.md §15). |
+| `createCustomer(pool, client, input)` | Quick-registers a prospect as `PENDING_REVIEW` with a collision-retried `code` and an optional `taxTreatment` (`VAT_OUTPUT` / `EXEMPT` / `NON_VAT`; omitted means undetermined, not zero-rated, and is audited as `UNSET`). `phone`/`npwp` are `PERSONAL` in the audit changes (AGENTS.md §15). |
 | `getOrCreateWalkInCustomer(pool, input)` | The branch's single walk-in customer, created on first use. Concurrency-safe: a losing insert re-selects the winning row. |
 
 Every command takes `(pool, client, input)`: pass the transaction `client` to join a caller's
@@ -50,6 +53,8 @@ transaction, or `undefined` to let the command own one.
 | `searchProducts(pool, input)` | `ILIKE` over `sku`/`name`, capped at 100. |
 | `findProductByBarcode(pool, input)` | Resolves a scanned barcode to its product **and the unit that barcode represents**. |
 | `listCustomers(pool, client, input)` | The read-only Pelanggan list (MDM-004). |
+| `getCustomerTaxTreatment(pool, client, input)` | The customer's sales tax treatment, or `null` when none is recorded. `null` is a real answer, distinct from `NOT_FOUND`, because `tax` refuses a taxable line in the `null` state rather than assuming a treatment. |
+| `getProductTaxCodes(pool, client, input)` | Each requested product's default tax code as a `Map`, in one query. A product that does not exist is absent, which the caller treats the same as a stored `null`. |
 
 ## Events produced and consumed
 
@@ -63,8 +68,8 @@ None published. `CUSTOMER_CREATED` is in the event catalog but has no payload sc
 
 - `core.customer` — `UNIQUE (organization_id, code)`; a partial unique index
   (`customer_walk_in_per_branch_idx`) enforces at most one `is_walk_in` row per
-  `(organization_id, branch_id)`.
-- `core.product` — `UNIQUE (organization_id, sku)`.
+  `(organization_id, branch_id)`; `tax_treatment` is nullable with a CHECK over the three sales codes.
+- `core.product` — `UNIQUE (organization_id, sku)`; `tax_code` is nullable with the same CHECK.
 - `core.product_uom` — FK to `product.id`; `UNIQUE (product_id, uom)`.
 - `core.product_barcode` — FK to `product.id`; `UNIQUE (barcode)` **globally**, which is stronger than
   the per-organization rule in the brief and is kept on purpose: one scanned code must not mean two
@@ -78,6 +83,9 @@ None published. `CUSTOMER_CREATED` is in the event catalog but has no payload sc
   application logic alone.
 - Every `core.customer` and `core.product*` mutation runs inside an audited transaction. There is no
   unaudited write path in this domain.
+- `tax_treatment` and `tax_code` are nullable with **no database default**. A NULL is unresolved,
+  which `tax` refuses rather than treating as zero-rated; a DEFAULT would silently decide tax
+  liability for every existing row, which is a business decision no migration may make.
 
 ## Dependencies
 
@@ -92,6 +100,11 @@ business domain. `domains/pos` is the first consumer of the product reads.
   `master_data.product.manage`. Identity answered half of MVP-OD-20 on 30 September by registering
   `inventory.stock_card.view` for the stock card, so only the product and the customer reads still
   borrow a write grant. A registered read code for each is still requested.
+- **No command writes `product.tax_code` or changes a customer's `tax_treatment` yet.**
+  `createProduct`/`updateProduct` do not carry a tax code, and `getOrCreateWalkInCustomer` records no
+  treatment, so a taxable invoice is refused by `tax` with `TAX_CODE_MISSING` (TAX-002.E1) — the PRD's
+  fail-closed behaviour, not a silent zero-rate. Whether a POS walk-in counter sale defaults to
+  `VAT_OUTPUT` is a product decision (MVP-OD-3) and is not made here.
 - CUS-003 (duplicate-person detection) and MDM-006 (merge/tombstone) are not implemented;
   `createCustomer` never flags `POSSIBLE_DUPLICATE`.
 - The full product attribute set (principal ownership, hierarchy) is not implemented.
@@ -104,6 +117,8 @@ business domain. `domains/pos` is the first consumer of the product reads.
 - `domains/master-data/tests/master-data.integration.test.ts` — real PostgreSQL: walk-in idempotence
   under two concurrent calls, one audit row per `createCustomer`, the unit a scanned barcode maps to,
   partial SKU/name search, `STALE_DATA` on a stale edit, `DUPLICATE_CODE` on a repeated barcode, and
-  `getProductSaleUnits` ordering base unit first.
+  `getProductSaleUnits` ordering base unit first, and the tax reads (a recorded treatment
+  round-trips, an unset one reads `null`, another organization's customer is `NOT_FOUND`, product codes
+  come back in one batch).
 - `apps/api/tests/backoffice.integration.test.ts` — the HTTP surface: 39 cases over authentication,
   scope, pagination, unknown sort keys, and the audit trail for every mutation.

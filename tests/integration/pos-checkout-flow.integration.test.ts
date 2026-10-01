@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { registerPosTerminal, openPosShift, closePosShift, createPosSale, addPosSaleLine, checkoutPosSale, acceptPosTender, confirmPosPickupHandover, declarePosCashHandover } from '../../domains/pos/src/index';
 import { parseEventForPublication } from '../../packages/contracts/src/events';
 import { verifyCashCustody } from '../../domains/payments/src/index';
+import { getOrCreateWalkInCustomer } from '../../domains/master-data/src/index';
 import { applyAuditMigrations, applyMigrations } from '../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_pos_e2e_test_${randomUUID().replaceAll('-', '')}`;
@@ -35,21 +36,35 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString(), max: 20 });
 
-  // The whole audit domain, not one file: a fixture that replays only 0001 is what made
-  // amending a shipped migration look safe (MIG-RISK-AUD-001).
   await applyAuditMigrations(pool);
   // Each domain's full ordered list, not one file per domain: a hardcoded `0001` silently stops
-  // replaying the domain's later migrations (inventory 0002 was already missing here).
-  for (const domain of ['platform', 'master-data', 'commercial', 'inventory', 'orders', 'fulfillment', 'invoicing', 'payments', 'pos']) {
+  // replaying the domain's later migrations (inventory 0002 was already missing here). `tax` is a
+  // real precondition: checkout resolves PPN through it, and tax resolution reads platform config.
+  for (const domain of ['platform', 'master-data', 'tax', 'commercial', 'inventory', 'orders', 'fulfillment', 'invoicing', 'payments', 'pos']) {
     await applyMigrations(pool, domain);
   }
 
-  // Seed a sellable product with a karton barcode and an ACTIVE price list (POS-003 preconditions).
+  // Seed a sellable product with a karton barcode, an ACTIVE price list (POS-003 preconditions), and
+  // a tax code. The code is `EXEMPT` deliberately: this test is about the counter-sales flow, and a
+  // VAT_OUTPUT product would make it depend on an approved rate and a rounding rule being configured,
+  // which would turn a POS regression into a tax-configuration failure.
   await pool.query(
-    `INSERT INTO core.product (id, organization_id, sku, name, base_uom, order_capture, status)
-     VALUES ($1, $2, 'SKU-001', 'Indomie Goreng', 'PCS', 'PSS', 'ACTIVE')`,
+    `INSERT INTO core.product (id, organization_id, sku, name, base_uom, order_capture, status, tax_code)
+     VALUES ($1, $2, 'SKU-001', 'Indomie Goreng', 'PCS', 'PSS', 'ACTIVE', 'EXEMPT')`,
     [productId, organizationId],
   );
+  await pool.query(
+    `INSERT INTO core.tax_code (id, code, name, zero_rated)
+     VALUES ($1, 'EXEMPT', 'Bebas PPN', true)
+     ON CONFLICT (code) DO UPDATE SET zero_rated = EXCLUDED.zero_rated`,
+    [randomUUID()],
+  );
+
+  // POS-004 defaults to the branch's walk-in customer when none is selected. Its treatment has to be
+  // recorded before checkout: `tax` refuses a customer with an undetermined treatment rather than
+  // assuming one, so an UNSET walk-in customer would fail the very checkout this test walks.
+  const walkIn = await getOrCreateWalkInCustomer(pool, { organizationId, branchId });
+  await pool.query(`UPDATE core.customer SET tax_treatment = 'EXEMPT' WHERE id = $1`, [walkIn.id]);
   await pool.query(
     `INSERT INTO core.product_uom (id, product_id, uom, conversion_factor, is_base)
      VALUES ($1, $2, 'KARTON', 40, false)`,

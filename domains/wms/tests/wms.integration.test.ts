@@ -94,6 +94,9 @@ beforeAll(async () => {
 
   // The whole audit domain, not one file: a fixture that replays only
   // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  // The whole audit domain, not a hand-picked pair of its files. Replaying 0001 and 0002 by name
+  // is what made amending a shipped migration look safe (MIG-RISK-AUD-001), and it broke as soon as
+  // the domain grew a migration: 0002 alters a constraint the replayed 0001 no longer creates.
   await applyAuditMigrations(pool);
   // The ordered list of each domain's migrations, read from the directory. Naming the files meant
   // this fixture silently stopped applying a migration added after it was written — which is how

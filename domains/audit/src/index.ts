@@ -33,12 +33,18 @@ export {
   type AuditArchiveRetention,
 } from './domain/retention-policy';
 export {
-  auditArchiveDigest,
+  auditArchiveDigest, isRestoreVerified,
   type AuditArchive,
+  type AuditArchiveReader,
   type AuditArchiveEntry,
   type AuditArchivePage,
   type AuditArchivePageReceipt,
+  type AuditRestoreVerifier,
+  type AuditRestoreVerificationRequest,
+  type AuditRestoreVerificationResult,
 } from './domain/audit-archive';
+export { FileAuditArchive } from './infrastructure/file-audit-archive';
+export { PostgresRestoreVerifier, type PostgresRestoreVerifierOptions } from './infrastructure/postgres-restore-verifier';
 export {
   decidePartitionDisposition,
   type PartitionDisposition,

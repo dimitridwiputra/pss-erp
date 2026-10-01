@@ -2,6 +2,10 @@ export { getOrCreateWalkInCustomer } from './application/get-or-create-walk-in-c
 export type { GetOrCreateWalkInCustomerInput, WalkInCustomer } from './application/get-or-create-walk-in-customer';
 export { createCustomer } from './application/create-customer';
 export type { CreateCustomerInput, CreatedCustomer } from './application/create-customer';
+export { getCustomerTaxTreatment } from './application/get-customer-tax-treatment';
+export type { GetCustomerTaxTreatmentInput, CustomerTaxTreatment } from './application/get-customer-tax-treatment';
+export { getProductTaxCodes } from './application/get-product-tax-code';
+export type { GetProductTaxCodesInput, ProductTaxCode } from './application/get-product-tax-code';
 export { findProductByBarcode } from './application/find-product-by-barcode';
 export type { FindProductByBarcodeInput, ProductBarcodeMatch } from './application/find-product-by-barcode';
 export { searchProducts } from './application/search-products';

@@ -64,6 +64,16 @@ export interface AuditArchivePage {
 export interface AuditArchivePageReceipt {
   partition: string;
   cursor: string;
+  /**
+   * Where the client actually put the bytes.
+   *
+   * Reported by the client rather than composed by the caller, because only the client knows where
+   * it wrote them. The use case used to build a `audit://partition/cursor` string itself, which is a
+   * fiction: nothing could resolve it, so the recorded URI described a location that did not exist
+   * and the restore had no way to read the artifact back. A real client must be able to name its own
+   * object, and the receipt is the only place that name can come from.
+   */
+  objectUri: string;
   /** Row count the archive says it stored. Must equal the page it was handed. */
   rows: number;
   /** Content digest the archive computed. Must equal the digest the domain computed. */
@@ -73,6 +83,84 @@ export interface AuditArchivePageReceipt {
 
 export interface AuditArchive {
   archive(page: AuditArchivePage): Promise<AuditArchivePageReceipt>;
+}
+
+/**
+ * Reading an artifact back, which is the other half of the archive contract.
+ *
+ * `AuditArchive` is write-only by design — a client that cannot read its own objects cannot be
+ * verified, and an unverifiable archive cannot gate a partition drop. Keeping the read side as a
+ * separate interface means the restore verifier depends on the ability to retrieve an artifact, not
+ * on the write path that produced it, so a restore genuinely exercises storage rather than replaying
+ * whatever the writer still has in memory.
+ */
+export interface AuditArchiveReader {
+  /** Resolve an `objectUri` from a receipt back to the rows it was written from. */
+  read(objectUri: string): Promise<readonly AuditArchiveEntry[]>;
+}
+
+/**
+ * Restore verification, and the gate it exists to enforce.
+ *
+ * `audit.audit_entry` is append-only and its UPDATE/DELETE are refused by trigger, so a partition
+ * DROP is the only way a row leaves the hot table. The archive is therefore the only other copy, and
+ * "the archive call returned success" is not evidence that the bytes are readable — it is evidence
+ * that a client accepted a request. A client that silently discards its input still returns a
+ * receipt, and the receipt is what the drop was previously gated on.
+ *
+ * So a partition may only be dropped after the artifact has been restored into an isolated database
+ * and read back. This interface is the seam for that, shaped like `AuditArchive` above: one narrow
+ * method, no credentials, no knowledge of a cloud provider, so the rule that a drop requires a
+ * verified restore is testable without a storage account or a second database.
+ */
+export interface AuditRestoreVerifier {
+  /**
+   * Restore the artifact into an isolated database and check it. Implementations must NOT touch the
+   * source partition; the point is to prove the archive is independently readable.
+   */
+  verify(request: AuditRestoreVerificationRequest): Promise<AuditRestoreVerificationResult>;
+}
+
+export interface AuditRestoreVerificationRequest {
+  partition: string;
+  objectUri: string;
+  /** The digest the domain computed, which a restore must reproduce. */
+  expectedDigest: string;
+  expectedRows: number;
+  expectedMinOccurredAt: string;
+  expectedMaxOccurredAt: string;
+  periodFrom: string;
+  periodThrough: string;
+  serviceIdentity: string;
+  correlationId: string;
+}
+
+export interface AuditRestoreVerificationResult {
+  status: 'VERIFIED' | 'FAILED';
+  /** Present only when VERIFIED: a claim with no evidence must not satisfy the gate. */
+  restoredRowCount?: number;
+  restoredDigest?: string;
+  restoredMinOccurredAt?: string;
+  restoredMaxOccurredAt?: string;
+  /** A representative read, so "it loaded" is not mistaken for "an auditor could find a row in it". */
+  entityProbe?: string;
+  scratchDatabase?: string;
+  failureReason?: string;
+}
+
+/**
+ * True only when the verification both succeeded and carries the evidence it claims.
+ *
+ * A verifier returning `{ status: 'VERIFIED' }` with nothing else is treated as a failure, not as a
+ * pass. Otherwise a stub, a crash mid-verification, or a future implementation that forgets a field
+ * would silently unlock partition deletion.
+ */
+export function isRestoreVerified(result: AuditRestoreVerificationResult): boolean {
+  return result.status === 'VERIFIED'
+    && typeof result.restoredRowCount === 'number'
+    && typeof result.restoredDigest === 'string' && result.restoredDigest.length > 0
+    && typeof result.restoredMinOccurredAt === 'string'
+    && typeof result.restoredMaxOccurredAt === 'string';
 }
 
 /**
