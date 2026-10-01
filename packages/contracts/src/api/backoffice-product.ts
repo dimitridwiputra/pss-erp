@@ -13,6 +13,12 @@ import { z } from 'zod';
 
 /** `core.product.status`. Raw enum values never reach the UI — the Barang screen maps them to labels. */
 export const ProductStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'INACTIVE']);
+/**
+ * A product's default sales tax code (TAX-001). `VAT_OUTPUT` = the product carries PPN when the
+ * customer is charged PPN; `NON_VAT` / `EXEMPT` = never. `null` on a read is "not set", which a PPN
+ * sale refuses rather than treating as tax-free.
+ */
+export const ProductTaxCodeSchema = z.enum(['VAT_OUTPUT', 'EXEMPT', 'NON_VAT']);
 
 /** A conversion factor is `numeric(18,6)` on `core.product_uom`. */
 const Decimal6Schema = z.string().regex(/^\d+(\.\d{1,6})?$/, 'Isi angka dengan maksimal 6 desimal.');
@@ -56,6 +62,7 @@ export const CreateProductRequestSchema = z.strictObject({
   /** Leave it out for a PSS-captured product; set EXTERNAL only for a product ordered in another system. */
   orderCapture: z.enum(['PSS', 'EXTERNAL']).optional(),
   status: ProductStatusSchema.optional(),
+  taxCode: ProductTaxCodeSchema.optional(),
 });
 export type CreateProductRequest = z.infer<typeof CreateProductRequestSchema>;
 
@@ -73,6 +80,7 @@ export const ProductDetailSchema = z.strictObject({
   baseUom: z.string(),
   orderCapture: z.enum(['PSS', 'EXTERNAL']),
   status: ProductStatusSchema,
+  taxCode: ProductTaxCodeSchema.nullable(),
   version: z.int().positive(),
   units: z.array(ProductUnitSchema),
   createdAt: z.iso.datetime(),
@@ -85,6 +93,7 @@ export const UpdateProductRequestSchema = z.strictObject({
   status: ProductStatusSchema.optional(),
   baseUom: z.string().trim().min(1).max(16).optional(),
   orderCapture: z.enum(['PSS', 'EXTERNAL']).optional(),
+  taxCode: ProductTaxCodeSchema.optional(),
   /** The version the screen loaded. A mismatch is STALE_DATA rather than a silent overwrite. */
   expectedVersion: z.int().positive().optional(),
 }).refine(

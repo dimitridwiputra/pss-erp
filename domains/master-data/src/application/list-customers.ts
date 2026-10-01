@@ -31,6 +31,9 @@ export interface CustomerListItem {
   segment: string | null;
   status: string;
   isWalkIn: boolean;
+  /** `null` is "not yet set", which `tax` refuses rather than reading as no PPN. */
+  taxTreatment: 'VAT_OUTPUT' | 'EXEMPT' | 'NON_VAT' | null;
+  version: number;
   createdAt: string;
 }
 
@@ -88,9 +91,10 @@ export async function listCustomers(
 
   const rows = await (client ?? pool).query<{
     id: string; code: string; name: string; phone: string | null; segment: string | null;
-    status: string; is_walk_in: boolean; created_at: Date;
+    status: string; is_walk_in: boolean; tax_treatment: CustomerListItem['taxTreatment']; version: number;
+    created_at: Date;
   }>(
-    `SELECT id, code, name, phone, segment, status, is_walk_in, created_at
+    `SELECT id, code, name, phone, segment, status, is_walk_in, tax_treatment, version, created_at
      FROM core.customer
      WHERE ${where}
      ORDER BY ${sortColumn} ASC, id ASC
@@ -107,6 +111,8 @@ export async function listCustomers(
       segment: row.segment,
       status: row.status,
       isWalkIn: row.is_walk_in,
+      taxTreatment: row.tax_treatment,
+      version: row.version,
       createdAt: row.created_at.toISOString(),
     })),
     page,

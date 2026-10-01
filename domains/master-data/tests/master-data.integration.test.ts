@@ -14,6 +14,7 @@ import { getProduct, getProductSaleUnits } from '../src/application/get-product'
 import { listCustomers } from '../src/application/list-customers';
 import { applyAuditMigrations, applyDomainMigrations } from '../../../scripts/apply-migrations.mjs';
 import { getCustomerTaxTreatment } from '../src/application/get-customer-tax-treatment';
+import { setCustomerTaxTreatment } from '../src/application/set-customer-tax-treatment';
 import { getProductTaxCodes } from '../src/application/get-product-tax-code';
 
 const databaseName = `pss_master_data_test_${randomUUID().replaceAll('-', '')}`;
@@ -599,5 +600,57 @@ describe('master-data tax classification reads (TAX-001, TAX-002)', () => {
     expect(codes.get(uncoded)).toBeNull();
     // A product of another organization is absent rather than leaking its code.
     expect(codes.has(otherOrganization)).toBe(false);
+  });
+});
+
+describe('master-data setCustomerTaxTreatment (PPN on or off per customer)', () => {
+  const meta = () => ({ actor: { userId: randomUUID(), roles: ['MASTER_DATA_STEWARD'] }, requestId: randomUUID(), correlationId: randomUUID(), source: 'WEB' as const });
+
+  it('turns PPN on for the walk-in customer, bumps the version and audits the before and after', async () => {
+    const organizationId = randomUUID();
+    const walkIn = await getOrCreateWalkInCustomer(pool, { organizationId, branchId: randomUUID() });
+
+    const set = await setCustomerTaxTreatment(pool, undefined, {
+      organizationId, customerId: walkIn.id, taxTreatment: 'VAT_OUTPUT', expectedVersion: 1, ...meta(),
+    });
+
+    expect(set).toEqual({ customerId: walkIn.id, taxTreatment: 'VAT_OUTPUT', version: 2 });
+    expect(await getCustomerTaxTreatment(pool, undefined, { customerId: walkIn.id, organizationId })).toBe('VAT_OUTPUT');
+    const audit = await pool.query(
+      `SELECT changes FROM audit.audit_entry WHERE action = 'CUSTOMER_TAX_TREATMENT_SET' AND entity_id = $1`, [walkIn.id],
+    );
+    expect(audit.rows[0]?.changes).toEqual([
+      expect.objectContaining({ path: 'taxTreatment', before: 'UNSET', after: 'VAT_OUTPUT' }),
+    ]);
+  });
+
+  it('keeps the version when the value is already stored, but still audits the request', async () => {
+    const organizationId = randomUUID();
+    const customer = await createCustomer(pool, { organizationId, name: 'Toko Tetap', taxTreatment: 'NON_VAT', ...meta() });
+
+    const set = await setCustomerTaxTreatment(pool, undefined, { organizationId, customerId: customer.id, taxTreatment: 'NON_VAT', ...meta() });
+
+    expect(set.version).toBe(customer.version);
+    const audit = await pool.query(
+      `SELECT count(*)::int AS count FROM audit.audit_entry WHERE action = 'CUSTOMER_TAX_TREATMENT_SET' AND entity_id = $1`, [customer.id],
+    );
+    expect(audit.rows[0]?.count).toBe(1);
+  });
+
+  it('refuses a stale screen with STALE_DATA and another organization with NOT_FOUND', async () => {
+    const organizationId = randomUUID();
+    const customer = await createCustomer(pool, { organizationId, name: 'Toko Ganda', ...meta() });
+    await setCustomerTaxTreatment(pool, undefined, { organizationId, customerId: customer.id, taxTreatment: 'VAT_OUTPUT', ...meta() });
+
+    const stale = await setCustomerTaxTreatment(pool, undefined, {
+      organizationId, customerId: customer.id, taxTreatment: 'NON_VAT', expectedVersion: 1, ...meta(),
+    }).catch((error) => error);
+    expect((stale as DomainError).code).toBe('STALE_DATA');
+
+    const elsewhere = await setCustomerTaxTreatment(pool, undefined, {
+      organizationId: randomUUID(), customerId: customer.id, taxTreatment: 'NON_VAT', ...meta(),
+    }).catch((error) => error);
+    expect((elsewhere as DomainError).code).toBe('NOT_FOUND');
+    expect(await getCustomerTaxTreatment(pool, undefined, { customerId: customer.id, organizationId })).toBe('VAT_OUTPUT');
   });
 });

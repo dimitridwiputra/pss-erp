@@ -7,6 +7,7 @@ import { exportJWK, generateKeyPair, SignJWT, type JWK } from 'jose';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ProblemExceptionFilter } from '@pss/http';
+import { getOrCreateWalkInCustomer, setCustomerTaxTreatment } from '@pss/master-data';
 import { registerPosTerminal } from '@pss/pos';
 import { IdentityService } from '../src/identity.controller';
 import { PosController, PosService } from '../src/pos.controller';
@@ -103,7 +104,7 @@ beforeAll(async () => {
   pool = new pg.Pool({ connectionString: testUrl.toString(), max: 10 });
 
   await applyAuditMigrations(pool);
-  for (const domain of ['identity', 'platform', 'master-data', 'commercial', 'inventory', 'orders', 'fulfillment', 'invoicing', 'payments', 'pos']) {
+  for (const domain of ['identity', 'platform', 'master-data', 'tax', 'commercial', 'inventory', 'orders', 'fulfillment', 'invoicing', 'payments', 'pos']) {
     await applyMigrations(pool, domain);
   }
 
@@ -143,6 +144,12 @@ beforeAll(async () => {
   );
 
   const meta = { actor: { roles: [], serviceIdentity: 'test-seed' }, requestId: randomUUID(), correlationId: randomUUID(), source: 'SYSTEM' as const };
+  // Each branch's walk-in customer, with PPN off: checkout refuses a customer whose tax treatment is
+  // not recorded (TAX-002.E1), so a deployment records it before the first sale, as the demo seed does.
+  for (const branchId of [branchA, branchB]) {
+    const walkIn = await getOrCreateWalkInCustomer(pool, { organizationId, branchId });
+    await setCustomerTaxTreatment(pool, undefined, { organizationId, customerId: walkIn.id, taxTreatment: 'NON_VAT', ...meta });
+  }
   terminalA = (await registerPosTerminal(pool, undefined, { organizationId, branchId: branchA, warehouseId: warehouseA, code: 'KSR-A1', name: 'Konter A1', ...meta })).id;
   terminalA2 = (await registerPosTerminal(pool, undefined, { organizationId, branchId: branchA, warehouseId: warehouseA, code: 'KSR-A2', name: 'Konter A2', ...meta })).id;
   terminalB = (await registerPosTerminal(pool, undefined, { organizationId, branchId: branchB, warehouseId: warehouseB, code: 'KSR-B1', name: 'Konter B1', ...meta })).id;

@@ -235,6 +235,7 @@ function Cart({ shift, sale, onSaleCreated, onChanged, onCheckedOut, onCloseShif
             </div>
           ))}
         <ProblemNotice error={setQty.error ?? removeLine.error ?? checkout.error} />
+        {sale && hasTax(sale.taxTotal) && <div className="pos-total"><span>PPN</span><strong>{rupiah(sale.taxTotal)}</strong></div>}
         <div className="pos-total pos-total-final"><span>Total</span><strong>{rupiah(sale?.total ?? '0')}</strong></div>
         <button className="pos-primary pos-pay" type="button" disabled={!canPay}
           onClick={() => pay.current()}>
@@ -290,6 +291,10 @@ function Receipt({ saleId, initial, onNext }: { saleId: string; initial: PosRece
         <h3>{receipt.terminalName}</h3>
         <p className="pos-muted">{receipt.invoiceNumber} · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(receipt.paidAt))}</p>
         <ul>{receipt.lines.map((line) => <li key={line.id}><span>{quantity(line.qty)} {line.uom} {line.name}</span><b>{rupiah(line.lineTotal)}</b></li>)}</ul>
+        {hasTax(receipt.taxTotal) && <>
+          <div className="pos-total"><span>Subtotal</span><strong>{rupiah(receipt.subtotal)}</strong></div>
+          <div className="pos-total"><span>PPN</span><strong>{rupiah(receipt.taxTotal)}</strong></div>
+        </>}
         <div className="pos-total"><span>Total</span><strong>{rupiah(receipt.total)}</strong></div>
         <div className="pos-total"><span>Tunai</span><strong>{rupiah(receipt.cashReceived)}</strong></div>
         <div className="pos-total pos-total-final"><span>Kembalian</span><strong>{rupiah(receipt.changeAmount)}</strong></div>
@@ -391,4 +396,9 @@ function CashHandedOver({ result, onDone }: { result: DeclarePosCashHandoverResp
       <button className="pos-primary" type="button" onClick={onDone}>Selesai</button>
     </section>
   );
+}
+
+/** A PPN line is shown only when there is PPN; a sale to a customer without PPN reads exactly as before. */
+function hasTax(taxTotal: string): boolean {
+  return !/^0+(\.0+)?$/.test(taxTotal);
 }

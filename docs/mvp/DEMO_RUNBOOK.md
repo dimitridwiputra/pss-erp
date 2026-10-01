@@ -81,6 +81,8 @@ Every row goes through the domain's own commands — `createProduct`, `addProduc
 
 Prices, costs and pack sizes are placeholders, not PSS data (MVP-OD-6).
 
+**PPN** (MVP-OD-3) is per customer. Every demo product is taxable and the seed configures a demo rate (`PSS_DEMO_PPN_RATE`, default 11%), so whether a sale carries PPN is the customer's switch on **Pelanggan**. The walk-in customer *Pelanggan Umum Grosir* starts with PPN **off**, which keeps every amount in §4 as written. To rehearse with PPN, seed with `PSS_DEMO_WALK_IN_PPN=on`, or switch it on screen (§4.1).
+
 ## 4. Demo script
 
 Each role signs in at `http://localhost:3000/masuk`. **Switching user needs two sign-outs:** `Keluar` on `/beranda`, then open `http://127.0.0.1:8080/realms/pss-local/protocol/openid-connect/logout` and press **Logout**. Otherwise Keycloak signs the previous user straight back in. Using one browser profile per role avoids this.
@@ -121,7 +123,7 @@ The three stock screens carry a **Gudang** control in their own heading, not in 
 14. **Penyesuaian Stok** → search `BRG-001` → pick it. Type `-2` in **Selisih** (a shortage), and pick a reason from the list — the options are the domain's own active codes with their Indonesian labels, never free text. A zero is refused: correcting nothing is a mistake.
 15. Press **Simpan 1 Koreksi**. There is no approval step in the demo (`inventory.adjustment.approve` belongs to `BRANCH_MANAGER`, which no demo user holds), so say that the correction is final.
 
-**Pelanggan** is a read-only list (MDM-004). Open it to show that the back office can look a customer up, and that it offers no edit.
+**Pelanggan** lists the customers (MDM-004) and has one switch per customer: **Kena PPN** / **Tanpa PPN**. The branch's walk-in customer is marked *Pelanggan sistem cabang*; its switch decides PPN for every walk-in counter sale made afterwards. Switching it on mid-demo changes the next sale, never one already checked out: Mi Goreng KARTON then costs Rp118.000 + PPN Rp12.980 = **Rp130.980**, the counter and the struk show a *PPN* line, and Finance posts the PPN to *PPN Keluaran* (2-1300). Switch it back to **Tanpa PPN** before §4.2 if you want the runbook's amounts.
 
 ### 4.2 Cashier sells (kasir.demo)
 
@@ -200,7 +202,7 @@ MVP_PLAN §9: no QRIS, transfer, credit (tempo) sales, returns, purchase orders 
 
 From stream A:
 - The receipt carries the invoice number. `KSR-{CAB}-…` receipt numbering waits for the numbering template (GAP-16), and the branch code in the number is a placeholder derived from the branch id.
-- PPN is 0 on every invoice until PKP status and rate are decided (MVP-OD-3).
+- PPN is a per-customer switch with a demo rate. PKP status, the statutory rate and DPP rule, and price-inclusive pricing are not decided (MVP-OD-3), so do not present the PPN amount as PSS's real tax position.
 - Only units with a counter price can be sold. The demo prices each product in one unit, so the katalog offers one unit per product.
 - One product in two units (KARTON and PCS) can't be paid in one sale yet (MVP-OD-28). The counter says so and asks to split the sale.
 - A handover counted differently without a reason stays "Perlu keputusan selisih": the CSH-002 approval is not built (MVP-OD-26).

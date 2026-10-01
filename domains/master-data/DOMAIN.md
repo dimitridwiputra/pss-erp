@@ -32,11 +32,12 @@ belong to `credit`/`commercial`.
 
 | Command | Note |
 |---|---|
-| `createProduct(pool, client, input)` | MDM-001. `status` defaults to `DRAFT`, so nothing is sellable before it is priced. The SKU is the product's identity and is never editable afterwards. |
+| `createProduct(pool, client, input)` | MDM-001. `status` defaults to `DRAFT`, so nothing is sellable before it is priced. An optional `taxCode` records whether the product carries PPN for a PPN customer; omitted is NULL, which a PPN sale refuses (`updateProduct` can set it later). The SKU is the product's identity and is never editable afterwards. |
 | `updateProduct(pool, client, input)` | Carries `expectedVersion`; a mismatch is `STALE_DATA` rather than a silent overwrite. A no-op still writes its audit entry (ADR-0013 4b). |
 | `addProductBarcode(pool, client, input)` | MDM-003. A barcode belongs to a **unit** (`uom`), because a case label is not a piece label. A duplicate is `DUPLICATE_CODE` on the `barcode` field. |
 | `addProductUom(pool, client, input)` | MDM-003. The conversion factor is written once and never edited (`UOM_FACTOR_LOCKED`). |
 | `createCustomer(pool, client, input)` | Quick-registers a prospect as `PENDING_REVIEW` with a collision-retried `code` and an optional `taxTreatment` (`VAT_OUTPUT` / `EXEMPT` / `NON_VAT`; omitted means undetermined, not zero-rated, and is audited as `UNSET`). `phone`/`npwp` are `PERSONAL` in the audit changes (AGENTS.md §15). |
+| `setCustomerTaxTreatment(pool, client, input)` | TAX-001: PPN on (`VAT_OUTPUT`) or off (`NON_VAT` / `EXEMPT`) for one customer, the walk-in customer included. Carries `expectedVersion` (`STALE_DATA` on a mismatch); audited as `CUSTOMER_TAX_TREATMENT_SET` with before/after (an unset before is `UNSET`), also when nothing changed. Read by invoicing at preparation and snapshotted, so it never re-prices an existing invoice. |
 | `getOrCreateWalkInCustomer(pool, input)` | The branch's single walk-in customer, created on first use. Concurrency-safe: a losing insert re-selects the winning row. |
 
 Every command takes `(pool, client, input)`: pass the transaction `client` to join a caller's
@@ -52,7 +53,7 @@ transaction, or `undefined` to let the command own one.
 | `getProductsByIds(pool, client, input)` | The SKU/name of ids a caller already holds, so a page of prices or stock rows is labelled with one extra request instead of one per row. |
 | `searchProducts(pool, input)` | `ILIKE` over `sku`/`name`, capped at 100. |
 | `findProductByBarcode(pool, input)` | Resolves a scanned barcode to its product **and the unit that barcode represents**. |
-| `listCustomers(pool, client, input)` | The read-only Pelanggan list (MDM-004). |
+| `listCustomers(pool, client, input)` | The Pelanggan list (MDM-004), with each customer's tax treatment and version. |
 | `getCustomerTaxTreatment(pool, client, input)` | The customer's sales tax treatment, or `null` when none is recorded. `null` is a real answer, distinct from `NOT_FOUND`, because `tax` refuses a taxable line in the `null` state rather than assuming a treatment. |
 | `getProductTaxCodes(pool, client, input)` | Each requested product's default tax code as a `Map`, in one query. A product that does not exist is absent, which the caller treats the same as a stored `null`. |
 
@@ -100,11 +101,10 @@ business domain. `domains/pos` is the first consumer of the product reads.
   `master_data.product.manage`. Identity answered half of MVP-OD-20 on 30 September by registering
   `inventory.stock_card.view` for the stock card, so only the product and the customer reads still
   borrow a write grant. A registered read code for each is still requested.
-- **No command writes `product.tax_code` or changes a customer's `tax_treatment` yet.**
-  `createProduct`/`updateProduct` do not carry a tax code, and `getOrCreateWalkInCustomer` records no
-  treatment, so a taxable invoice is refused by `tax` with `TAX_CODE_MISSING` (TAX-002.E1) — the PRD's
-  fail-closed behaviour, not a silent zero-rate. Whether a POS walk-in counter sale defaults to
-  `VAT_OUTPUT` is a product decision (MVP-OD-3) and is not made here.
+- **Who may change a customer's PPN treatment** is not registered: `setCustomerTaxTreatment`'s route
+  stands on the steward grant `master_data.product.manage`, like the rest of Pelanggan (MVP-OD-21).
+  Whether the walk-in customer's treatment is set per branch by a steward or by Finance/Tax is a
+  product decision (MVP-OD-3).
 - CUS-003 (duplicate-person detection) and MDM-006 (merge/tombstone) are not implemented;
   `createCustomer` never flags `POSSIBLE_DUPLICATE`.
 - The full product attribute set (principal ownership, hierarchy) is not implemented.

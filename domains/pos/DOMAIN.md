@@ -30,8 +30,8 @@ Every command has the signature `(pool, client | undefined, input)` and runs thr
   2. `reserveStock`: FULL reservation only. A shortfall surfaces as `POS_STOCK_INSUFFICIENT` and rolls everything back, leaving the sale in CART.
   3. `requestSalesOrder`, idempotent on `clientKey = posSaleId`.
   4. `releaseFulfillment`.
-  5. `prepareInvoice` with `channel: 'POS'`, customer and branch.
-  6. Mark the sale `PENDING_PAYMENT`.
+  5. `prepareInvoice` with `channel: 'POS'`, customer and branch. PPN is the customer's treatment (the walk-in customer's for a walk-in sale, MVP-OD-3); a customer with none recorded is refused by `tax` (`TAX_RATE_NOT_CONFIGURED` / `TAX_CODE_MISSING`) and nothing is applied.
+  6. Mark the sale `PENDING_PAYMENT`, copying the invoice's `total` and `tax_total`, so the amount due and the struk include PPN.
 - `acceptPosTender` (POS-006): TUNAI only. It checks cash received ≥ total in SQL. `@pss/payments` `recordPayment` stores the payment with its customer, invoice, cash location (the shift) and business date, and publishes `PAYMENT_RECEIVED` in the same transaction. The sale becomes `PAID`.
 - `printPosReceipt` (POS-011): copy 1 is the original. Every later print needs a reason and is returned with `isCopy` ("SALINAN"). The sale row is locked so two prints can't share a copy number. The receipt carries the invoice number, because `KSR-{CAB}-{YYYY}-{NNNNNN}` numbering (DOC-001) awaits the owner's template (GAP-16).
 - `confirmPosPickupHandover` (POS-010): full delivery only. One transaction covers:

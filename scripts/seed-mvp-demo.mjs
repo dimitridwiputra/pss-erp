@@ -23,7 +23,9 @@ import pg from 'pg';
  */
 const require = createRequire(import.meta.url);
 const { registerPosTerminal } = require('../domains/pos/dist/index.js');
-const { createProduct, addProductUom, addProductBarcode } = require('../domains/master-data/dist/index.js');
+const {
+  createProduct, updateProduct, addProductUom, addProductBarcode, getOrCreateWalkInCustomer, setCustomerTaxTreatment,
+} = require('../domains/master-data/dist/index.js');
 const { activatePriceList } = require('../domains/commercial/dist/index.js');
 const { receiveStock } = require('../domains/inventory/dist/index.js');
 
@@ -40,6 +42,26 @@ const terminals = [
   { id: '0199a000-0000-7000-8000-00000000d202', code: 'KSR-02', name: 'Konter 2' },
 ];
 const priceListId = '0199a000-0000-7000-8000-00000000d301';
+
+/**
+ * PPN for the demo (MVP-OD-3). PPN is decided **per customer** — the walk-in customer included — and
+ * switched on the Pelanggan screen; every demo product is taxable, so the customer's switch is what
+ * decides. The walk-in customer starts with PPN off so the runbook's amounts hold; set
+ * `PSS_DEMO_WALK_IN_PPN=on` to start it on. A value already switched on the screen is kept on a
+ * re-run unless the variable is given.
+ *
+ * The rate is a demo value, not a tax decision: production rates go through `scheduleTaxRate` and
+ * its approval (TAX-001), and PKP status, the rate and the DPP rule stay open for Finance/Tax.
+ */
+const walkInPpn = process.env.PSS_DEMO_WALK_IN_PPN;
+if (walkInPpn !== undefined && !['on', 'off'].includes(walkInPpn)) {
+  throw new Error('PSS_DEMO_WALK_IN_PPN must be "on" or "off".');
+}
+const demoPpnRate = process.env.PSS_DEMO_PPN_RATE ?? '11';
+const demoTaxRateId = '0199a000-0000-7000-8000-00000000d401';
+const demoTaxConfigIds = { rate: '0199a000-0000-7000-8000-00000000d402', rounding: '0199a000-0000-7000-8000-00000000d403' };
+/** Stands in for the approver on the demo's tax rows; there is no second person in a seed. */
+const demoTaxApprovalId = '0199a000-0000-7000-8000-00000000d404';
 
 /**
  * Twenty FMCG items across four categories, each with a base unit, a case unit, a barcode per unit,
@@ -131,13 +153,17 @@ try {
     if (!await exists('SELECT 1 FROM core.product WHERE organization_id = $1 AND sku = $2', [organizationId, product.sku])) {
       await createProduct(pool, undefined, {
         organizationId, sku: product.sku, name: product.name, baseUom: product.baseUom,
-        orderCapture: 'PSS', status: 'ACTIVE', ...meta,
+        orderCapture: 'PSS', status: 'ACTIVE', taxCode: 'VAT_OUTPUT', ...meta,
       });
     }
     const stored = await pool.query(
-      'SELECT id FROM core.product WHERE organization_id = $1 AND sku = $2', [organizationId, product.sku],
+      'SELECT id, tax_code FROM core.product WHERE organization_id = $1 AND sku = $2', [organizationId, product.sku],
     );
     const productId = stored.rows[0].id;
+    // A database seeded before products carried a tax code gets it through the same command.
+    if (stored.rows[0].tax_code === null) {
+      await updateProduct(pool, undefined, { organizationId, productId, taxCode: 'VAT_OUTPUT', ...meta });
+    }
     const [caseUom, caseFactor] = product.case;
 
     if (caseUom !== product.baseUom) {
@@ -162,6 +188,37 @@ try {
       organizationId, scope: 'KONTER', validFrom: '2026-09-01',
       items: priced.map((item) => ({ productId: item.productId, uom: item.uom, unitPrice: item.unitPrice })),
       ...meta,
+    });
+  }
+
+  // PPN configuration for the demo organization. A demo fixture, written directly like the approval
+  // route above: production reaches the same rows through PLT-009 and `scheduleTaxRate`, each behind
+  // an approval this seed has no second person to give. The rows are shaped as those commands write
+  // them, carry one synthetic approval id, and are written once (fixed ids, ON CONFLICT DO NOTHING).
+  await pool.query(
+    `INSERT INTO platform.config_value (
+       id, key, organization_id, value, valid_from, status, proposed_by, approved_by, revision, reason_code
+     ) VALUES ($1, 'tax.vat_output_rate', $3, $4::jsonb, DATE '2026-01-01', 'ACTIVE', $5, $5, 1, 'MVP_DEMO'),
+              ($2, 'tax.rounding_rule', $3, '"HALF_UP"'::jsonb, DATE '2026-01-01', 'ACTIVE', $5, $5, 1, 'MVP_DEMO')
+     ON CONFLICT DO NOTHING`,
+    [demoTaxConfigIds.rate, demoTaxConfigIds.rounding, organizationId, JSON.stringify(demoPpnRate), demoTaxApprovalId],
+  );
+  // No conflict target, so an overlapping rate already in force (the exclusion constraint) is kept too.
+  await pool.query(
+    `INSERT INTO core.tax_rate (id, organization_id, tax_code_id, rate, valid_from, status, approval_id)
+     SELECT $1, $2, code.id, $3::numeric, DATE '2026-01-01', 'ACTIVE', $4
+     FROM core.tax_code code WHERE code.code = 'VAT_OUTPUT'
+     ON CONFLICT DO NOTHING`,
+    [demoTaxRateId, organizationId, demoPpnRate, demoTaxApprovalId],
+  );
+
+  // The walk-in customer exists before the first sale, so its PPN switch is on the Pelanggan screen
+  // from the start rather than appearing after the first checkout.
+  const walkIn = await getOrCreateWalkInCustomer(pool, { organizationId, branchId });
+  const walkInTreatment = await pool.query('SELECT tax_treatment FROM core.customer WHERE id = $1', [walkIn.id]);
+  if (walkInPpn !== undefined || walkInTreatment.rows[0].tax_treatment === null) {
+    await setCustomerTaxTreatment(pool, undefined, {
+      organizationId, customerId: walkIn.id, taxTreatment: walkInPpn === 'on' ? 'VAT_OUTPUT' : 'NON_VAT', ...meta,
     });
   }
 
@@ -199,7 +256,8 @@ try {
   process.stdout.write(
     `MVP demo data ready: ${terminals.length} terminals, ${catalog.length} products `
     + `(${new Set(catalog.map((product) => product.category)).size} categories) with costed opening stock `
-    + `worth ${rupiahOf(totalValue.rows[0].value)} in ${demo.warehouse.name}.\n`,
+    + `worth ${rupiahOf(totalValue.rows[0].value)} in ${demo.warehouse.name}; walk-in PPN `
+    + `${walkInPpn === 'on' ? 'on' : (walkInPpn === 'off' ? 'off' : 'as set on the Pelanggan screen')}.\n`,
   );
 } finally {
   await pool.end();

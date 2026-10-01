@@ -2,6 +2,8 @@ export { getOrCreateWalkInCustomer } from './application/get-or-create-walk-in-c
 export type { GetOrCreateWalkInCustomerInput, WalkInCustomer } from './application/get-or-create-walk-in-customer';
 export { createCustomer } from './application/create-customer';
 export type { CreateCustomerInput, CreatedCustomer } from './application/create-customer';
+export { setCustomerTaxTreatment, CustomerTaxTreatmentValueSchema } from './application/set-customer-tax-treatment';
+export type { SetCustomerTaxTreatmentInput, CustomerTaxTreatmentSet } from './application/set-customer-tax-treatment';
 export { getCustomerTaxTreatment } from './application/get-customer-tax-treatment';
 export type { GetCustomerTaxTreatmentInput, CustomerTaxTreatment } from './application/get-customer-tax-treatment';
 export { getProductTaxCodes } from './application/get-product-tax-code';
@@ -12,7 +14,7 @@ export { searchProducts } from './application/search-products';
 export type { SearchProductsInput, ProductSearchResult } from './application/search-products';
 export { listProducts } from './application/list-products';
 export type { ListProductsInput, ProductListRow, ProductPage } from './application/list-products';
-export { createProduct, ProductStatusSchema } from './application/create-product';
+export { createProduct, ProductStatusSchema, ProductTaxCodeSchema } from './application/create-product';
 export type { CreateProductInput, CreatedProduct } from './application/create-product';
 export { updateProduct } from './application/update-product';
 export type { UpdateProductInput, UpdatedProduct } from './application/update-product';

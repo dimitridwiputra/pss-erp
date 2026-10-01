@@ -5,7 +5,7 @@ import { DomainError } from '@pss/contracts';
 import { z } from 'zod';
 import { OptionalAuditContextSchema, resolveAuditContext } from './support/audit-context';
 import { parseCommandInput } from '../domain/rules/parse-command-input';
-import { ProductStatusSchema } from './create-product';
+import { ProductStatusSchema, ProductTaxCodeSchema } from './create-product';
 
 const UpdateProductInputSchema = z.strictObject({
   organizationId: z.uuid(),
@@ -14,6 +14,7 @@ const UpdateProductInputSchema = z.strictObject({
   status: ProductStatusSchema.optional(),
   baseUom: z.string().trim().min(1).max(16).optional(),
   orderCapture: z.enum(['PSS', 'EXTERNAL']).optional(),
+  taxCode: ProductTaxCodeSchema.optional(),
   /**
    * Optimistic concurrency, supplied by a screen that loaded the product. When it is present and the
    * stored version has moved on, the write is rejected with `STALE_DATA` rather than overwriting a
@@ -22,7 +23,8 @@ const UpdateProductInputSchema = z.strictObject({
   expectedVersion: z.number().int().positive().optional(),
   ...OptionalAuditContextSchema.shape,
 }).refine(
-  (input) => input.name !== undefined || input.status !== undefined || input.baseUom !== undefined || input.orderCapture !== undefined,
+  (input) => input.name !== undefined || input.status !== undefined || input.baseUom !== undefined || input.orderCapture !== undefined
+    || input.taxCode !== undefined,
   { message: 'Isi minimal satu kolom yang akan diubah.', path: ['name'] },
 );
 
@@ -39,6 +41,7 @@ interface ProductRow {
   status: string;
   base_uom: string;
   order_capture: string;
+  tax_code: string | null;
 }
 
 /** The editable columns, each paired with its input field, so the audit changes and the UPDATE cannot disagree. */
@@ -47,6 +50,7 @@ const EDITS = [
   { column: 'status', field: 'status' },
   { column: 'base_uom', field: 'baseUom' },
   { column: 'order_capture', field: 'orderCapture' },
+  { column: 'tax_code', field: 'taxCode' },
 ] as const;
 
 /**
@@ -70,7 +74,7 @@ export async function updateProduct(
   const work = async (transaction: AuditedTransaction): Promise<UpdatedProduct> => {
     const tx = transaction.client;
     const current = await tx.query<ProductRow>(
-      `SELECT version, name, status, base_uom, order_capture
+      `SELECT version, name, status, base_uom, order_capture, tax_code
        FROM core.product WHERE id = $1 AND organization_id = $2 FOR UPDATE`,
       [input.productId, input.organizationId],
     );
@@ -88,7 +92,7 @@ export async function updateProduct(
       if (next === undefined || next === row[edit.column]) continue;
       values.push(next);
       assignments.push(`${edit.column} = $${values.length}`);
-      changes.push({ path: edit.field, classification: 'INTERNAL', before: row[edit.column], after: next });
+      changes.push({ path: edit.field, classification: 'INTERNAL', before: row[edit.column] ?? 'UNSET', after: next });
     }
 
     const auditContext = resolveAuditContext(input, input.productId);

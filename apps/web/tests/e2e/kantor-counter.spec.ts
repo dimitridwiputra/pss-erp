@@ -112,3 +112,29 @@ test('a back-office page says so when the account has no access', async ({ page 
   await page.goto('/kantor/penjualan');
   await expect(page.getByRole('heading', { name: 'Tidak ada akses' })).toBeVisible();
 });
+
+test('Pelanggan turns PPN on for the walk-in customer, sending the version it loaded', async ({ page }) => {
+  let treatment: string | null = 'NON_VAT';
+  let sent: unknown = null;
+  const walkIn = () => ({
+    customerId: uuid, code: 'CUS-UMUM01', name: 'Pelanggan Umum Grosir', phone: null, segment: null, status: 'ACTIVE',
+    isWalkIn: true, taxTreatment: treatment, version: treatment === 'VAT_OUTPUT' ? 3 : 2, createdAt: '2026-10-01T01:00:00.000Z',
+  });
+  await json(page, '**/api/bff/core/master-data/customers?*', () => ({
+    body: { items: [walkIn()], page: 1, pageSize: 25, total: 1, hasMore: false },
+  }));
+  await json(page, `**/api/bff/core/master-data/customers/${uuid}/tax-treatment`, (body) => {
+    sent = body;
+    treatment = (body as { taxTreatment: string }).taxTreatment;
+    return { body: { customerId: uuid, taxTreatment: treatment, version: 3 } };
+  });
+
+  await mockShell(page);
+  await page.goto('/kantor/pelanggan');
+  const ppn = page.getByRole('group', { name: 'PPN untuk Pelanggan Umum Grosir' });
+  await expect(ppn.getByRole('button', { name: 'Tanpa PPN' })).toHaveAttribute('aria-pressed', 'true');
+  await ppn.getByRole('button', { name: 'Kena PPN' }).click();
+  await expect(ppn.getByRole('button', { name: 'Kena PPN' })).toHaveAttribute('aria-pressed', 'true');
+  expect(sent).toEqual({ taxTreatment: 'VAT_OUTPUT', expectedVersion: 2 });
+  await snapshot(page, 'kantor-pelanggan-ppn');
+});

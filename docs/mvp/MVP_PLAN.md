@@ -141,7 +141,7 @@ Posting rules v1:
 | `PAYMENT_RECEIVED` (TUNAI) | 1-1110 amount | 1-1300 amount |
 | `CASH_CUSTODY_VERIFIED` | 1-1100 countedAmount; 6-2200 shortage | 1-1110 declaredAmount; 6-2200 overage |
 
-Other defaults: calendar-month periods in Asia/Jakarta; moving-average cost per warehouse, product and UoM; PPN posted only from the invoice's own `taxAmount` (the current POS invoice has tax 0, so PPN Keluaran stays unused until Finance confirms PKP status, rate and price-inclusive rules); manual journals need a different approver (AGENTS.md §4.5). Payment is posted before the invoice in the POS flow, so Piutang Usaha carries a temporary credit balance between payment and handover. This is expected and must be shown correctly in the reconciliation.
+Other defaults: calendar-month periods in Asia/Jakarta; moving-average cost per warehouse, product and UoM; PPN posted only from the invoice's own `taxAmount`, which is the customer's PPN switch applied at checkout (MVP-OD-3) — zero for a customer without PPN, so PPN Keluaran is used only once a customer's PPN is on; manual journals need a different approver (AGENTS.md §4.5). Payment is posted before the invoice in the POS flow, so Piutang Usaha carries a temporary credit balance between payment and handover. This is expected and must be shown correctly in the reconciliation.
 
 ## 9. Out of scope (say so openly in the demo)
 
@@ -153,7 +153,7 @@ QRIS, transfer, credit (tempo) sales, returns, purchase orders and AP invoices, 
 |---|---|---|---|
 | MVP-OD-1 | Chart of accounts | §8 table | Finance |
 | MVP-OD-2 | Posting rules | §8 table | Finance |
-| MVP-OD-3 | PPN status, rate, price-inclusive | Tax from the invoice only (currently 0) | Finance/Tax |
+| MVP-OD-3 | PPN status, rate, price-inclusive | **Demo (decided 2026-10-01 by the product owner): PPN is per customer, switched on or off on Pelanggan, the walk-in customer included.** Every demo product is `VAT_OUTPUT`; the customer's `NON_VAT` makes a sale tax-free, `VAT_OUTPUT` charges PPN on top of the counter price (price-exclusive) at the demo rate `PSS_DEMO_PPN_RATE` (default 11), rounded `HALF_UP` per line. The walk-in starts with PPN off (`PSS_DEMO_WALK_IN_PPN=on` starts it on), so the runbook's amounts hold. **Still open for production:** PKP status, the statutory rate and DPP rule, price-inclusive pricing, and who may set a customer's treatment (gated on the steward grant, as MVP-OD-21). The seed writes the rate and the two tax config values as a demo fixture; production goes through `scheduleTaxRate` and PLT-009 with their approvals. | Finance/Tax / Product owner |
 | MVP-OD-4 | Costing method, and the granularity of the average. | Moving average, per **warehouse × product × UoM** — `inventory.stock_balance` is unique per `(warehouse_id, product_id)` and carries one `uom`, so the average is scoped exactly that way. The PRD's `inventory.valuation_unit` default is BRANCH, which is MVP-OD-12. | Finance |
 | MVP-OD-5 | POS API demo exposure | Server-side `PSS_DEMO_POS_ENABLED`, off by default, refused in production | Engineering owner |
 | MVP-OD-6 | Demo data | Synthetic sample products | Product owner |

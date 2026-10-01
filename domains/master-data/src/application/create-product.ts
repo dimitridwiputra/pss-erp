@@ -9,6 +9,9 @@ import { isUniqueViolation } from '../domain/rules/is-unique-violation';
 import { parseCommandInput } from '../domain/rules/parse-command-input';
 
 /** `core.product.status` — a new product starts DRAFT so it cannot be sold before it is priced. */
+/** A product's default sales tax code; `VAT_INPUT` is the purchase flow's, never a product default here. */
+export const ProductTaxCodeSchema = z.enum(['VAT_OUTPUT', 'EXEMPT', 'NON_VAT']);
+
 export const ProductStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'INACTIVE']);
 
 const CreateProductInputSchema = z.strictObject({
@@ -19,6 +22,11 @@ const CreateProductInputSchema = z.strictObject({
   baseUom: z.string().trim().min(1).max(16),
   orderCapture: z.enum(['PSS', 'EXTERNAL']).optional(),
   status: ProductStatusSchema.optional(),
+  /**
+   * Whether a line of this product carries PPN when the customer is charged PPN (TAX-001). Omitted
+   * stores null, which `tax` refuses for a PPN customer rather than reading as no tax.
+   */
+  taxCode: ProductTaxCodeSchema.optional(),
   ...OptionalAuditContextSchema.shape,
 });
 
@@ -64,9 +72,9 @@ export async function createProduct(
     const productId = randomUUID();
     try {
       await tx.query(
-        `INSERT INTO core.product (id, organization_id, sku, name, base_uom, order_capture, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [productId, input.organizationId, input.sku, input.name, input.baseUom, orderCapture, status],
+        `INSERT INTO core.product (id, organization_id, sku, name, base_uom, order_capture, status, tax_code)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [productId, input.organizationId, input.sku, input.name, input.baseUom, orderCapture, status, input.taxCode ?? null],
       );
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
@@ -92,6 +100,7 @@ export async function createProduct(
         { path: 'baseUom', classification: 'INTERNAL', after: input.baseUom },
         { path: 'orderCapture', classification: 'INTERNAL', after: orderCapture },
         { path: 'status', classification: 'INTERNAL', after: status },
+        { path: 'taxCode', classification: 'INTERNAL', after: input.taxCode ?? 'UNSET' },
       ],
       requestId: auditContext.requestId,
       correlationId: auditContext.correlationId,

@@ -26,6 +26,7 @@ export interface ProductDetail {
   baseUom: string;
   orderCapture: 'PSS' | 'EXTERNAL';
   status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+  taxCode: 'VAT_OUTPUT' | 'EXEMPT' | 'NON_VAT' | null;
   version: number;
   units: ProductUnit[];
   createdAt: string;
@@ -53,6 +54,7 @@ interface ProductRow {
   base_uom: string;
   order_capture: 'PSS' | 'EXTERNAL';
   status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+  tax_code: ProductDetail['taxCode'];
   version: number;
   created_at: Date;
   updated_at: Date;
@@ -72,7 +74,7 @@ async function readProduct(
   productId: string,
 ): Promise<{ product: ProductRow; units: UnitRow[] } | null> {
   const product = await runner.query<ProductRow>(
-    `SELECT id, sku, name, base_uom, order_capture, status, version, created_at, updated_at
+    `SELECT id, sku, name, base_uom, order_capture, status, tax_code, version, created_at, updated_at
      FROM core.product WHERE id = $1 AND organization_id = $2`,
     [productId, organizationId],
   );
@@ -99,6 +101,7 @@ function toDetail(read: { product: ProductRow; units: UnitRow[] }): ProductDetai
     baseUom: read.product.base_uom,
     orderCapture: read.product.order_capture,
     status: read.product.status,
+    taxCode: read.product.tax_code,
     version: read.product.version,
     createdAt: read.product.created_at.toISOString(),
     updatedAt: read.product.updated_at.toISOString(),

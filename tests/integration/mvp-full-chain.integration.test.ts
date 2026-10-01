@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { receiveStock } from '../../domains/inventory/src/index';
+import { getOrCreateWalkInCustomer, setCustomerTaxTreatment } from '../../domains/master-data/src/index';
 import { verifyCashCustody } from '../../domains/payments/src/index';
 import {
   acceptPosTender, addPosSaleLine, checkoutPosSale, closePosShift, confirmPosPickupHandover, createPosSale,
@@ -26,6 +27,7 @@ import { applyAuditMigrations, applyMigrations } from '../../scripts/apply-migra
 const databaseName = `pss_mvp_chain_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
 let pool: pg.Pool;
+let walkInCustomerId = '';
 
 const organizationId = randomUUID();
 const branchId = randomUUID();
@@ -49,7 +51,7 @@ beforeAll(async () => {
   pool = new pg.Pool({ connectionString: testUrl.toString(), max: 10 });
 
   await applyAuditMigrations(pool);
-  for (const domain of ['platform', 'master-data', 'commercial', 'inventory', 'orders', 'fulfillment', 'invoicing', 'payments', 'pos', 'finance']) {
+  for (const domain of ['platform', 'master-data', 'tax', 'commercial', 'inventory', 'orders', 'fulfillment', 'invoicing', 'payments', 'pos', 'finance']) {
     await applyMigrations(pool, domain);
   }
 
@@ -69,11 +71,29 @@ beforeAll(async () => {
       VALUES ($1,$2,'2026-01-01',$3::jsonb)`, [rule.eventType, rule.version, JSON.stringify(rule.template)]);
   }
 
-  // Synthetic demo product (MVP-OD-6). Product and price creation have no command yet (OpenCode, §6.3).
+  // Synthetic demo product (MVP-OD-6), taxable like every demo product: the customer's PPN switch
+  // decides whether a sale carries PPN.
   await pool.query(
-    `INSERT INTO core.product (id, organization_id, sku, name, base_uom, order_capture, status)
-     VALUES ($1, $2, 'DEMO-001', 'Mi Goreng 80g', 'PCS', 'PSS', 'ACTIVE')`, [productId, organizationId],
+    `INSERT INTO core.product (id, organization_id, sku, name, base_uom, order_capture, status, tax_code)
+     VALUES ($1, $2, 'DEMO-001', 'Mi Goreng 80g', 'PCS', 'PSS', 'ACTIVE', 'VAT_OUTPUT')`, [productId, organizationId],
   );
+  // PPN configured as the demo seed configures it, and the walk-in customer starting with PPN off, so
+  // the loop's amounts are the runbook's. The last describe switches it on.
+  await pool.query(
+    `INSERT INTO platform.config_value (id, key, organization_id, value, valid_from, status, proposed_by, approved_by, revision, reason_code)
+     VALUES ($1, 'tax.vat_output_rate', $3, '"11"'::jsonb, DATE '2026-01-01', 'ACTIVE', $4, $4, 1, 'fixture'),
+            ($2, 'tax.rounding_rule', $3, '"HALF_UP"'::jsonb, DATE '2026-01-01', 'ACTIVE', $4, $4, 1, 'fixture')`,
+    [randomUUID(), randomUUID(), organizationId, randomUUID()],
+  );
+  await pool.query(
+    `INSERT INTO core.tax_rate (id, organization_id, tax_code_id, rate, valid_from, status, approval_id)
+     SELECT $1, $2, id, 11, DATE '2026-01-01', 'ACTIVE', $3 FROM core.tax_code WHERE code = 'VAT_OUTPUT'`,
+    [randomUUID(), organizationId, randomUUID()],
+  );
+  walkInCustomerId = (await getOrCreateWalkInCustomer(pool, { organizationId, branchId })).id;
+  await setCustomerTaxTreatment(pool, undefined, {
+    organizationId, customerId: walkInCustomerId, taxTreatment: 'NON_VAT', ...meta(financeCashierId),
+  });
   await pool.query(`INSERT INTO core.product_uom (id, product_id, uom, conversion_factor, is_base) VALUES ($1, $2, 'KARTON', 40, false)`, [randomUUID(), productId]);
   await pool.query(`INSERT INTO core.product_barcode (id, product_id, uom, barcode) VALUES ($1, $2, 'KARTON', $3)`, [randomUUID(), productId, barcode]);
   const priceListId = randomUUID();
@@ -239,5 +259,45 @@ describe('MVP full chain: receipt → sale → handover → close → verify', (
     const balance = await trialBalance(pool, organizationId, through);
     expect(balance).toMatchObject({ balanced: true });
     expect(balance.totalDebit).toBe(balance.totalCredit);
+  });
+});
+
+describe('MVP full chain with PPN switched on for the walk-in customer', () => {
+  it('charges PPN on the next sale, issues it on the invoice, and Finance posts it to PPN Keluaran', async () => {
+    const before = (await published()).length;
+    await setCustomerTaxTreatment(pool, undefined, {
+      organizationId, customerId: walkInCustomerId, taxTreatment: 'VAT_OUTPUT', ...meta(financeCashierId),
+    });
+
+    const terminal = await registerPosTerminal(pool, undefined, { organizationId, branchId, warehouseId, code: 'KSR-02', name: 'Konter 2', ...meta(cashierId) });
+    const shift = await openPosShift(pool, undefined, { organizationId, terminalId: terminal.id, cashierUserId: cashierId, openingFloat: '0.00', ...meta(cashierId) });
+    const sale = await createPosSale(pool, undefined, { shiftId: shift.id, ...meta(cashierId) });
+    await addPosSaleLine(pool, undefined, { saleId: sale.id, priceListScope: 'KONTER', barcode, qty: '1', ...meta(cashierId) });
+    const checkedOut = await checkoutPosSale(pool, undefined, { saleId: sale.id, ...meta(cashierId) });
+    // Rp 118.000 + 11% = Rp 130.980: the amount due is the invoice's, PPN included.
+    expect(checkedOut.total).toBe('130980.00');
+    const stored = await pool.query<{ tax_total: string; total: string }>(
+      'SELECT tax_total::text, total::text FROM pos.pos_sale WHERE id = $1', [sale.id],
+    );
+    expect(stored.rows[0]).toEqual({ tax_total: '12980.00', total: '130980.00' });
+
+    await acceptPosTender(pool, undefined, { saleId: sale.id, method: 'TUNAI', cashReceived: '131000.00', acceptedBy: cashierId, ...meta(cashierId) });
+    await confirmPosPickupHandover(pool, undefined, { saleId: sale.id, actorId: warehouseStaffId, receiverName: 'Budi Santoso', ...meta(warehouseStaffId) });
+
+    const events = (await published()).slice(before);
+    const invoice = events.find((event) => event.event_type === 'INVOICE_ISSUED')!;
+    expect(invoice.envelope.payload).toMatchObject({ subtotal: '118000.00', taxAmount: '12980.00', total: '130980.00' });
+
+    for (const event of events.filter((entry) => ECONOMIC_EVENT_TYPES.some((type) => type === entry.event_type))) {
+      expect(await consumeEconomicEvent(pool, event.envelope)).toMatchObject({ status: 'PROCESSED' });
+    }
+    const outputVat = (await pool.query<{ credit: string }>(
+      `SELECT l.credit::text AS credit FROM finance.journal_line l JOIN finance.journal j ON j.id = l.journal_id
+       WHERE j.organization_id = $1 AND j.source_event_id = $2 AND l.account_code = '2-1300'`,
+      [organizationId, (invoice.envelope as { eventId: string }).eventId],
+    )).rows;
+    expect(outputVat).toEqual([{ credit: '12980.00' }]);
+    const through = events.map((event) => (event.envelope as { businessDate: string }).businessDate).sort().at(-1)!;
+    expect(await trialBalance(pool, organizationId, through)).toMatchObject({ balanced: true });
   });
 });

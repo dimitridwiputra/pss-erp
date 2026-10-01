@@ -97,7 +97,9 @@ Both in schema `core` — PRD §18.2 puts "kode & tarif pajak" in `core`, owned 
   foreign key: it references `platform.approval_request` and DB.R02 forbids cross-schema FKs.
 - `core.tax_inbox_event` — `(consumer_name, event_id)` primary key.
 
-Migrations: `0001_tax_code_and_rate.sql` (creates `core` and `btree_gist`), `0002_tax_inbox_event.sql`.
+Migrations: `0001_tax_code_and_rate.sql` (creates `core` and `btree_gist`), `0002_tax_inbox_event.sql`,
+`0003_tax_code_reference.sql` (the four statutory codes as reference rows, so no environment has to
+insert them by hand before a zero-tax sale can resolve; no rate, no organization).
 
 ## Invariants
 

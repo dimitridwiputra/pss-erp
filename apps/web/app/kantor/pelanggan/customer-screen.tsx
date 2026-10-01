@@ -1,10 +1,11 @@
 'use client';
 
-import type { CustomerListResponse } from '@pss/contracts';
+import type { CustomerListResponse, SetCustomerTaxTreatmentResponse } from '@pss/contracts';
 import { EmptyState, PageHeader, Panel, StatusPill } from '@pss/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { BackofficeFrame } from '../../kasir/components/backoffice-frame';
+import { useCommand } from '../../kasir/hooks/use-command';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaDateTime } from '../../kasir/lib/labels';
 import { customerStatusLabel } from '../lib/labels';
@@ -15,13 +16,14 @@ const PAGE_SIZE = 25;
 /**
  * Pelanggan — look a customer up (MDM-004).
  *
- * **Read-only, and deliberately so.** Registering and reviewing a customer is `createCustomer`'s path
+ * **Read-only, except for PPN.** Registering and reviewing a customer is `createCustomer`'s path
  * with its PENDING_REVIEW state, which the POS quick-register flow uses. This screen exists so an
- * operator can answer "do we know this shop?" while a customer is in front of them; offering an edit
- * here would be a second way to change a customer that no other surface has.
+ * operator can answer "do we know this shop?" while a customer is in front of them. The one thing it
+ * changes is whether a customer is charged PPN (TAX-001), because that is decided per customer and
+ * has no other screen; it applies to sales made afterwards, never to an existing invoice.
  *
- * The walk-in customer is marked rather than hidden: it is the branch's own system customer, and an
- * operator must not try to charge to it or edit it.
+ * The walk-in customer is marked rather than hidden: it is the branch's own system customer. Its PPN
+ * switch is the counter's — every walk-in sale at the branch follows it.
  *
  * `phone` is shown because an operator identifies a customer by it at the counter. It is personal data
  * (AGENTS.md §15) and this screen does nothing else with it.
@@ -49,7 +51,7 @@ export function CustomerScreen() {
       <PageHeader
         eyebrow="Data Utama"
         title="Pelanggan"
-        description="Daftar pelanggan yang sudah terdaftar. Layar ini hanya untuk melihat, bukan untuk mengubah."
+        description="Daftar pelanggan yang sudah terdaftar. Di sini Anda juga mengatur apakah penjualan ke pelanggan dikenai PPN."
       />
 
       <Panel flush>
@@ -101,7 +103,7 @@ export function CustomerScreen() {
               <div className="pss-table-scroll">
                 <table className="pss-data-table">
                   <thead>
-                    <tr><th>Kode</th><th>Nama</th><th>Telepon</th><th>Segmen</th><th>Keadaan</th><th>Dibuat</th></tr>
+                    <tr><th>Kode</th><th>Nama</th><th>Telepon</th><th>Segmen</th><th>Keadaan</th><th>PPN</th><th>Dibuat</th></tr>
                   </thead>
                   <tbody>
                     {list.data.items.map((item) => {
@@ -116,6 +118,7 @@ export function CustomerScreen() {
                           <td>{item.phone ?? <span className="pss-muted">Tidak ada</span>}</td>
                           <td>{item.segment ?? <span className="pss-muted">—</span>}</td>
                           <td><StatusPill tone={state.tone} label={state.label} /></td>
+                          <td><TaxTreatmentToggle customer={item} /></td>
                           <td>{jakartaDateTime(item.createdAt)}</td>
                         </tr>
                       );
@@ -134,5 +137,49 @@ export function CustomerScreen() {
           ))}
       </Panel>
     </BackofficeFrame>
+  );
+}
+
+type CustomerRow = CustomerListResponse['items'][number];
+
+/**
+ * PPN on or off for one customer. Two plain choices rather than the three tax codes: "Bebas PPN"
+ * (EXEMPT) is shown when it is stored, but setting it is a tax decision for Finance, not this screen.
+ * A customer with no treatment yet shows neither choice pressed, and says why a sale to them stops.
+ */
+function TaxTreatmentToggle({ customer }: { customer: CustomerRow }) {
+  const queryClient = useQueryClient();
+  const set = useCommand(
+    (taxTreatment: 'VAT_OUTPUT' | 'NON_VAT', key) => kasirFetch<SetCustomerTaxTreatmentResponse>(
+      `/master-data/customers/${customer.customerId}/tax-treatment`,
+      { method: 'PUT', idempotencyKey: key, body: JSON.stringify({ taxTreatment, expectedVersion: customer.version }) },
+    ),
+    { onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['kantor-customers'] }); } },
+  );
+  const current = customer.taxTreatment;
+  const options = [
+    { value: 'VAT_OUTPUT', label: 'Kena PPN' },
+    { value: 'NON_VAT', label: 'Tanpa PPN' },
+  ] as const;
+  return (
+    <div>
+      <div className="pss-segmented" role="group" aria-label={`PPN untuk ${customer.name}`}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={current === option.value}
+            className={current === option.value ? 'active' : undefined}
+            disabled={set.isPending}
+            onClick={() => { if (current !== option.value) set.mutate(option.value); }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {current === 'EXEMPT' && <small>Saat ini: Bebas PPN</small>}
+      {current === null && <small>Belum diatur — penjualan ke pelanggan ini akan ditolak.</small>}
+      {set.isError && <KantorProblem error={set.error} />}
+    </div>
   );
 }

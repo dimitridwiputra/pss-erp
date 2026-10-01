@@ -127,10 +127,12 @@ export async function checkoutPosSale(pool: Pool, client: PoolClient | undefined
     await client.query(
       `UPDATE pos.pos_sale SET
          status = 'PENDING_PAYMENT', customer_id = $2, sales_order_id = $3, fulfillment_request_id = $4,
-         delivery_order_id = $5, invoice_id = $6, invoice_number = $7, total = $8, checked_out_at = now(),
-         version = version + 1, updated_at = now()
+         delivery_order_id = $5, invoice_id = $6, invoice_number = $7, total = $8, tax_total = $9,
+         checked_out_at = now(), version = version + 1, updated_at = now()
        WHERE id = $1`,
-      [input.saleId, customerId, order.salesOrderId, fulfillment.fulfillmentRequestId, fulfillment.deliveryOrderId, invoice.invoiceId, invoice.number, invoice.total],
+      // The amount due is the invoice's, PPN included; the sale carries its tax so the counter and
+      // the receipt can show it without reading invoicing's tables.
+      [input.saleId, customerId, order.salesOrderId, fulfillment.fulfillmentRequestId, fulfillment.deliveryOrderId, invoice.invoiceId, invoice.number, invoice.total, invoice.taxTotal],
     );
 
     // POS_SALE_CHECKED_OUT has no registered payload schema; the owning domains' own events carry

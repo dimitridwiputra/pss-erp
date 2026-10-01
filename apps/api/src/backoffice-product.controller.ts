@@ -2,15 +2,17 @@ import { Body, Controller, Get, Inject, Injectable, OnModuleDestroy, Param, Post
 import {
   AddProductBarcodeRequestSchema, AddProductUomRequestSchema, CreateProductRequestSchema, CustomerListQuerySchema,
   CustomerListResponseSchema, DomainError, ProductDetailSchema, ProductListQuerySchema, ProductListResponseSchema,
-  ProductBarcodeResponseSchema, ProductUomResponseSchema, UpdateProductRequestSchema, UpdateProductResponseSchema,
+  ProductBarcodeResponseSchema, ProductUomResponseSchema, SetCustomerTaxTreatmentRequestSchema,
+  SetCustomerTaxTreatmentResponseSchema, UpdateProductRequestSchema, UpdateProductResponseSchema,
   type AddProductBarcodeRequest, type AddProductUomRequest, type CreateProductRequest, type CurrentUserResponse,
-  type UpdateProductRequest,
+  type SetCustomerTaxTreatmentRequest, type UpdateProductRequest,
 } from '@pss/contracts';
 import { readIdempotencyKey, ZodValidationPipe } from '@pss/http';
 import { Pool } from 'pg';
 import { z } from 'zod';
 import {
-  addProductBarcode, addProductUom, createProduct, getProduct, getProductsByIds, listCustomers, listProducts, updateProduct,
+  addProductBarcode, addProductUom, createProduct, getCustomerTaxTreatment, getProduct, getProductsByIds, listCustomers,
+  listProducts, setCustomerTaxTreatment, updateProduct,
 } from '@pss/master-data';
 import type { ObservedRequest } from '@pss/observability';
 import {
@@ -106,6 +108,7 @@ export class BackofficeProductService implements OnModuleDestroy {
         sku: input.sku, name: input.name, baseUom: input.baseUom,
         ...(input.orderCapture ? { orderCapture: input.orderCapture } : {}),
         ...(input.status ? { status: input.status } : {}),
+        ...(input.taxCode ? { taxCode: input.taxCode } : {}),
         ...commandMeta(context),
       });
       // Answer with the product as it now stands, base unit included, so the screen does not have to
@@ -127,6 +130,7 @@ export class BackofficeProductService implements OnModuleDestroy {
         ...(input.status ? { status: input.status } : {}),
         ...(input.baseUom ? { baseUom: input.baseUom } : {}),
         ...(input.orderCapture ? { orderCapture: input.orderCapture } : {}),
+        ...(input.taxCode ? { taxCode: input.taxCode } : {}),
         ...(input.expectedVersion ? { expectedVersion: input.expectedVersion } : {}),
         ...commandMeta(context),
       })));
@@ -176,10 +180,28 @@ export class BackofficeProductService implements OnModuleDestroy {
       items: page.items.map((item) => ({
         customerId: item.customerId, code: item.code, name: item.name, phone: item.phone,
         segment: item.segment, status: item.status as 'DRAFT' | 'PENDING_REVIEW' | 'ACTIVE' | 'INACTIVE' | 'MERGED',
-        isWalkIn: item.isWalkIn, createdAt: item.createdAt,
+        isWalkIn: item.isWalkIn, taxTreatment: item.taxTreatment, version: item.version, createdAt: item.createdAt,
       })),
       page: page.page, pageSize: page.pageSize, total: page.total, hasMore: page.hasMore,
     });
+  }
+
+  /**
+   * PPN on or off for one customer (TAX-001), the walk-in customer included. Gated on the steward
+   * grant like the rest of Pelanggan, for the same unregistered-permission reason (MVP-OD-21). The
+   * customer is resolved in the caller's organization first, so another organization's id is NOT_FOUND.
+   */
+  async setTaxTreatment(context: CommandContext, customerId: string, input: SetCustomerTaxTreatmentRequest, idempotencyKey: string) {
+    const id = uuidParam(customerId, 'customerId');
+    await getCustomerTaxTreatment(this.requirePool(), undefined, { organizationId: context.user.organizationId, customerId: id });
+    this.authorize(context, false);
+    return runApiCommand(this.requirePool(), context, 'masterData.setCustomerTaxTreatment', idempotencyKey,
+      { customerId: id, ...input },
+      async (client) => SetCustomerTaxTreatmentResponseSchema.parse(await setCustomerTaxTreatment(this.requirePool(), client, {
+        organizationId: context.user.organizationId, customerId: id, taxTreatment: input.taxTreatment,
+        ...(input.expectedVersion ? { expectedVersion: input.expectedVersion } : {}),
+        ...commandMeta(context),
+      })));
   }
 
   /**
@@ -262,6 +284,14 @@ export class BackofficeProductController {
   @Get('customers')
   async customers(@Req() request: ApiRequest, @Query() query: Record<string, unknown>) {
     return this.service.customers(await this.currentUser(request), query);
+  }
+
+  @Put('customers/:id/tax-treatment')
+  async setTaxTreatment(
+    @Req() request: ApiRequest, @Param('id') customerId: string,
+    @Body(new ZodValidationPipe(SetCustomerTaxTreatmentRequestSchema)) body: SetCustomerTaxTreatmentRequest,
+  ) {
+    return this.service.setTaxTreatment(await this.currentUser(request), customerId, body, readIdempotencyKey(request));
   }
 
   @Get('product-summaries')
