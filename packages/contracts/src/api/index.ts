@@ -22,3 +22,7 @@ export * from './wms-discrepancy';
 export * from './wms-fulfillment';
 export * from './wms-operations';
 export * from './experience-shell';
+export * from './backoffice-product';
+export * from './backoffice-customer';
+export * from './backoffice-price-list';
+export * from './backoffice-stock';

@@ -5,6 +5,7 @@ import { DecimalStringSchema, DomainError, type FieldError } from '@pss/contract
 import { z } from 'zod';
 import { ActorInputSchema, SourceSchema } from './support/audit-context';
 import { withConnection } from '@pss/platform';
+import { isUniqueViolation } from './is-unique-violation';
 
 const ReserveStockLineSchema = z.strictObject({
   productId: z.uuid(),
@@ -93,15 +94,27 @@ export async function reserveStock(
     }
 
     const reservationIds: string[] = [];
-    for (const line of lockedBalances) {
+    for (const [index, line] of lockedBalances.entries()) {
       const reservationId = randomUUID();
+      try {
+        await tx.query(
+          `INSERT INTO inventory.stock_reservation (
+             id, organization_id, warehouse_id, product_id, uom, qty, status, reference_type, reference_id
+           ) VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, $8)`,
+          [reservationId, parsed.organizationId, parsed.warehouseId, line.productId, line.uom, line.qty, parsed.referenceType, parsed.referenceId],
+        );
+      } catch (error) {
+        // Two lines for one product in one unit is one line, not two: the unique key says so (MVP-OD-12).
+        // Letting the constraint violation escape would reach a POS caller as a 500 and a "Terjadi
+        // kendala" screen for a cart the cashier can fix by scanning once instead of twice.
+        if (!isUniqueViolation(error)) throw error;
+        throw new DomainError('VALIDATION_FAILED', [], [{
+          path: `lines[${index}].productId`,
+          code: 'duplicate_line',
+          message: 'Barang dan satuan yang sama sudah ada di keranjang. Gabungkan jadi satu baris.',
+        }]);
+      }
       reservationIds.push(reservationId);
-      await tx.query(
-        `INSERT INTO inventory.stock_reservation (
-           id, organization_id, warehouse_id, product_id, uom, qty, status, reference_type, reference_id
-         ) VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, $8)`,
-        [reservationId, parsed.organizationId, parsed.warehouseId, line.productId, line.uom, line.qty, parsed.referenceType, parsed.referenceId],
-      );
       await tx.query(
         `UPDATE inventory.stock_balance
          SET qty_reserved = qty_reserved + $1::numeric, version = version + 1, updated_at = now()

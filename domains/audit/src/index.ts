@@ -1,6 +1,10 @@
 export { withAuditedTransaction, runAuditedWork } from './application/append-audit-entry';
 export type { AuditedTransaction } from './application/append-audit-entry';
 export { AuditEntryInputSchema, type AuditEntryInput } from './domain/audit-entry';
+export {
+  OptionalAuditContextSchema, resolveAuditContext, ActorInputSchema, SourceSchema,
+  type OptionalAuditContext, type AuditActorInput, type AuditSource, type ResolvedAuditContext,
+} from './domain/optional-audit-context';
 export { redactAuditChanges } from './domain/rules/redact-audit-changes';
 export {
   archiveExpiredAuditPartitions,

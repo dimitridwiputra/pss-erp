@@ -37,6 +37,29 @@ export function uuidParam(value: string, path: string): string {
   return value;
 }
 
+/**
+ * A query string parsed against its allow-listed contract, so a filter or sort outside the list is a
+ * 422 with a field path rather than something interpolated into SQL (AGENTS.md §9).
+ *
+ * Zod's own messages are English, so a message the contract wrote in Indonesian is passed through and
+ * everything else becomes the generic Indonesian fallback. Without this, every controller writes its
+ * own copy of the same five lines.
+ */
+/** True when the message contains a character outside printable ASCII, i.e. a contract wrote it in Indonesian. */
+function isIndonesian(message: string): boolean {
+  return [...message].some((character) => character.codePointAt(0)! > 127);
+}
+
+export function parseQuery<T>(schema: z.ZodType<T>, raw: unknown): T {
+  const parsed = schema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  throw new DomainError('VALIDATION_FAILED', [], parsed.error.issues.map((issue) => ({
+    path: issue.path.join('.') || 'query',
+    code: issue.code,
+    message: isIndonesian(issue.message) ? issue.message : 'Periksa nilai ini.',
+  })));
+}
+
 /** A record outside the caller's organization is reported as absent, never as forbidden. */
 export function inOrganization<T extends { organizationId: string }>(context: CommandContext, record: T | null): T {
   if (!record || record.organizationId !== context.user.organizationId) throw new DomainError('NOT_FOUND');

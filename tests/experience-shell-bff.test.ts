@@ -35,12 +35,26 @@ describe('App shell navigation (DESIGN_SYSTEM §7, RBAC-003)', () => {
   it('lists only permitted screens, grouped by work, with Beranda for everyone', async () => {
     const view = await sectionsFor('pos.report.view', 'payments.cash_custody.verify');
     expect(view.viewer.displayName).toBe('Admin Demo');
+    // `/kantor` is the back office's daily dashboard and takes `pos.report.view` (MVP_PLAN §7), so it
+    // joins Beranda under Hari Ini for this viewer. The list grows by design: `workScreens` is the
+    // append-only place every stream adds its own screens.
     expect(view.sections.map((section) => [section.label, section.items.map((item) => item.href)])).toEqual([
-      ['Hari Ini', ['/beranda']],
+      ['Hari Ini', ['/beranda', '/kantor']],
       ['Penjualan', ['/kantor/penjualan']],
       ['Kas', ['/kantor/setoran-kas']],
     ]);
     expect(JSON.stringify(view)).not.toContain('pos.report.view');
+  });
+
+  it('gives the back-office screens to the people who hold their own permission code', async () => {
+    // The dashboard comes with the report permission, and the warehouse screens with the three codes
+    // INV-001 and WMS-003 name — never because someone holds a role (RBAC-001.R02).
+    const view = await sectionsFor('master_data.product.manage', 'commercial.price_list.manage', 'inventory.stock_card.view', 'procurement.receipt.post', 'inventory.adjustment.request');
+    expect(view.sections.map((section) => [section.label, section.items.map((item) => item.href)])).toEqual([
+      ['Hari Ini', ['/beranda']],
+      ['Persediaan', ['/kantor/stok', '/kantor/terima', '/kantor/penyesuaian']],
+      ['Data Utama', ['/kantor/barang', '/kantor/harga', '/kantor/pelanggan']],
+    ]);
   });
 
   it('shows /kasir once to someone who both sells and hands over goods', async () => {

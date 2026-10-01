@@ -91,10 +91,12 @@ describe('MVP full chain: receipt → sale → handover → close → verify', (
   let invoiceNumber = '';
 
   it('runs the loop and publishes each fact once, valid, and correlated', async () => {
-    // Goods receipt. Unvalued until OpenCode's costing merges; the stock quantity is what the sale needs.
+    // Goods receipt, costed: the stock quantity is what the sale needs, and the unit cost is what
+    // gives the sale a cost of goods sold. MVP-OD-4 moving average, so the balance now holds a value.
     await receiveStock(pool, undefined, {
       organizationId, warehouseId, referenceType: 'GOODS_RECEIPT', referenceId: randomUUID(),
-      lines: [{ productId, uom: 'KARTON', qty: '10' }], ...meta(warehouseStaffId),
+      sourceType: 'GOODS_RECEIPT',
+      lines: [{ productId, uom: 'KARTON', qty: '10', unitCost: '95000' }], ...meta(warehouseStaffId),
     });
 
     const terminal = await registerPosTerminal(pool, undefined, { organizationId, branchId, warehouseId, code: 'KSR-01', name: 'Konter 1', ...meta(cashierId) });
@@ -116,8 +118,16 @@ describe('MVP full chain: receipt → sale → handover → close → verify', (
     });
 
     const events = await published();
-    const economic = events.filter((event) => ['PAYMENT_RECEIVED', 'INVOICE_ISSUED', 'CASH_CUSTODY_VERIFIED'].includes(event.event_type));
-    expect(economic.map((event) => event.event_type)).toEqual(['PAYMENT_RECEIVED', 'INVOICE_ISSUED', 'CASH_CUSTODY_VERIFIED']);
+    // The order is the demo's, not a convenient one: the receipt values the stock, the cashier takes
+    // the payment at the counter, and only then does warehouse staff hand the goods over — which is
+    // what values what left the stock and issues the invoice. Payment before issue is why Piutang
+    // Usaha carries a temporary credit balance between the two (MVP_PLAN §8).
+    const economic = events.filter((event) => [
+      'INVENTORY_RECEIVED', 'INVENTORY_ISSUED', 'PAYMENT_RECEIVED', 'INVOICE_ISSUED', 'CASH_CUSTODY_VERIFIED',
+    ].includes(event.event_type));
+    expect(economic.map((event) => event.event_type)).toEqual([
+      'INVENTORY_RECEIVED', 'PAYMENT_RECEIVED', 'INVENTORY_ISSUED', 'INVOICE_ISSUED', 'CASH_CUSTODY_VERIFIED',
+    ]);
     expect(events.map((event) => event.event_type)).toContain('DELIVERY_ORDER_DELIVERED');
     for (const event of events) {
       expect(() => parseEventForPublication(event.envelope)).not.toThrow();
@@ -136,10 +146,33 @@ describe('MVP full chain: receipt → sale → handover → close → verify', (
     // The declaration is the recorded cash, never the float (POS-014.BR01, MVP-OD-11); counted − declared = variance.
     expect(custody).toMatchObject({ declaredAmount: payment.amount, countedAmount: '235000.00', varianceAmount: '-1000.00', sourceId: payment.cashLocationId });
 
-    const stock = await pool.query<{ qty_on_hand: string; qty_reserved: string }>(
-      'SELECT qty_on_hand::text, qty_reserved::text FROM inventory.stock_balance WHERE warehouse_id = $1 AND product_id = $2', [warehouseId, productId],
+    const stock = await pool.query<{ qty_on_hand: string; qty_reserved: string; avg_unit_cost: string }>(
+      `SELECT qty_on_hand::text, qty_reserved::text, avg_unit_cost::text
+       FROM inventory.stock_balance WHERE warehouse_id = $1 AND product_id = $2`, [warehouseId, productId],
     );
-    expect(stock.rows[0]).toEqual({ qty_on_hand: '8.000', qty_reserved: '0.000' });
+    // 10 received less 2 handed over, still valued at the receipt's cost: an issue does not re-average.
+    expect(stock.rows[0]).toEqual({ qty_on_hand: '8.000', qty_reserved: '0.000', avg_unit_cost: '95000.0000' });
+  });
+
+  it('values the goods receipt and publishes INVENTORY_RECEIVED / INVENTORY_ISSUED with a cost', async () => {
+    const byType = Object.fromEntries((await published()).map((event) => [event.event_type, event.envelope.payload]));
+
+    // 10 KARTON at Rp 95.000: the receipt is worth Rp 950.000 and the balance averages to its cost.
+    expect(byType.INVENTORY_RECEIVED).toMatchObject({
+      // `unitCost` carries the ledger's 4 places since MVP-OD-13; `totalCost` stays 2-place money.
+      productId, uom: 'KARTON', qty: '10.000', unitCost: '95000.0000', totalCost: '950000.00',
+      sourceType: 'GOODS_RECEIPT',
+    });
+
+    // The handover of 2 KARTON is what gives the sale a cost of goods sold: Rp 190.000 against the
+    // invoice's Rp 236.000, so the demo's gross profit is a real number rather than revenue alone.
+    expect(byType.INVENTORY_ISSUED).toMatchObject({
+      productId, uom: 'KARTON', qty: '2.000', unitCost: '95000.0000', totalCost: '190000.00',
+      sourceType: 'SALES_FULFILLMENT',
+    });
+
+    const grossProfit = 236000 - 190000;
+    expect(grossProfit).toBe(46000);
   });
 
   it('retries publish nothing twice', async () => {
@@ -148,8 +181,6 @@ describe('MVP full chain: receipt → sale → handover → close → verify', (
       .rejects.toMatchObject({ code: 'CUSTODY_ALREADY_VERIFIED' });
     expect((await published()).length).toBe(before);
   });
-
-  it.todo('values the goods receipt and publishes INVENTORY_RECEIVED / INVENTORY_ISSUED with cost (waits for OpenCode costing, MVP_PLAN §6.3)');
 
   it.skipIf(!financeReady)('posts balanced journals for every event and a trial balance that ties (waits for Codex finance, MVP_PLAN §6.2)', () => {
     // Filled in when domains/finance exports its consumer: dispatch the outbox above through it, then

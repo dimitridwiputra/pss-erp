@@ -1,102 +1,109 @@
 # master-data domain
 
-Status: first real implementation. A minimal customer record plus a product/UOM/barcode read model
-now exist to unblock `domains/pos`. Full product attribute set, pricing, and MDM merge/dedup
-governance remain future work (Implementation Plan F1: CUS-001..007, PRD-001..004, MDM-001..006).
+Status: product master and customer list implemented (MDM-001..004). The full product attribute set,
+customer merge governance, and duplicate-person detection are not.
 
 ## Purpose
 
-Own canonical customer master data and a read model of product identity (SKU, UOM, barcode) so
-counter/POS and other domains never read another domain's tables directly for these facts.
+Own canonical customer master data and the product master — identity, units, and barcodes — so POS,
+`commercial`, `inventory` and the back office never read another domain's tables for these facts
+(AGENTS.md §3.1).
 
 ## Owns
 
 - `core.customer`: one row per customer, including exactly one system-provisioned walk-in customer
   per branch.
 - `core.product`, `core.product_uom`, `core.product_barcode`: product identity, its unit-of-measure
-  conversions, and barcode-to-UOM mapping. This is a read model slice only — the full product
-  attribute set (pricing, principal ownership, hierarchy) is not implemented here.
+  conversions, and barcode-to-UOM mapping.
+- The fact that a product is `DRAFT` / `ACTIVE` / `INACTIVE`, and that its `order_capture` is `PSS`
+  or `EXTERNAL`. Nothing else in the system decides whether a product may be sold.
 
 ## Does not own
 
-Pricing, principal/commercial policy, inventory/stock, order capture, or any customer merge/tombstone
-record. `is_walk_in`/`credit_disabled` are the only commercial-adjacent flags this slice carries;
-credit limits and terms belong to `credit`/`commercial`.
+Price (that is `commercial`'s `core.price_list_item`), stock and cost (`inventory`), principal
+ownership and commercial policy, order capture, and any customer merge/tombstone record.
+`is_walk_in`/`credit_disabled` are the only commercial-adjacent flags here; credit limits and terms
+belong to `credit`/`commercial`.
 
 ## Commands
 
-- `getOrCreateWalkInCustomer(pool, { organizationId, branchId })` — returns the branch's single
-  walk-in customer (`Pelanggan Umum Grosir`, `credit_disabled = true`, `status = 'ACTIVE'`), creating
-  it on first use. Concurrency-safe: a losing insert hits `customer_walk_in_per_branch_idx` and
-  re-selects the winning row instead of failing.
-- `createCustomer(pool, input)` — quick-registers a prospect/walk-up customer as `PENDING_REVIEW`
-  with an auto-generated, collision-retried `code` (`CUS-<hex6>`). Always audited
-  (`CUSTOMER_CREATED`); `phone`/`npwp` are classified `PERSONAL` in the audit changes per AGENTS.md
-  §15. Does not implement CUS-003 duplicate-person detection, and nothing currently transitions a
-  created customer out of `PENDING_REVIEW` — that review/approval workflow is future work.
+| Command | Note |
+|---|---|
+| `createProduct(pool, client, input)` | MDM-001. `status` defaults to `DRAFT`, so nothing is sellable before it is priced. The SKU is the product's identity and is never editable afterwards. |
+| `updateProduct(pool, client, input)` | Carries `expectedVersion`; a mismatch is `STALE_DATA` rather than a silent overwrite. A no-op still writes its audit entry (ADR-0013 4b). |
+| `addProductBarcode(pool, client, input)` | MDM-003. A barcode belongs to a **unit** (`uom`), because a case label is not a piece label. A duplicate is `DUPLICATE_CODE` on the `barcode` field. |
+| `addProductUom(pool, client, input)` | MDM-003. The conversion factor is written once and never edited (`UOM_FACTOR_LOCKED`). |
+| `createCustomer(pool, client, input)` | Quick-registers a prospect as `PENDING_REVIEW` with a collision-retried `code`. `phone`/`npwp` are `PERSONAL` in the audit changes (AGENTS.md §15). |
+| `getOrCreateWalkInCustomer(pool, input)` | The branch's single walk-in customer, created on first use. Concurrency-safe: a losing insert re-selects the winning row. |
+
+Every command takes `(pool, client, input)`: pass the transaction `client` to join a caller's
+transaction, or `undefined` to let the command own one.
 
 ## Queries
 
-- `findProductByBarcode(pool, { organizationId, barcode })` — resolves a scanned barcode to its
-  product and the UOM the barcode itself represents (not necessarily the product's base UOM).
-- `searchProducts(pool, { organizationId, query, limit? })` — `ILIKE` match over `sku`/`name`
-  (wildcards in the query text are escaped), default limit 20, capped at 100.
+| Query | Note |
+|---|---|
+| `getProduct(pool, client, input)` | One product with its units (base unit first) and each unit's barcode. Takes a client because the API reads the product back inside a command's transaction. |
+| `getProductSaleUnits(pool, input)` | **Two arguments, deliberately.** MVP-OD-10, requested by the POS stream for its catalog pick. It never runs inside a caller's transaction, and a three-argument read here would silently take a body where a client is expected. |
+| `listProducts(pool, client, input)` | Allow-listed filters and sorts only (`q`, `status`, `page`, `pageSize`, `sort` ∈ name/sku/createdAt). Wildcards in `q` are escaped, not honoured. |
+| `getProductsByIds(pool, client, input)` | The SKU/name of ids a caller already holds, so a page of prices or stock rows is labelled with one extra request instead of one per row. |
+| `searchProducts(pool, input)` | `ILIKE` over `sku`/`name`, capped at 100. |
+| `findProductByBarcode(pool, input)` | Resolves a scanned barcode to its product **and the unit that barcode represents**. |
+| `listCustomers(pool, client, input)` | The read-only Pelanggan list (MDM-004). |
 
 ## Events produced and consumed
 
-None are published yet. `CUSTOMER_CREATED` (PRD Appendix C.1, producer `master-data`, aggregate
-`Customer`) is registered in the event catalog but has no payload schema in
-`packages/contracts/src/events/index.ts`'s `eventSchemaRegistry`. `createCustomer` and
-`getOrCreateWalkInCustomer` therefore only perform the `core.customer` insert and the audit entry —
-event publication is deferred (see Open Decisions, OD-06).
+None published. `CUSTOMER_CREATED` is in the event catalog but has no payload schema in
+`eventSchemaRegistry`, so `createCustomer` writes the row and the audit entry only (OD-06).
 
 ## Tables
 
-Migration `0001_master_data.sql` creates, in schema `core` (shared with `organization`,
-`principal-policy`, `commercial`, `tax` per `scripts/check-database.mjs`'s `schemaOwners`):
+`0001_master_data.sql` creates schema `core` (shared per `scripts/check-database.mjs`'s
+`schemaOwners`):
 
-- `core.customer` — canonical customer row; `UNIQUE (organization_id, code)`; a partial unique index
+- `core.customer` — `UNIQUE (organization_id, code)`; a partial unique index
   (`customer_walk_in_per_branch_idx`) enforces at most one `is_walk_in` row per
   `(organization_id, branch_id)`.
 - `core.product` — `UNIQUE (organization_id, sku)`.
-- `core.product_uom` — FK to `product.id` (same migration file/schema); `UNIQUE (product_id, uom)`.
-- `core.product_barcode` — FK to `product.id`; `UNIQUE (barcode)` globally.
+- `core.product_uom` — FK to `product.id`; `UNIQUE (product_id, uom)`.
+- `core.product_barcode` — FK to `product.id`; `UNIQUE (barcode)` **globally**, which is stronger than
+  the per-organization rule in the brief and is kept on purpose: one scanned code must not mean two
+  products in two organizations that later merge or are read through one terminal.
 
 ## Invariants
 
-- Exactly one walk-in customer per `(organization_id, branch_id)`, enforced by
-  `customer_walk_in_per_branch_idx`, not application logic alone.
-- `core.customer.code` is unique per organization; `core.product.sku` is unique per organization.
-- A barcode identifies exactly one product **and** one UOM of that product
-  (`product_barcode.barcode` is globally unique).
-- Every `core.customer` mutation runs inside `withAuditedTransaction` — there is no unaudited write
-  path in this domain.
+- A barcode identifies exactly one product **and** one unit of that product.
+- `product.sku` is unique per organization; `customer.code` likewise.
+- Exactly one walk-in customer per `(organization_id, branch_id)`, by index rather than by
+  application logic alone.
+- Every `core.customer` and `core.product*` mutation runs inside an audited transaction. There is no
+  unaudited write path in this domain.
 
 ## Dependencies
 
-`@pss/contracts` (`DomainError`, error registry) and `@pss/audit` (`withAuditedTransaction`), both
-via their public package barrels. No dependency on another business domain. No domain currently
-depends on `master-data` in-repo; `domains/pos` (built separately) is the intended first consumer of
-this application layer.
+`@pss/contracts` and `@pss/audit`, both through their public barrels. No dependency on another
+business domain. `domains/pos` is the first consumer of the product reads.
 
 ## Open decisions
 
-- **OD-06**: `CUSTOMER_CREATED`'s payload schema is not yet registered in `eventSchemaRegistry`, so
-  event publication is deferred pending product/ownership sign-off on the Appendix C.1 payload
-  shape. Tracked against product ownership.
-- CUS-003 (duplicate-person detection) and MDM-006 (merge/tombstone) are explicitly out of scope for
-  this slice; `createCustomer` never flags or blocks a `POSSIBLE_DUPLICATE`.
-- Full product attribute set, pricing, and principal-specific product policy (PRD-001..004) are not
-  implemented; `core.product`/`core.product_uom`/`core.product_barcode` are a read model only. No
-  ingestion/write path for product data exists yet in this domain.
-- No `interfaces/http` or `interfaces/events` layer exists yet — this is an application-layer-only
-  slice, consumed directly by other domains' application code (e.g. `domains/pos`).
+- **OD-06**: `CUSTOMER_CREATED`'s payload schema is unregistered, so publication is deferred.
+- **MVP-OD-20 / MVP-OD-21**: no read permission is registered for the product or the customer, so
+  `listProducts`, `getProduct` and `listCustomers` stand on the steward write grant
+  `master_data.product.manage`. Identity answered half of MVP-OD-20 on 30 September by registering
+  `inventory.stock_card.view` for the stock card, so only the product and the customer reads still
+  borrow a write grant. A registered read code for each is still requested.
+- CUS-003 (duplicate-person detection) and MDM-006 (merge/tombstone) are not implemented;
+  `createCustomer` never flags `POSSIBLE_DUPLICATE`.
+- The full product attribute set (principal ownership, hierarchy) is not implemented.
+- No `interfaces/http` or `interfaces/events` layer: the HTTP surface is
+  `apps/api/src/backoffice-product.controller.ts` (MVP_PLAN §4), which composes this domain's reads
+  with `inventory`'s for the price and stock screens.
 
 ## Acceptance tests
 
-`domains/master-data/tests/master-data.integration.test.ts` — real PostgreSQL, with `0001_master_data.sql`
-and `audit`'s `0001_audit_entry.sql` applied raw in `beforeAll`: `getOrCreateWalkInCustomer` is
-idempotent and safe under two concurrent calls for the same branch; `createCustomer` writes exactly
-one `audit.audit_entry` row for the new customer; `findProductByBarcode` returns the UOM row the
-scanned barcode itself maps to; `searchProducts` matches partial SKU/name and returns nothing for a
-non-matching query.
+- `domains/master-data/tests/master-data.integration.test.ts` — real PostgreSQL: walk-in idempotence
+  under two concurrent calls, one audit row per `createCustomer`, the unit a scanned barcode maps to,
+  partial SKU/name search, `STALE_DATA` on a stale edit, `DUPLICATE_CODE` on a repeated barcode, and
+  `getProductSaleUnits` ordering base unit first.
+- `apps/api/tests/backoffice.integration.test.ts` — the HTTP surface: 39 cases over authentication,
+  scope, pagination, unknown sort keys, and the audit trail for every mutation.

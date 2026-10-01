@@ -65,6 +65,9 @@ importers:
       '@pss/identity':
         specifier: workspace:*
         version: link:../../domains/identity
+      '@pss/inventory':
+        specifier: workspace:*
+        version: link:../../domains/inventory
       '@pss/master-data':
         specifier: workspace:*
         version: link:../../domains/master-data
@@ -296,9 +299,15 @@ importers:
 
   domains/commercial:
     dependencies:
+      '@pss/audit':
+        specifier: workspace:*
+        version: link:../audit
       '@pss/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@pss/platform':
+        specifier: workspace:*
+        version: link:../platform
       pg:
         specifier: 8.23.0
         version: 8.23.0
@@ -359,6 +368,9 @@ importers:
       '@pss/platform':
         specifier: workspace:*
         version: link:../platform
+      decimal.js:
+        specifier: 10.4.3
+        version: 10.4.3
       pg:
         specifier: 8.23.0
         version: 8.23.0
@@ -400,6 +412,12 @@ importers:
       '@pss/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@pss/platform':
+        specifier: workspace:*
+        version: link:../platform
+      decimal.js:
+        specifier: 10.4.3
+        version: 10.4.3
       pg:
         specifier: 8.23.0
         version: 8.23.0

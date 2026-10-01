@@ -15,3 +15,13 @@
   .pss-detail-grid { display: block; }
   .pos-receipt { border: 0; box-shadow: none; max-width: 80mm; }
 }
+
+/*
+ * The search-result pickers (Terima Barang, Penyesuaian Stok, Tambah Harga): a short list a person
+ * picks a product from, so each row is the product's name with its SKU and base unit beneath it.
+ * The design system has no list block for this, and a `<ul>` of buttons is what it is.
+ */
+.pss-pick-list { display: grid; gap: 0; margin: 0 0 var(--space-lg); padding: 0; list-style: none; }
+.pss-pick-list li { border-bottom: 1px solid var(--color-border); }
+.pss-pick-list button { display: grid; gap: 2px; width: 100%; padding: var(--space-md) var(--space-xl); text-align: left; }
+.pss-pick-list small { color: var(--color-text-muted); }

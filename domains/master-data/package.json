@@ -13,6 +13,8 @@
   "dependencies": {
     "@pss/audit": "workspace:*",
     "@pss/contracts": "workspace:*",
+    "@pss/platform": "workspace:*",
+    "decimal.js": "10.4.3",
     "pg": "8.23.0",
     "zod": "4.6.5"
   },
