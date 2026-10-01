@@ -60,12 +60,14 @@ transaction the same way `withAuditedTransaction` does.
   `referenceId` are the ledger's own opaque pointer to the document, and the event's `sourceId`
   defaults to `referenceId`. Each line may carry a `unitCost`; omitting it (which is what
   `domains/wms` does) records an **unvalued** movement and publishes `unitCost: null`. A non-positive
-  qty is refused. Audit action `INVENTORY_RECEIVED`.
+  qty or a unit different from the balance's own unit is refused (`unit_mismatch` for the latter).
+  Audit action `INVENTORY_RECEIVED`.
 - `adjustStock(pool, client, input)` — applies a signed `qtyDelta` per line, values it at the current
   average, records the line's `reasonCode` on the movement, and publishes `INVENTORY_ADJUSTED` with a
   signed `totalCostDelta`. A reason must be an **active code in
   `inventory.stock_adjustment_reason`**; an unknown code is a `VALIDATION_FAILED` naming the line, and
-  it is checked before any quantity moves. A zero delta is refused. An adjustment may not push
+  it is checked before any quantity moves. A zero delta or a unit different from the balance's own
+  unit is refused (`unit_mismatch` for the latter). An adjustment may not push
   on-hand below what is already reserved (guarded in SQL, so it reports as a field error rather than a
   constraint violation). Audit action `INVENTORY_ADJUSTED`, carrying the first line's reason code and
   every line's reason **label** in `changes`.
@@ -125,9 +127,8 @@ the PRD's `inventory.cost_precision` default of 6 against the column and payload
 | `INVENTORY_ISSUED` | `issueInventory` | §5 `SALES_FULFILLMENT` — this is the path a POS sale's handover already calls, so a sale now produces a costed `INVENTORY_ISSUED` |
 | `INVENTORY_ADJUSTED` | `adjustStock` | §5, with a signed `totalCostDelta` and the line's `reasonCode` |
 
-Money is published at 2 places and quantity at 3, which is the contract's scale rather than the
-column's; `unitCost` is therefore rounded from the ledger's 4 places down to 2 (MVP-OD-13). That is
-safe because `totalCost` is what finance posts (MVP_PLAN §8), never `qty × unitCost`. A `null` cost
+Money is published at 2 places, quantity at 3, and `unitCost` at the ledger's 4 places (MVP-OD-13).
+`totalCost` is what finance posts (MVP_PLAN §8), never `qty × unitCost`. A `null` cost
 means **unvalued**, and is the signal for finance to route the movement to its exception queue rather
 than post a zero (MVP_PLAN §5, AGENTS.md §3.7).
 
@@ -174,10 +175,8 @@ PostgreSQL `pg`; `decimal.js` for money arithmetic; `@pss/contracts` for `Domain
 - **MVP-OD-4 / MVP-OD-12 (valuation unit):** the average is per warehouse × product × UoM, because
   `stock_balance` is unique per `(warehouse_id, product_id)`. The PRD's `inventory.valuation_unit`
   defaults to BRANCH, which would need a second balance key.
-- **MVP-OD-13 (cost precision):** 4 places for a unit cost here; the PRD's
-  `inventory.cost_precision` default is 6, and the §5 event payload declares `unitCost` as 2-place
-  money. A request to widen the payload is with the stream that owns
-  `packages/contracts/src/events/index.ts`.
+- **MVP-OD-13 (cost precision):** 4 places for a unit cost here and in the event payload; the PRD's
+  `inventory.cost_precision` default of 6 remains a future widening decision.
 - **MVP-OD-16 (revaluation):** a valued receipt onto a balance holding unvalued quantity values
   neither the movement nor the balance. The alternatives all invent a number.
 - **MVP-OD-17 (low-stock threshold):** no configuration key exists for it, so `maxQty` is an input to

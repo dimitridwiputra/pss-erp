@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { OptionalAuditContextSchema, resolveAuditContext } from './support/audit-context';
 import { applyMovingAverage } from '../domain/rules/moving-average-cost';
 import { requirePositiveQuantity } from '../domain/rules/quantity';
-import { lockBalance, writeBalanceQuantity } from './stock-balance';
+import { assertBalanceUnit, lockBalance, writeBalanceQuantity } from './stock-balance';
 import { resolveBusinessDate } from './business-date';
 import { assertWarehouseNotForeign } from './warehouse-ownership';
 import { publishInventoryReceived, type InventoryMovementFacts } from '../infrastructure/events/inventory-movement-events';
@@ -88,8 +88,9 @@ export async function receiveStock(
     const movementIds: string[] = [];
     const facts: InventoryMovementFacts[] = [];
 
-    for (const line of input.lines) {
+    for (const [index, line] of input.lines.entries()) {
       const balance = await lockBalance(tx, input.organizationId, input.warehouseId, line.productId, line.uom);
+      assertBalanceUnit(balance, line.uom, `lines[${index}].uom`);
       const costing = applyMovingAverage({
         balanceQtyOnHand: balance.qtyOnHand,
         balanceAvgUnitCost: balance.avgUnitCost,

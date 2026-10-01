@@ -38,7 +38,8 @@ test('the shell lists only the permitted screens, marks the current one, and jum
   await jump.getByRole('textbox').fill('setor');
   await expect(jump.getByRole('option')).toHaveCount(1);
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/kantor\/setoran-kas$/);
+  // Next dev may compile this route on its first visit; the navigation itself still has to finish.
+  await expect(page).toHaveURL(/\/kantor\/setoran-kas$/, { timeout: 20_000 });
   await expect(nav.getByRole('link', { name: 'Setoran Kas' })).toHaveAttribute('aria-current', 'page');
 });
 

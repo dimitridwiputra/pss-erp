@@ -8,7 +8,7 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["DATABASE_URL", "PSS_OIDC_ISSUER", "PSS_OIDC_AUDIENCE", "PSS_OIDC_JWKS_URI"]
+      "passThroughEnv": ["DATABASE_URL", "REDIS_URL", "PSS_DEMO_POS_ENABLED", "PSS_OIDC_ISSUER", "PSS_OIDC_AUDIENCE", "PSS_OIDC_JWKS_URI"]
     }
   }
 }

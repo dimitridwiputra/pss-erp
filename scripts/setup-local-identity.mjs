@@ -167,13 +167,14 @@ async function ensureDemoUser(token) {
     if (!updated.ok) throw new Error(`Local demo profile setup returned HTTP ${updated.status}.`);
   }
   const existingLogin = await readFile(loginPath, 'utf8').catch(() => null);
-  if (!existingLogin) {
-    const password = randomBytes(18).toString('base64url');
-    const reset = await keycloakRequest(`/users/${subject}/reset-password`, token, {
-      method: 'PUT',
-      body: JSON.stringify({ type: 'password', value: password, temporary: false }),
-    });
-    if (reset.status !== 204) throw new Error(`Local demo password setup returned HTTP ${reset.status}.`);
+  const savedPassword = existingLogin?.match(/^Password: (.+)$/m)?.[1];
+  const password = savedPassword ?? randomBytes(18).toString('base64url');
+  const reset = await keycloakRequest(`/users/${subject}/reset-password`, token, {
+    method: 'PUT',
+    body: JSON.stringify({ type: 'password', value: password, temporary: false }),
+  });
+  if (reset.status !== 204) throw new Error(`Local demo password setup returned HTTP ${reset.status}.`);
+  if (!savedPassword) {
     await mkdir(localDirectory, { recursive: true });
     await writeFile(loginPath, `Synthetic local development account only\nUsername: ${username}\nPassword: ${password}\n`, { mode: 0o600 });
   }
@@ -212,7 +213,8 @@ async function ensurePssMapping(subject) {
  * MVP demo users (docs/mvp/MVP_PLAN.md §7) from `infrastructure/keycloak/pss-demo-users.json`.
  * The seed file carries identities and role assignments only; each password is generated here once
  * and written to `.local/pss-mvp-demo-logins.txt`, so no credential is ever committed. Re-running
- * keeps existing passwords and is safe: every write is keyed by a fixed user ID or by the unique
+ * reapplies the recorded passwords to Keycloak: its Docker volume may have been recreated while the
+ * shared gitignored file survived. Every write is keyed by a fixed user ID or by the unique
  * active-assignment index. This is a local fixture, like the account above; IDN-003 owns the
  * audited assignment command for real accounts.
  */
@@ -256,12 +258,13 @@ async function ensureMvpDemoUsers(token) {
           if (!updated.ok) throw new Error(`Demo MFA enrolment for ${user.username} returned HTTP ${updated.status}.`);
         }
       }
-      if (!new RegExp(`^Username: ${user.username.replaceAll('.', '\\.')}$`, 'm').test(recorded)) {
-        const password = randomBytes(18).toString('base64url');
-        const reset = await keycloakRequest(`/users/${subject}/reset-password`, token, {
-          method: 'PUT', body: JSON.stringify({ type: 'password', value: password, temporary: false }),
-        });
-        if (reset.status !== 204) throw new Error(`Demo password setup for ${user.username} returned HTTP ${reset.status}.`);
+      const savedPassword = new RegExp(`^Username: ${user.username.replaceAll('.', '\\.')}\\nPassword: (.+)$`, 'm').exec(recorded)?.[1];
+      const password = savedPassword ?? randomBytes(18).toString('base64url');
+      const reset = await keycloakRequest(`/users/${subject}/reset-password`, token, {
+        method: 'PUT', body: JSON.stringify({ type: 'password', value: password, temporary: false }),
+      });
+      if (reset.status !== 204) throw new Error(`Demo password setup for ${user.username} returned HTTP ${reset.status}.`);
+      if (!savedPassword) {
         newLogins.push(`Username: ${user.username}\nPassword: ${password}\n`);
       }
       await pool.query(

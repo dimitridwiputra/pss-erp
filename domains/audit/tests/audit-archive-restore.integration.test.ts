@@ -60,7 +60,17 @@ describe('audit archive round trip against real bytes and a real scratch databas
 
   afterAll(async () => {
     await pool?.end();
-    await admin?.query(`DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`);
+    // pg.Pool.end() can resolve before PostgreSQL has processed the last socket close. Wait for the
+    // server to observe zero sessions, then drop normally; FORCE would kill a closing client and
+    // surface an unhandled 57P01 after every assertion has already passed.
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const active = await admin.query<{ count: string }>(
+        'SELECT count(*) FROM pg_stat_activity WHERE datname = $1', [databaseName],
+      );
+      if (Number(active.rows[0]?.count) === 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    await admin?.query(`DROP DATABASE IF EXISTS ${databaseName}`);
     await admin?.end();
 
     // Nothing must survive this file. The scratch databases hold full copies of aged audit rows, and
@@ -294,6 +304,7 @@ describe('audit archive round trip against real bytes and a real scratch databas
             // connection still attached, and CI failed with `terminating connection due to
             // administrator command` on a database this test owns. Three local runs passed because
             // the leak is silent; it only surfaces as a connection error under different timing.
+            if (property === 'end') return target.end.bind(target);
             if (property !== 'query') return Reflect.get(target, property, target);
             return (...args: unknown[]) => {
               issued.push(String(args[0]));
@@ -322,6 +333,24 @@ describe('audit archive round trip against real bytes and a real scratch databas
     // And the auditor-shaped probe really ran against it too.
     expect(issued.some((sql) => /WHERE entity_id = \$1 AND request_id = \$2/i.test(sql))).toBe(true);
   }, 120_000);
+
+  it('surfaces a failed scratch database drop with its name', async () => {
+    const verifier = new PostgresRestoreVerifier({
+      admin: { query: async () => { throw new Error('drop denied'); } },
+      reader: new FileAuditArchive(archiveRoot),
+      schemaSql,
+      connectToScratchDatabase: async () => { throw new Error('a scratch connection is not needed'); },
+    });
+    await expect(verifier.verify({
+      partition: 'audit_entry_2021_08',
+      objectUri: 'file:///nonexistent-audit-artifact',
+      expectedDigest: 'missing', expectedRows: 0,
+      expectedMinOccurredAt: '2021-08-01T00:00:00.000Z',
+      expectedMaxOccurredAt: '2021-08-01T00:00:00.000Z',
+      periodFrom: '2021-08-01T00:00:00.000Z', periodThrough: '2021-09-01T00:00:00.000Z',
+      serviceIdentity: 'audit-retention-test', correlationId: 'cor-drop-failure',
+    })).rejects.toThrow(/scratch database pss_audit_restore_[0-9a-f]{16} could not be dropped: Error: drop denied/);
+  });
 
   it('AUD-ARCHIVE-03: never destroys an artifact whose retention is unset', async () => {
     // audit.retention_years = KOSONG means the archive is kept indefinitely. The purge path must

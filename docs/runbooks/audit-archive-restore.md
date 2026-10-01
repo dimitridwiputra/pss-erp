@@ -174,6 +174,7 @@ aged audit rows — a disclosure surface, not a control.
 | Verification `FAILED`, `digest does not match` | The stored bytes are not the bytes that were archived | **Stop.** Treat as evidence corruption. The partition is still intact — that is the gate working. |
 | Verification `FAILED`, `digest differs` (after load) | The rows loaded but a field did not round-trip | Same count, different record. Partition intact. |
 | Verification `FAILED`, `could not be found by entity_id` | It loaded but is not queryable | The archive is not usable evidence. Partition intact. |
+| Restore verifier throws `scratch database ... could not be dropped` | Its temporary copy of audit rows may still exist; the archive transaction aborts before dropping the hot partition | Find the named scratch database, investigate active sessions, and remove it under the audit operator procedure before rerunning rotation. |
 
 Those three are the complete set of hold reasons; a `HELD` outcome with any other reason is a bug.
 

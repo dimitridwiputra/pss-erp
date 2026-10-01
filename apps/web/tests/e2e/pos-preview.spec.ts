@@ -3,8 +3,11 @@ import { expect, test } from '@playwright/test';
 test('mobile POS preview completes a sample order without creating a real document', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/pos-preview');
+  // The first route visit in next dev can paint server HTML before its click handlers hydrate.
+  await page.waitForLoadState('networkidle');
 
   await page.getByRole('button', { name: 'Buat Pesanan', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Pilih Pelanggan' })).toBeVisible();
   await page.getByRole('button', { name: /Toko Sumber Jaya OUT-00123/ }).click();
   await page.getByRole('button', { name: 'Tambah Mi Goreng 80g' }).first().click();
   await page.getByRole('button', { name: /Lihat Keranjang/ }).click();

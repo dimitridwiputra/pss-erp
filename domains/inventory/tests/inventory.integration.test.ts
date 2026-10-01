@@ -489,6 +489,23 @@ async function outboxPayloads(eventType: string, productId?: string) {
 }
 
 describe('inventory: receiveStock with costing and INVENTORY_RECEIVED', () => {
+  it('refuses a different unit and rolls back an earlier line in the same receipt', async () => {
+    const productId = randomUUID();
+    await receipt([{ productId, uom: 'KARTON', qty: '10', unitCost: '100' }]);
+    const before = (await outboxPayloads('INVENTORY_RECEIVED', productId)).length;
+    const attempt = await receipt([
+      { productId, uom: 'KARTON', qty: '2', unitCost: '100' },
+      { productId, uom: 'PCS', qty: '3', unitCost: '10' },
+    ]).catch((error) => error);
+
+    expect((attempt as DomainError).code).toBe('VALIDATION_FAILED');
+    expect((attempt as DomainError).fieldErrors?.[0]).toMatchObject({ path: 'lines[1].uom', code: 'unit_mismatch' });
+    expect((await balanceOf(productId)).qty_on_hand).toBe('10.000');
+    expect((await outboxPayloads('INVENTORY_RECEIVED', productId))).toHaveLength(before);
+    const movements = await pool.query('SELECT id FROM inventory.stock_movement WHERE product_id = $1', [productId]);
+    expect(movements.rowCount).toBe(1);
+  });
+
   it('values a receipt, stores the new average, and publishes the movement with its cost', async () => {
     const productId = randomUUID();
     await receipt([{ productId, uom: 'KARTON', qty: '10', unitCost: '100' }], { businessDate: '2026-10-01' });
@@ -651,6 +668,22 @@ describe('inventory: a sale carries a cost (INVENTORY_ISSUED)', () => {
 });
 
 describe('inventory: adjustStock reasons, costing and INVENTORY_ADJUSTED', () => {
+  it('refuses a different unit without changing quantity or publishing an event', async () => {
+    const productId = randomUUID();
+    await receipt([{ productId, uom: 'KARTON', qty: '10', unitCost: '100' }]);
+    const attempt = await adjustStock(pool, undefined, {
+      organizationId, warehouseId, referenceType: 'BACKOFFICE_ADJUSTMENT', referenceId: randomUUID(),
+      lines: [{ productId, uom: 'PCS', qtyDelta: '-1', reasonCode: 'RC-INV-DAMAGED' }],
+    }).catch((error) => error);
+
+    expect((attempt as DomainError).code).toBe('VALIDATION_FAILED');
+    expect((attempt as DomainError).fieldErrors?.[0]).toMatchObject({ path: 'lines[0].uom', code: 'unit_mismatch' });
+    expect((await balanceOf(productId)).qty_on_hand).toBe('10.000');
+    expect(await outboxPayloads('INVENTORY_ADJUSTED', productId)).toHaveLength(0);
+    const movements = await pool.query('SELECT id FROM inventory.stock_movement WHERE product_id = $1', [productId]);
+    expect(movements.rowCount).toBe(1);
+  });
+
   it('refuses a reason code that is not in the reference table, and names the field', async () => {
     const productId = randomUUID();
     await seedBalance(productId, 'KARTON', '10');

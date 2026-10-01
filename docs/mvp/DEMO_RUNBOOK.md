@@ -1,6 +1,6 @@
 # MVP demo runbook: PSS Kasir, Back Office, Accounting
 
-Status: **Draft (30 September).** The counter, Penjualan and Setoran Kas sections were walked on the real API. The accounting commands and screens are wired; the complete real-stack Finance browser path still needs rehearsal. Back-office setup remains with OpenCode. Rehearse from this file on the demo laptop on Day 9 (MVP_PLAN §2).
+Status: **Integrated demo path verified locally (1 October).** The complete ten-step Playwright path passed against a freshly seeded `pss_mvp_e2e` database with Keycloak, the API, Finance API and integration worker healthy. It covered back-office setup, checkout, stock handover, cash verification, Finance OTP, maker/checker posting, reports and a period-close request. The presenter still needs the Day 9 rehearsal on the demo laptop (MVP_PLAN §2).
 
 This is a demo build. It activates no branch, real cash or real books (MVP_PLAN §9–§10).
 

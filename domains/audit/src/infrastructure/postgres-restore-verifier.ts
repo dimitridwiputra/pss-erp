@@ -209,9 +209,18 @@ export class PostgresRestoreVerifier implements AuditRestoreVerifier {
           new Promise((resolve) => setTimeout(resolve, SCRATCH_CLOSE_GRACE_MS).unref()),
         ]);
       }
-      await this.options.admin
-        .query(`DROP DATABASE IF EXISTS ${quoteIdentifier(scratchName)} WITH (FORCE)`)
-        .catch(() => undefined);
+      // A failed DROP must reach the caller: a full audit copy still exists. The archive transaction
+      // then aborts before it can drop the source partition, and the operator can remove this named
+      // scratch database after investigating the failure.
+      await this.dropScratchDatabase(scratchName);
+    }
+  }
+
+  private async dropScratchDatabase(scratchName: string): Promise<void> {
+    try {
+      await this.options.admin.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(scratchName)} WITH (FORCE)`);
+    } catch (cause) {
+      throw new Error(`Audit restore scratch database ${scratchName} could not be dropped: ${describe(cause)}`);
     }
   }
 
