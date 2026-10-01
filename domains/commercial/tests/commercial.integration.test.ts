@@ -334,4 +334,3 @@ describe('COM-001 listPriceListItems', () => {
     expect((attempt as DomainError).code).toBe('VALIDATION_FAILED');
   });
 });
-

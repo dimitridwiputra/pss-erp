@@ -509,4 +509,3 @@ function UnitsAndBarcodes({ detail, onSaved }: { detail: ProductDetail; onSaved:
 function ProblemFor({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return <KantorProblem error={error} action={<button type="button" className="pss-button pss-button-secondary" onClick={onRetry}>Coba Lagi</button>} />;
 }
-
