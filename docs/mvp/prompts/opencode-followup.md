@@ -29,7 +29,7 @@ You are stream C (back office). Your original brief in `docs/mvp/prompts/opencod
   - `admin.demo` holds `MASTER_DATA_STEWARD`, `COMMERCIAL_ADMIN`, `WAREHOUSE_ADMIN`, `POS_SUPERVISOR` and `SALES_ADMIN`.
   - `gudang.demo` holds `WAREHOUSE_ADMIN`.
   - Guard with these permission codes, never role names:
-    - product create/update: `master_data.product.manage` (MVP-OD-8);
+    - product create/update: `master_data.product.manage` (MVP-OD-32);
     - prices: `commercial.price_list.manage`;
     - adjustment: `inventory.adjustment.request`;
     - goods receipt: `procurement.receipt.post`.
@@ -41,11 +41,12 @@ You are stream C (back office). Your original brief in `docs/mvp/prompts/opencod
   - Money inputs: reuse `apps/web/app/kasir/components/money-field.tsx` (thousand separators while typing, digits sent).
   - Labels: reuse `apps/web/app/kasir/lib/labels.ts`, so no raw status reaches the screen.
 - **Dashboard input:** `GET /api/bff/core/pos/reports/summary?date=YYYY-MM-DD` returns `PosDashboardSummaryResponseSchema`: `salesTotal`, `saleCount`, `undepositedCash` and `undepositedPaymentCount`. It needs `pos.report.view`, which `admin.demo` holds. Gross profit comes from Codex's finance summary.
+  - Finance summary for an authorized Control Station viewer: `GET /api/bff/finance/finance/gross-profit-summary?businessDate=YYYY-MM-DD[&branchId=UUID]`, typed by `FinanceGrossProfitSummarySchema` in `packages/contracts/src/api/finance-reports.ts`. It returns today, month-to-date, previous day, and previous comparable month-to-date net sales, COGS, gross profit and margin. The Finance API enforces `control_station.gross_profit_summary.view` and branch scope before querying posted journals. `admin.demo` does not hold this permission, so its dashboard must omit this card rather than fetch organization-wide Finance data (MVP-OD-10).
 
 ## What stream A needs from you
 
-1. **MVP-OD-10, product by id.** Export `getProductSaleUnits(pool, { organizationId, productId })` → `{ productId, sku, name, status, orderCapture, units: [{ uom, barcode | null }] }`. POS will then let the cashier add a product from a catalog pick, not only by barcode. Tell stream A when it merges.
-2. **MVP-OD-12, one product in two units.** `inventory.stock_reservation` is unique per (reference, product) without the unit, so KARTON and PCS of one product can't both be reserved in one sale. Add `uom` to that key (forward-only migration) or reserve in the base unit. POS refuses such a cart until then.
+1. **MVP-OD-27, product by id.** Export `getProductSaleUnits(pool, { organizationId, productId })` → `{ productId, sku, name, status, orderCapture, units: [{ uom, barcode | null }] }`. POS will then let the cashier add a product from a catalog pick, not only by barcode. Tell stream A when it merges.
+2. **MVP-OD-28, one product in two units.** `inventory.stock_reservation` is unique per (reference, product) without the unit, so KARTON and PCS of one product can't both be reserved in one sale. Add `uom` to that key (forward-only migration) or reserve in the base unit. POS refuses such a cart until then.
 3. **Your migrate scripts.** `domains/{master-data,commercial,inventory}/scripts/migrate.mjs` still hardcode `0001`, so your new migrations would not run through them.
    - Switch each to the shape of `domains/pos/scripts/migrate.mjs` (`ensureMigrationLedger` + `applyPendingMigrations`).
    - `pnpm db:migrate` already picks up every file from disk.

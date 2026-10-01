@@ -3,13 +3,14 @@
 import type { PosDashboardSummaryResponse, PosSalesTrendResponse, StockBalanceListResponse } from '@pss/contracts';
 import { KpiCard, Panel, TrendLineChart } from '@pss/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Banknote, Boxes, PackageSearch, Receipt, Wallet } from 'lucide-react';
+import { Banknote, BookOpenCheck, Boxes, PackageSearch, Receipt, TrendingUp, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import type { ComponentType } from 'react';
 import { kasirFetch } from '../kasir/lib/api-client';
 import { quantity, rupiah } from '../kasir/lib/money';
 import { useOptionalKantorSession } from '../kantor/warehouse-context';
 import { NO_COST } from '../kantor/lib/labels';
+import { useFinanceData } from '../keuangan/finance-client';
 
 /**
  * Beranda widgets, each shown when the viewer can open the work screen it summarises (the key of a
@@ -19,12 +20,39 @@ import { NO_COST } from '../kantor/lib/labels';
 const homeWidgets: ReadonlyArray<{ key: string; screen: string; Widget: ComponentType }> = [
   { key: 'pos-sales', screen: 'penjualan', Widget: CounterSalesWidget },
   { key: 'stock-value', screen: 'stok', Widget: StockValueWidget },
+  { key: 'finance-gross-profit', screen: 'keuangan', Widget: FinanceGrossProfitWidget },
+  { key: 'finance-trial-balance', screen: 'keuangan', Widget: FinanceTrialBalanceWidget },
 ];
 
 export function HomeWidgets({ screenKeys }: { screenKeys: readonly string[] }) {
   const visible = homeWidgets.filter((widget) => screenKeys.includes(widget.screen));
   if (visible.length === 0) return null;
   return <>{visible.map(({ key, Widget }) => <Widget key={key} />)}</>;
+}
+
+function FinanceGrossProfitWidget() {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const summary = useFinanceData<{ grossProfitToday: string; grossProfitMonthToDate: string }>(`finance/summary?businessDate=${today}`);
+  const state = summary.loading ? 'loading' : summary.error ? 'error' : 'default';
+  return <section className="home-widget" aria-labelledby="home-finance-profit-title">
+    <div className="home-widget-head"><h2 id="home-finance-profit-title">Laba kotor</h2><Link className="home-widget-link" href="/keuangan">Buka Keuangan</Link></div>
+    <dl className="pss-kpi-grid">
+      <KpiCard icon={<Banknote />} tone="success" label="Hari ini" value={summary.data ? rupiah(summary.data.grossProfitToday) : '—'} state={state} />
+      <KpiCard icon={<TrendingUp />} label="Bulan berjalan" value={summary.data ? rupiah(summary.data.grossProfitMonthToDate) : '—'} state={state} />
+    </dl>
+  </section>;
+}
+
+function FinanceTrialBalanceWidget() {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const balance = useFinanceData<{ totalDebit: string; totalCredit: string; balanced: boolean }>(`finance/trial-balance?through=${today}`);
+  return <section className="home-widget" aria-labelledby="home-finance-balance-title">
+    <div className="home-widget-head"><h2 id="home-finance-balance-title">Neraca saldo</h2><Link className="home-widget-link" href="/keuangan/neraca-saldo">Lihat neraca saldo</Link></div>
+    <dl className="pss-kpi-grid"><KpiCard icon={<BookOpenCheck />} tone={balance.data?.balanced ? 'success' : 'warning'}
+      label="Keseimbangan jurnal" value={balance.data ? balance.data.balanced ? 'Seimbang' : 'Perlu diperiksa' : '—'}
+      state={balance.loading ? 'loading' : balance.error ? 'error' : 'default'} /></dl>
+    {balance.data && <p className="home-widget-note">Debit {rupiah(balance.data.totalDebit)} · Kredit {rupiah(balance.data.totalCredit)}</p>}
+  </section>;
 }
 
 const shortDate = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' });

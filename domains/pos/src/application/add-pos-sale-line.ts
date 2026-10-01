@@ -24,7 +24,7 @@ export interface AddedPosSaleLine {
  * (commercial), snapshots both onto the line (POS-003.BR02), then recomputes the cart total
  * server-side. The product identity is never taken from the caller: an earlier variant accepted
  * `productId`/`sku`/`name` from a katalog pick, which let a client put any name on a line.
- * A katalog pick waits for a master-data "product by id" query (MVP_PLAN §10, MVP-OD-10).
+ * A katalog pick waits for a master-data "product by id" query (MVP_PLAN §10, MVP-OD-27).
  *
  * The cart-time stock indicator (POS-003.BR03, informational only; reservation happens at
  * checkout) is not implemented: `domains/inventory` exposes no read-only availability query.

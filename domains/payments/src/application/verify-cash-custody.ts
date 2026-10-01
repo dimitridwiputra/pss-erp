@@ -53,7 +53,7 @@ function parseInput(rawInput: VerifyCashCustodyInput): ParsedVerifyCashCustodyIn
  * - A matching count sets VERIFIED and cascades VERIFIED to every linked payment.
  * - A differing count with a registered CSH reason code is also VERIFIED: the verifier accepts
  *   the count and records why it differs. The variance travels on CASH_CUSTODY_VERIFIED, where
- *   Finance posts it (MVP_PLAN §8; MVP-OD-9, demo default).
+ *   Finance posts it (MVP_PLAN §8; MVP-OD-26, demo default).
  * - A differing count without a reason stays DISCREPANCY, linked payments untouched, for the
  *   CSH-002 decision — out of scope in this slice.
  *

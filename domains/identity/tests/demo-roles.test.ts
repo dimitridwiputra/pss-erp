@@ -94,7 +94,7 @@ describe('MVP demo roles (MVP_PLAN §7)', () => {
     }
   });
 
-  it('expands MDM-MANAGE to the product resource only (MVP-OD-8)', () => {
+  it('expands MDM-MANAGE to the product resource only (MVP-OD-32)', () => {
     const permissions = resolveRolePermissions('MASTER_DATA_STEWARD').permissions;
     expect(permissions.filter((permission) => permission.endsWith('.manage') && permission.startsWith('master_data.'))).toEqual(['master_data.product.manage']);
     expect(resolveRolePermissions('MASTER_DATA_STEWARD').unresolvedGroups).not.toContain('MDM-MANAGE');

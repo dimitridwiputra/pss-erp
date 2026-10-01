@@ -33,8 +33,8 @@ sits in the same shell. `/kasir` stays a full-screen counter terminal with its o
    ```
 
    `apps/web/app/kantor/layout.tsx` already does this with `KasirProviders`. OpenCode: merge your
-   `KantorSessionProvider` into that file and drop `KantorShell`. Codex: replace `finance-shell` and
-   `finance-sidebar` in `keuangan/layout.tsx`. Keep your server-side `redirect('/masuk')` guard.
+   `KantorSessionProvider` into that file and drop `KantorShell`. `/keuangan` now uses
+   `PssAppShell` and keeps its server-side `redirect('/masuk')` guard.
 2. **Navigation.** Append one entry per screen to `workScreens` (append-only), with a concrete
    Appendix D permission code, never a role. Sections: `hari-ini`, `penjualan`, `kas`, `persediaan`,
    `data-utama`, `keuangan`, `laporan`. Icon names already mapped: `dasbor`, `barang`, `harga`,

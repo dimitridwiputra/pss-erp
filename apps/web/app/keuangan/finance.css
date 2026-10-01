@@ -1,0 +1,9 @@
+/* Finance content uses the shared PSS app shell and UI components. */
+.finance-form { display: grid; gap: var(--space-md); max-width: 920px; }
+.finance-form .pss-form-field input, .finance-form .pss-form-field select, .finance-form .pss-form-field textarea { min-height: 48px; }
+.finance-form-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; gap: var(--space-md); align-items: end; }
+.finance-actions { display: flex; gap: var(--space-md); flex-wrap: wrap; align-items: center; }
+.finance-message { padding: var(--space-md); border-radius: var(--radius-default); background: var(--color-surface-muted); color: var(--color-text); }
+.finance-error { color: var(--color-accent); }
+.finance-success { color: var(--color-text); }
+@media (max-width: 780px) { .finance-form-row { grid-template-columns: 1fr; } }

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { personPage } from './demo-session';
+import { snapshot } from './shell.fixture';
 
 /**
  * The MVP demo path (MVP_PLAN §1, DEMO_RUNBOOK §4) on the real local stack: Keycloak, the API with
@@ -260,9 +261,67 @@ test('exception: a sale id from another branch is absent to the back office and 
 
 test('kepala.keuangan.demo (with OTP) sees approvals and no counter work', async ({ browser }) => {
   const page = await personPage(browser, 'kepala.keuangan.demo');
-  await expect(page.getByRole('link', { name: 'Buka persetujuan' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Kasir|Setoran Kas|Penjualan Konter/ })).toHaveCount(0);
+  await expect(page.getByRole('main').getByRole('link', { name: 'Buka persetujuan' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: /Kasir|Setoran Kas|Penjualan Konter/ })).toHaveCount(0);
   await page.goto('/kasir');
   await expect(page.getByRole('heading', { name: 'Tidak ada pekerjaan kasir untuk Anda' })).toBeVisible();
   await page.context().close();
+});
+
+test('Finance maker submits a journal, the checker posts it, and requests period close', async ({ browser }) => {
+  const maker = await personPage(browser, 'keuangan.demo');
+  await maker.goto('/keuangan/jurnal-manual');
+  await maker.getByLabel('Tujuan dan alasan').fill('Beban administrasi demo');
+  const rows = maker.locator('.finance-form-row');
+  await rows.nth(0).getByLabel('Akun').selectOption('6-9000');
+  await rows.nth(0).getByLabel('Debit').fill('1000.00');
+  await rows.nth(1).getByLabel('Akun').selectOption('1-1100');
+  await rows.nth(1).getByLabel('Kredit').fill('1000.00');
+  await expect(maker.getByRole('status').filter({ hasText: 'Seimbang' })).toBeVisible();
+  await maker.getByRole('button', { name: 'Simpan draf' }).click();
+  const draftLink = maker.getByRole('link', { name: 'Tinjau draf jurnal' });
+  await expect(draftLink).toBeVisible();
+  const journalId = (await draftLink.getAttribute('href'))?.split('/').pop();
+  expect(journalId).toBeTruthy();
+  const journal = await (await maker.request.get(`/api/bff/finance/finance/journals/${journalId}`)).json() as { number: string };
+  await maker.getByRole('button', { name: 'Ajukan persetujuan' }).click();
+  await expect(maker.getByRole('status').filter({ hasText: 'menunggu persetujuan' })).toBeVisible();
+  await maker.context().close();
+
+  const checker = await personPage(browser, 'kepala.keuangan.demo');
+  await expect.poll(async () => {
+    await checker.goto('/persetujuan');
+    return checker.getByTestId('approval-card').filter({ hasText: `Jurnal ${journal.number}` }).count();
+  }, { timeout: 30_000 }).toBe(1);
+  const card = checker.getByTestId('approval-card').filter({ hasText: `Jurnal ${journal.number}` });
+  await card.getByLabel('Alasan keputusan').fill('Beban demo dan jurnal seimbang');
+  await card.getByRole('button', { name: 'Setujui' }).click();
+  await expect.poll(async () => {
+    const response = await checker.request.get(`/api/bff/finance/finance/journals/${journalId}`);
+    return response.ok() ? ((await response.json()) as { status: string }).status : 'WAITING';
+  }, { timeout: 30_000 }).toBe('POSTED');
+  await checker.goto('/keuangan/neraca-saldo');
+  await expect(checker.getByRole('heading', { name: 'Neraca Saldo' })).toBeVisible();
+  await expect(checker.getByRole('row').filter({ hasText: 'Beban Lain-lain' })).toContainText('Rp\u00a01.000');
+  await checker.locator('.pss-app-account-button').click();
+  await checker.getByRole('menuitemradio', { name: 'Gelap' }).click();
+  await expect(checker.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await snapshot(checker, 'keuangan-neraca-saldo-dark');
+  await checker.goto('/keuangan/neraca');
+  await expect(checker.getByRole('heading', { name: 'Neraca', exact: true })).toBeVisible();
+  await expect(checker.getByRole('table')).toBeVisible();
+  await expect(checker.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await snapshot(checker, 'keuangan-neraca-dark');
+
+  await checker.goto('/keuangan/periode');
+  await checker.getByRole('button', { name: 'Tutup sementara' }).click();
+  await checker.getByLabel('Alasan tindakan').fill('Rekonsiliasi demo selesai');
+  await checker.getByRole('dialog').getByRole('button', { name: 'Tutup sementara' }).click();
+  await expect(checker.getByRole('status').filter({ hasText: 'ditutup sementara' })).toBeVisible();
+  await checker.reload();
+  await checker.getByRole('button', { name: 'Tutup periode' }).click();
+  await checker.getByLabel('Alasan tindakan').fill('Ajukan tutup buku demo');
+  await checker.getByRole('dialog').getByRole('button', { name: 'Ajukan tutup periode' }).click();
+  await expect(checker.getByRole('status').filter({ hasText: 'menunggu persetujuan' })).toBeVisible();
+  await checker.context().close();
 });

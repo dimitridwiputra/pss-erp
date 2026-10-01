@@ -509,21 +509,21 @@ export const eventCatalog = [
     "section": "C.4",
     "producer": "payments",
     "aggregate": "Payment",
-    "payloadKeys": "paymentId, reason"
+    "payloadKeys": "paymentId, originalEventId (untuk pembalikan), reasonCode, businessDate"
   },
   {
     "name": "PAYMENT_BOUNCED",
     "section": "C.4",
     "producer": "payments",
     "aggregate": "Payment",
-    "payloadKeys": "paymentId, reason"
+    "payloadKeys": "paymentId, originalEventId (untuk pembalikan), reasonCode, businessDate"
   },
   {
     "name": "PAYMENT_REVERSED",
     "section": "C.4",
     "producer": "payments",
     "aggregate": "Payment",
-    "payloadKeys": "paymentId, reason"
+    "payloadKeys": "paymentId, originalEventId (untuk pembalikan), reasonCode, businessDate"
   },
   {
     "name": "PAYMENT_APPLIED",
@@ -754,14 +754,21 @@ export const eventCatalog = [
     "section": "C.7",
     "producer": "approval",
     "aggregate": "ApprovalRequest",
-    "payloadKeys": "requestId, type, subjectRef, ownerDomain, decision"
+    "payloadKeys": "requestId, type, subjectRef, subjectVersion, ownerDomain, decision, step"
   },
   {
     "name": "APPROVAL_DECIDED",
     "section": "C.7",
     "producer": "approval",
     "aggregate": "ApprovalRequest",
-    "payloadKeys": "requestId, type, subjectRef, ownerDomain, decision"
+    "payloadKeys": "requestId, type, subjectRef, subjectVersion, ownerDomain, decision, step"
+  },
+  {
+    "name": "FINANCE_APPROVAL_SUBMITTED",
+    "section": "C.7",
+    "producer": "finance",
+    "aggregate": "FinanceApprovalEffect",
+    "payloadKeys": "requestId, type, subjectType, subjectRef, subjectVersion, ownerDomain, scope, contextHash, requestedBy"
   },
   {
     "name": "EXCEPTION_OPENED",

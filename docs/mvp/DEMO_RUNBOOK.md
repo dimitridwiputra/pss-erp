@@ -1,6 +1,6 @@
 # MVP demo runbook: PSS Kasir, Back Office, Accounting
 
-Status: **Draft (stream A, 30 September).** The counter, Penjualan and Setoran Kas sections were walked on the real API. The back-office (OpenCode) and accounting (Codex) sections are placeholders for those streams to fill before the Day 8 freeze. Rehearse from this file on the demo laptop on Day 9 (MVP_PLAN §2).
+Status: **Draft (30 September).** The counter, Penjualan and Setoran Kas sections were walked on the real API. The accounting commands and screens are wired; the complete real-stack Finance browser path still needs rehearsal. Back-office setup remains with OpenCode. Rehearse from this file on the demo laptop on Day 9 (MVP_PLAN §2).
 
 This is a demo build. It activates no branch, real cash or real books (MVP_PLAN §9–§10).
 
@@ -35,7 +35,22 @@ To restart only the API (for example after a reset), stop its terminal and run:
 bash scripts/dev-mvp-api.sh
 ```
 
-Codex's `apps/finance-api` and the finance consumers: *(Codex to add the start command.)*
+`pnpm dev:up` also starts `apps/finance-api` on port 4001 and the integration worker on port 4002. If starting them separately, use two terminals from the repository root with the same database as the core API:
+
+```bash
+DATABASE_URL=postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational \
+  PSS_OIDC_ISSUER=http://127.0.0.1:8080/realms/pss-local \
+  PSS_OIDC_AUDIENCE=pss-api \
+  PSS_OIDC_JWKS_URI=http://127.0.0.1:8080/realms/pss-local/protocol/openid-connect/certs \
+  pnpm --filter @pss/finance-api dev
+```
+
+```bash
+DATABASE_URL=postgresql://pss_local:pss_local_only@127.0.0.1:5432/pss_operational \
+  REDIS_URL=redis://127.0.0.1:6379 pnpm --filter @pss/integration-worker dev
+```
+
+After a reset, `scripts/reset-mvp-demo.sh` seeds the demo chart of accounts, posting rules, the current period, and the Controller journal-approval route in Platform's existing approval policy. Check `http://127.0.0.1:4001/health/ready` and `http://127.0.0.1:4002/health/ready` before selling.
 
 Check that the API is up and the switch is on:
 
@@ -128,12 +143,12 @@ The three stock screens carry a **Gudang** control in their own heading, not in 
 
 1. **Tutup Shift** (only with an empty cart) shows *Modal laci*, *Penjualan tunai* and *Seharusnya di laci*.
 2. Type the counted cash. To show a variance, type Rp1.000 less, then choose **Uang kurang**. Press **Tutup Shift**.
-3. **Serah Kas** says what to hand over; the float stays in the drawer. After a short count it shows the real amount beside the recorded sales (MVP-OD-11). Press **Serahkan Kas**.
+3. **Serah Kas** says what to hand over; the float stays in the drawer. After a short count it shows the real amount beside the recorded sales (MVP-OD-29). Press **Serahkan Kas**.
 
 ### 4.5 Finance counts the cash (keuangan.demo)
 
 1. Sign in with OTP, then open **Setoran Kas**. The handover waits in *Menunggu dihitung*, with the cashier, counter, recorded amount and the cashier's close count.
-2. Tap it and type the counted amount. If it differs, pick a reason (**Uang kurang** and so on). **Terima Setoran** stays disabled until one is chosen (MVP-OD-9).
+2. Tap it and type the counted amount. If it differs, pick a reason (**Uang kurang** and so on). **Terima Setoran** stays disabled until one is chosen (MVP-OD-26).
 3. Press **Terima Setoran** (CASH_CUSTODY_VERIFIED, journal Dr Kas Kantor / Cr Kas Konter ± Selisih Kas).
 4. Show that the cashier cannot verify their own cash: the server refuses (SOD-06).
 
@@ -142,9 +157,14 @@ The three stock screens carry a **Gudang** control in their own heading, not in 
 1. **Penjualan Konter** lists the day's sales. Tap a cashier or a counter to filter.
 2. Open a sale for its lines, payment and pickup times. **Cetak Salinan** with a reason prints a copy marked SALINAN.
 
-### 4.7 Accounting (keuangan.demo, kepala.keuangan.demo) — *Codex to fill*
+### 4.7 Accounting (keuangan.demo, kepala.keuangan.demo)
 
-Manual journal (maker), approval and posting (checker, a different user), Neraca Saldo / Laba Rugi / Neraca / Buku Besar, and period close.
+1. Sign in as `keuangan.demo` with OTP. From `/beranda`, open **Keuangan**. **Beranda Keuangan** shows the period, posting exceptions, recent journals, and today's and month-to-date gross profit from posted Finance figures.
+2. Open **Jurnal**. Find the payment, invoice and cash-verification journals from sections 4.2–4.5. Open one to see its debit and credit lines and source document. If inventory has no cost yet, open **Pengecualian Posting** and show its visible unvalued-movement exception; do not call that a zero-value posting.
+3. Open **Jurnal Manual**. Enter today's business date and the reason `Beban administrasi demo`. On the first row choose **6-9000 Beban Lain-lain**, debit `1000.00`. On the second choose **1-1100 Kas Kantor**, credit `1000.00`. Check the **Seimbang** indicator, press **Simpan draf**, then **Ajukan persetujuan**. Accounts for receivables and inventory are control accounts and cannot be used in this free-form flow.
+4. Sign in separately as `kepala.keuangan.demo` with OTP less than 15 minutes old. Open **Persetujuan**, find the card for that journal number, enter a review reason and press **Setujui**. The worker returns the decision to Finance, which posts the journal. Refresh **Jurnal** and check that its status is **Dibukukan**.
+5. Open **Neraca Saldo** and find **Beban Lain-lain** with the additional Rp1.000 debit. Open **Laba Rugi**, **Neraca**, and **Buku Besar** to show the posted figures and the Kas Kantor journal line. These reports read posted Finance journals.
+6. Open **Periode** as the Controller. Choose **Tutup sementara**, enter a reason, and confirm. Refresh, choose **Tutup periode**, enter a reason, and submit. The final close waits for a separate `finance.close.approve` actor; none of the five demo users has that grant (MVP-OD-30). Show the pending request, not a CLOSED period.
 
 ### 4.8 Dashboard (admin.demo)
 
@@ -181,8 +201,8 @@ MVP_PLAN §9: no QRIS, transfer, credit (tempo) sales, returns, purchase orders 
 From stream A:
 - The receipt carries the invoice number. `KSR-{CAB}-…` receipt numbering waits for the numbering template (GAP-16), and the branch code in the number is a placeholder derived from the branch id.
 - PPN is 0 on every invoice until PKP status and rate are decided (MVP-OD-3).
-- The catalog search lists products, but adding one is by barcode until master-data offers a product-by-id query (MVP-OD-10).
-- A handover counted differently without a reason stays "Perlu keputusan selisih": the CSH-002 approval is not built (MVP-OD-9).
+- The catalog search lists products, but adding one is by barcode until master-data offers a product-by-id query (MVP-OD-27).
+- A handover counted differently without a reason stays "Perlu keputusan selisih": the CSH-002 approval is not built (MVP-OD-26).
 - No customer selection, order list or returns on the counter.
 - Offline mode is not in the demo. The counter says so when the connection drops.
 
@@ -197,8 +217,9 @@ From stream C (back office):
 
 ## 7. The demo path, automated
 
-`apps/web/tests/e2e/mvp-demo-path.spec.ts` runs sections 4.1–4.6 on the real stack: five people in five browser sessions, OTP included, plus the exception paths from §5.
+`apps/web/tests/e2e/mvp-demo-path.spec.ts` runs sections 4.1–4.7 on the real stack: five people in separate browser sessions, OTP included, plus both exception paths from §5.
 - **Back office:** `admin.demo` creates a product, adds a case unit and a barcode on it, is refused a duplicate barcode, prices the case in a new version of the list, activates it, receives twelve cases at a cost, finds the balance with its value, and reads the dashboard — including the gross-profit tile degrading rather than showing zero.
+- **Finance:** the step ends with a period-close request pending the separate approver (MVP-OD-30).
 - **Insufficient stock:** refused, and the cart is left as it was.
 - **A sale id from another branch:** absent in Penjualan, refused to a cashier.
 
