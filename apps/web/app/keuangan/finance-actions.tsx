@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import Decimal from 'decimal.js';
 import Link from 'next/link';
+import { PageHeader, Panel } from '@pss/ui';
 import { ConfirmationDialog } from '@pss/ui';
 import { FinanceManualJournalSchema, type FinanceManualJournalInput } from '@pss/contracts';
 import { useFinanceData, useFinancePermissions, financeDate, periodLabel, rupiah } from './finance-client';
@@ -67,30 +68,30 @@ export function ManualJournalForm() {
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Pengajuan belum berhasil.'); }
   }
 
-  return <><h1>Jurnal Manual</h1><p className="finance-intro">Isi baris debit dan kredit. Jurnal disimpan sebagai draf sebelum persetujuan.</p>
+  return <><PageHeader title="Jurnal Manual" description="Isi baris debit dan kredit. Jurnal disimpan sebagai draf sebelum persetujuan." />
     {accounts.loading && <p role="status" className="finance-message">Daftar akun sedang dimuat…</p>}
     {accounts.error && <p role="alert" className="finance-message finance-error">{accounts.error}</p>}
     <form className="finance-form" onSubmit={handleSubmit(save)}>
-      <label>Tanggal bisnis<input type="date" {...register('businessDate')} required /></label>
-      <label>Tujuan dan alasan<textarea {...register('reason')} required maxLength={500} /></label>
-      <section className="finance-panel"><h2>Baris jurnal</h2>{fields.map((field, index) => <div className="finance-form-row" key={field.id}>
-        <label>Akun<select {...register(`lines.${index}.accountCode`)} required><option value="">Pilih akun</option>
+      <label className="pss-form-field">Tanggal bisnis<input type="date" {...register('businessDate')} required /></label>
+      <label className="pss-form-field">Tujuan dan alasan<textarea {...register('reason')} required maxLength={500} /></label>
+      <Panel title="Baris jurnal">{fields.map((field, index) => <div className="finance-form-row" key={field.id}>
+        <label className="pss-form-field">Akun<select {...register(`lines.${index}.accountCode`)} required><option value="">Pilih akun</option>
           {accounts.data?.filter((account) => account.active).map((account) => <option key={account.code} value={account.code}>{account.code} · {account.name}</option>)}</select></label>
-        <label>Debit<input type="text" inputMode="decimal" {...register(`lines.${index}.debit`)} /></label>
-        <label>Kredit<input type="text" inputMode="decimal" {...register(`lines.${index}.credit`)} /></label>
-        <label>Catatan<input type="text" {...register(`lines.${index}.memo`)} /></label>
-        {fields.length > 2 && <button className="finance-button finance-button-secondary" type="button" onClick={() => remove(index)}>Hapus baris</button>}
+        <label className="pss-form-field">Debit<input type="text" inputMode="decimal" {...register(`lines.${index}.debit`)} /></label>
+        <label className="pss-form-field">Kredit<input type="text" inputMode="decimal" {...register(`lines.${index}.credit`)} /></label>
+        <label className="pss-form-field">Catatan<input type="text" {...register(`lines.${index}.memo`)} /></label>
+        {fields.length > 2 && <button className="pss-button pss-button-secondary" type="button" onClick={() => remove(index)}>Hapus baris</button>}
       </div>)}
-        <button type="button" className="finance-button finance-button-secondary" onClick={() => append({ accountCode: '', debit: '0.00', credit: '0.00', memo: '' })}>Tambah baris</button>
-      </section>
+        <button type="button" className="pss-button pss-button-secondary" onClick={() => append({ accountCode: '', debit: '0.00', credit: '0.00', memo: '' })}>Tambah baris</button>
+      </Panel>
       <p role="status" className={`finance-message ${balanced ? 'finance-success' : ''}`}>
         Debit {rupiah(sums.debit.toFixed(2))} · Kredit {rupiah(sums.credit.toFixed(2))} · {balanced ? 'Seimbang' : 'Belum seimbang'}
       </p>
       {errors.root && <p role="alert" className="finance-message finance-error">{errors.root.message}</p>}
       {message && <p role="status" className="finance-message">{message}</p>}
       {draftId && <p><Link href={`/keuangan/jurnal/${draftId}`}>Tinjau draf jurnal</Link></p>}
-      <div className="finance-actions"><button className="finance-button" type="submit" disabled={!balanced || isSubmitting || !accounts.data}>Simpan draf</button>
-        {draftId && <button className="finance-button" type="button" onClick={() => void submitDraft()}>Ajukan persetujuan</button>}</div>
+      <div className="finance-actions"><button className="pss-button pss-button-primary" type="submit" disabled={!balanced || isSubmitting || !accounts.data}>Simpan draf</button>
+        {draftId && <button className="pss-button pss-button-primary" type="button" onClick={() => void submitDraft()}>Ajukan persetujuan</button>}</div>
     </form></>;
 }
 
@@ -101,20 +102,20 @@ export function GeneralLedger() {
   const [from, setFrom] = useState(`${today.slice(0, 7)}-01`);
   const [to, setTo] = useState(today);
   const ledger = useFinanceData<Ledger>(`finance/ledger?accountCode=${account}&from=${from}&to=${to}&limit=50&offset=0`);
-  return <><h1>Buku Besar</h1><p className="finance-intro">Pilih akun dan rentang tanggal untuk menelusuri jurnal yang dibukukan.</p>
-    <div className="finance-form-row"><label>Akun<select value={account} onChange={(event) => setAccount(event.target.value)}>
+  return <><PageHeader title="Buku Besar" description="Pilih akun dan rentang tanggal untuk menelusuri jurnal yang dibukukan." />
+    <div className="finance-form-row"><label className="pss-form-field">Akun<select value={account} onChange={(event) => setAccount(event.target.value)}>
       {accounts.data?.map((entry) => <option key={entry.code} value={entry.code}>{entry.code} · {entry.name}</option>)}</select></label>
-      <label>Dari<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
-      <label>Sampai<input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label></div>
+      <label className="pss-form-field">Dari<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
+      <label className="pss-form-field">Sampai<input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label></div>
     {ledger.loading && <p role="status" className="finance-message">Buku besar sedang dimuat…</p>}
     {ledger.error && <p role="alert" className="finance-message finance-error">{ledger.error}</p>}
-    {ledger.data && <section className="finance-panel"><p>Saldo awal: {rupiah(ledger.data.openingBalance)}</p>
+    {ledger.data && <Panel><p>Saldo awal: {rupiah(ledger.data.openingBalance)}</p>
       {!ledger.data.items.length ? <p>Belum ada transaksi pada rentang ini.</p> :
-        <table className="finance-table"><thead><tr><th>Tanggal</th><th>Jurnal</th><th>Dokumen</th><th className="number">Debit</th><th className="number">Kredit</th></tr></thead>
+        <div className="pss-table-scroll"><table className="pss-data-table"><thead><tr><th>Tanggal</th><th>Jurnal</th><th>Dokumen</th><th className="pss-number">Debit</th><th className="pss-number">Kredit</th></tr></thead>
           <tbody>{ledger.data.items.map((item) => <tr key={`${item.journal_id}-${item.number}`}><td>{financeDate(item.business_date)}</td>
             <td><Link href={`/keuangan/jurnal/${item.journal_id}`}>{item.number}</Link></td><td>{item.source_document_number ?? 'Jurnal manual'}</td>
-            <td className="number">{rupiah(item.debit)}</td><td className="number">{rupiah(item.credit)}</td></tr>)}</tbody></table>}
-    </section>}
+            <td className="pss-number">{rupiah(item.debit)}</td><td className="pss-number">{rupiah(item.credit)}</td></tr>)}</tbody></table></div>}
+    </Panel>}
   </>;
 }
 
@@ -145,20 +146,20 @@ export function Periods() {
     finally { setBusy(false); }
   }
 
-  return <><h1>Periode</h1><p className="finance-intro">Tinjau periode dan alasan sebelum menutup buku.</p>
+  return <><PageHeader title="Periode" description="Tinjau periode dan alasan sebelum menutup buku." />
     {result.loading && <p role="status" className="finance-message">Periode sedang dimuat…</p>}
     {result.error && <p role="alert" className="finance-message finance-error">{result.error}</p>}
     {message && <p role="status" className="finance-message">{message}</p>}
-    <section className="finance-panel">{!result.data?.length ? <p>Belum ada periode. Minta admin menjalankan seed demo keuangan.</p> :
-      <table className="finance-table"><thead><tr><th>Periode</th><th>Status</th><th>Aksi</th></tr></thead>
+    <Panel>{!result.data?.length ? <p>Belum ada periode. Minta admin menjalankan seed demo keuangan.</p> :
+      <div className="pss-table-scroll"><table className="pss-data-table"><thead><tr><th>Periode</th><th>Status</th><th>Aksi</th></tr></thead>
         <tbody>{result.data.map((period) => <tr key={period.id}><td>{period.code}</td><td>{periodLabel(period.status)}</td>
-          <td>{canManage && period.status === 'OPEN' ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'soft-close' })}>Tutup sementara</button>
-            : canManage && period.status === 'SOFT_CLOSED' ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'close' })}>Tutup periode</button>
+          <td>{canManage && period.status === 'OPEN' ? <button className="pss-button pss-button-primary" onClick={() => setSelected({ id: period.id, code: period.code, action: 'soft-close' })}>Tutup sementara</button>
+            : canManage && period.status === 'SOFT_CLOSED' ? <button className="pss-button pss-button-primary" onClick={() => setSelected({ id: period.id, code: period.code, action: 'close' })}>Tutup periode</button>
               : canReopen && period.status === 'CLOSED'
-                ? <button className="finance-button" onClick={() => setSelected({ id: period.id, code: period.code, action: 'reopen-requests' })}>Ajukan buka kembali</button>
-                : <span>Ditutup</span>}</td></tr>)}</tbody></table>}
-    </section>
-    {selected && <><div className="finance-panel finance-form"><label>Alasan tindakan<textarea value={reason} onChange={(event) => setReason(event.target.value)} required /></label></div>
+                ? <button className="pss-button pss-button-primary" onClick={() => setSelected({ id: period.id, code: period.code, action: 'reopen-requests' })}>Ajukan buka kembali</button>
+                : <span>Ditutup</span>}</td></tr>)}</tbody></table></div>}
+    </Panel>
+    {selected && <><Panel><div className="finance-form"><label className="pss-form-field">Alasan tindakan<textarea value={reason} onChange={(event) => setReason(event.target.value)} required /></label></div></Panel>
       <ConfirmationDialog title={`${selected.action === 'reopen-requests' ? 'Buka kembali' : 'Tutup'} periode ${selected.code}?`}
         description={selected.action === 'soft-close' ? 'Periode akan ditutup sementara.' : 'Permintaan ini memerlukan persetujuan petugas lain.'}
         confirmLabel={selected.action === 'reopen-requests' ? 'Ajukan buka kembali' : selected.action === 'close' ? 'Ajukan tutup periode' : 'Tutup sementara'}

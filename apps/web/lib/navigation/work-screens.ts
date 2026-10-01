@@ -37,6 +37,15 @@ export const workScreens: readonly WorkScreen[] = [
   { key: 'serah-barang', label: 'Serah Barang', description: 'Serahkan barang yang sudah dibayar di konter.', href: '/kasir', permission: 'fulfillment.pickup.handover', section: 'penjualan', icon: 'serah-barang' },
   { key: 'penjualan', label: 'Penjualan Konter', description: 'Lihat transaksi kasir dan fakturnya.', href: '/kantor/penjualan', permission: 'pos.report.view', section: 'penjualan', icon: 'penjualan' },
   { key: 'setoran-kas', label: 'Setoran Kas', description: 'Hitung dan terima uang dari kasir.', href: '/kantor/setoran-kas', permission: 'payments.cash_custody.verify', section: 'kas', icon: 'setoran-kas' },
+  { key: 'keuangan', label: 'Dasbor Keuangan', description: 'Periksa periode, jurnal, dan laba kotor.', href: '/keuangan', permission: 'finance.journal.create', section: 'keuangan', icon: 'dasbor' },
+  { key: 'jurnal', label: 'Jurnal', description: 'Telusuri jurnal dan dokumen sumbernya.', href: '/keuangan/jurnal', permission: 'finance.journal.create', section: 'keuangan', icon: 'jurnal' },
+  { key: 'jurnal-manual', label: 'Jurnal Manual', description: 'Siapkan jurnal untuk persetujuan.', href: '/keuangan/jurnal-manual', permission: 'finance.journal.create', section: 'keuangan', icon: 'jurnal', tile: false },
+  { key: 'buku-besar', label: 'Buku Besar', description: 'Telusuri mutasi akun.', href: '/keuangan/buku-besar', permission: 'finance.journal.create', section: 'keuangan', icon: 'buku-besar', tile: false },
+  { key: 'neraca-saldo', label: 'Neraca Saldo', description: 'Periksa keseimbangan buku.', href: '/keuangan/neraca-saldo', permission: 'finance.journal.create', section: 'keuangan', icon: 'neraca-saldo', tile: false },
+  { key: 'laba-rugi', label: 'Laba Rugi', description: 'Lihat hasil usaha periode ini.', href: '/keuangan/laba-rugi', permission: 'finance.report.pnl.view', section: 'keuangan', icon: 'laporan', tile: false },
+  { key: 'neraca', label: 'Neraca', description: 'Lihat posisi keuangan.', href: '/keuangan/neraca', permission: 'finance.journal.create', section: 'keuangan', icon: 'neraca', tile: false },
+  { key: 'pengecualian-posting', label: 'Pengecualian Posting', description: 'Tindak lanjuti transaksi yang belum dibukukan.', href: '/keuangan/pengecualian-posting', permission: 'finance.posting.period_decision', section: 'keuangan', icon: 'pengecualian', tile: false },
+  { key: 'periode', label: 'Periode', description: 'Kelola penutupan buku.', href: '/keuangan/periode', permission: 'finance.close.manage', section: 'keuangan', icon: 'periode', tile: false },
 ];
 
 /** The screens a viewer holding `permissions` may open, in registry order. */

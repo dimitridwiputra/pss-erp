@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
+import Decimal from 'decimal.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { newEventId } from '@pss/contracts';
 import { applyMigrations } from '../../../scripts/apply-migrations.mjs';
@@ -20,7 +21,7 @@ function receipt(totalCost: string | null, date = '2026-10-01') {
     organizationId, aggregateType: 'InventoryMovement', aggregateId: movementId,
     aggregateVersion: 1, producer: 'inventory', correlationId: randomUUID(), causationId: randomUUID(),
     payload: { movementId, warehouseId, productId, uom: 'PCS', qty: '1.000',
-      unitCost: totalCost === null ? null : `${totalCost}00`, totalCost,
+      unitCost: totalCost === null ? null : new Decimal(totalCost).toFixed(4), totalCost,
       sourceType: 'GOODS_RECEIPT', sourceId: randomUUID(), businessDate: date },
   };
 }

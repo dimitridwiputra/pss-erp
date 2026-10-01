@@ -1,37 +1,9 @@
-.finance-shell { min-height: 100vh; display: grid; grid-template-columns: 245px minmax(0, 1fr); background: var(--pss-cream-50); color: var(--gray-950); }
-.finance-sidebar { background: var(--pss-navy-950); color: var(--pss-white); padding: 30px 18px; display: flex; flex-direction: column; gap: 30px; }
-.finance-brand { font-size: 23px; font-weight: 850; letter-spacing: -.04em; margin: 0 10px; }
-.finance-brand span { display: block; font-size: 12px; letter-spacing: .16em; font-weight: 700; }
-.finance-sidebar nav { display: grid; gap: 4px; }
-.finance-sidebar a { min-height: 48px; display: flex; align-items: center; padding: 11px 14px; border-radius: var(--radius-default); color: var(--pss-white); text-decoration: none; font-weight: 650; }
-.finance-sidebar a:hover, .finance-sidebar a:focus-visible { background: var(--pss-navy-900); outline: 2px solid var(--pss-white); outline-offset: 2px; }
-.finance-back { margin-top: auto; }
-.finance-content { max-width: 1240px; width: 100%; padding: 42px 48px 80px; }
-.finance-content h1 { font-size: clamp(32px, 3.5vw, 46px); margin: 4px 0 14px; }
-.finance-content h2 { color: var(--pss-navy-950); }
-.finance-intro { color: var(--gray-600); margin: 0 0 28px; line-height: 1.5; }
-.finance-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin: 22px 0 30px; }
-.finance-card, .finance-panel { background: var(--pss-white); border: 1px solid var(--gray-200); border-radius: var(--radius-panel); padding: 24px; box-shadow: var(--shadow-md); }
-.finance-card p { color: var(--gray-600); margin: 0 0 8px; }
-.finance-card strong { color: var(--pss-navy-950); font-size: 27px; font-variant-numeric: tabular-nums; }
-.finance-panel { margin-top: 20px; overflow-x: auto; }
-.finance-panel h2 { margin-top: 0; }
-.finance-form { display: grid; gap: 18px; max-width: 920px; }
-.finance-form label { display: grid; gap: 7px; font-weight: 700; }
-.finance-form input, .finance-form select, .finance-form textarea { width: 100%; min-height: 48px; border: 1px solid var(--gray-400); border-radius: var(--radius-default); padding: 10px 12px; color: var(--gray-950); background: var(--pss-white); font: inherit; }
-.finance-form textarea { min-height: 82px; }
-.finance-form-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: end; }
-.finance-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.finance-button, .finance-link-button { min-height: 48px; padding: 10px 18px; border: 1px solid var(--pss-navy-900); border-radius: var(--radius-default); background: var(--pss-navy-900); color: var(--pss-white); font: inherit; font-weight: 750; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
-.finance-button:disabled { opacity: .55; cursor: not-allowed; }
-.finance-button-secondary { background: var(--pss-white); color: var(--pss-navy-900); }
-.finance-message { padding: 14px 18px; border-radius: var(--radius-default); background: var(--warning-100); color: var(--gray-950); }
-.finance-error { background: var(--danger-100); color: var(--danger-700); }
-.finance-success { background: var(--success-100); color: var(--success-700); }
-.finance-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.finance-table th { text-align: left; border-bottom: 1px solid var(--gray-300); color: var(--gray-600); }
-.finance-table td, .finance-table th { padding: 12px 10px; }
-.finance-table tbody tr + tr td { border-top: 1px solid var(--gray-200); }
-.finance-table .number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.finance-table a { color: var(--pss-navy-900); font-weight: 700; }
-@media (max-width: 780px) { .finance-shell { display: block; } .finance-sidebar { padding: 16px; gap: 12px; } .finance-sidebar nav { display: flex; overflow-x: auto; } .finance-sidebar a { white-space: nowrap; } .finance-back { display: none !important; } .finance-content { padding: 26px 18px 65px; } .finance-form-row { grid-template-columns: 1fr; } }
+/* Finance content uses the shared PSS app shell and UI components. */
+.finance-form { display: grid; gap: var(--space-md); max-width: 920px; }
+.finance-form .pss-form-field input, .finance-form .pss-form-field select, .finance-form .pss-form-field textarea { min-height: 48px; }
+.finance-form-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; gap: var(--space-md); align-items: end; }
+.finance-actions { display: flex; gap: var(--space-md); flex-wrap: wrap; align-items: center; }
+.finance-message { padding: var(--space-md); border-radius: var(--radius-default); background: var(--color-surface-muted); color: var(--color-text); }
+.finance-error { color: var(--color-accent); }
+.finance-success { color: var(--color-text); }
+@media (max-width: 780px) { .finance-form-row { grid-template-columns: 1fr; } }

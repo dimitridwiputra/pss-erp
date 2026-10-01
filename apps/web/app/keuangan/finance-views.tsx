@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { KpiCard, PageHeader, Panel } from '@pss/ui';
+import { BookOpen, CalendarDays, CircleAlert, TrendingUp, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useFinanceData, useFinancePermissions, financeDate, journalLabel, periodLabel, rupiah } from './finance-client';
 
@@ -46,38 +48,37 @@ export function FinanceHome() {
   const summary = useFinanceData<{ grossProfitToday: string; grossProfitMonthToDate: string }>(`finance/summary?businessDate=${today}`);
   const current = periods.data?.find((period) => period.code === today.slice(0, 7));
   return <>
-    <p className="eyebrow">HARI INI</p><h1>Beranda Keuangan</h1>
-    <p className="finance-intro">Periksa periode, jurnal, dan transaksi yang perlu ditindaklanjuti.</p>
+    <PageHeader eyebrow="HARI INI" title="Beranda Keuangan" description="Periksa periode, jurnal, dan transaksi yang perlu ditindaklanjuti." />
     <State loading={periods.loading || exceptions.loading || journals.loading || summary.loading}
       error={periods.error || exceptions.error || journals.error || summary.error} />
-    <div className="finance-cards">
-      <div className="finance-card"><p>Periode {today.slice(0, 7)}</p><strong>{current ? periodLabel(current.status) : 'Belum tersedia'}</strong></div>
-      <div className="finance-card"><p>Pengecualian posting</p><strong>{exceptions.data?.total ?? '—'}</strong></div>
-      <div className="finance-card"><p>Laba kotor hari ini</p><strong>{summary.data ? rupiah(summary.data.grossProfitToday) : '—'}</strong></div>
-      <div className="finance-card"><p>Laba kotor bulan ini</p><strong>{summary.data ? rupiah(summary.data.grossProfitMonthToDate) : '—'}</strong></div>
-    </div>
-    <section className="finance-panel"><h2>Jurnal terbaru</h2>
+    <dl className="pss-kpi-grid">
+      <KpiCard icon={<CalendarDays />} label={`Periode ${today.slice(0, 7)}`} value={current ? periodLabel(current.status) : 'Belum tersedia'} state={periods.loading ? 'loading' : periods.error ? 'error' : 'default'} />
+      <KpiCard icon={<CircleAlert />} tone="warning" label="Pengecualian posting" value={exceptions.data?.total ?? '—'} state={exceptions.loading ? 'loading' : exceptions.error ? 'error' : 'default'} />
+      <KpiCard icon={<Wallet />} tone="success" label="Laba kotor hari ini" value={summary.data ? rupiah(summary.data.grossProfitToday) : '—'} state={summary.loading ? 'loading' : summary.error ? 'error' : 'default'} />
+      <KpiCard icon={<TrendingUp />} tone="info" label="Laba kotor bulan ini" value={summary.data ? rupiah(summary.data.grossProfitMonthToDate) : '—'} state={summary.loading ? 'loading' : summary.error ? 'error' : 'default'} />
+    </dl>
+    <Panel title="Jurnal terbaru">
       {!journals.data?.items.length ? <p>Belum ada jurnal untuk ditampilkan.</p> :
-        <table className="finance-table"><thead><tr><th>Nomor</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead>
+        <div className="pss-table-scroll"><table className="pss-data-table"><thead><tr><th>Nomor</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead>
           <tbody>{journals.data.items.map((journal) => <tr key={journal.id}><td>{journal.number}</td><td>{financeDate(journal.business_date)}</td>
-            <td>{journalLabel(journal.status)}</td><td><Link href={`/keuangan/jurnal/${journal.id}`}>Lihat jurnal</Link></td></tr>)}</tbody></table>}
-    </section>
+            <td>{journalLabel(journal.status)}</td><td><Link href={`/keuangan/jurnal/${journal.id}`}>Lihat jurnal</Link></td></tr>)}</tbody></table></div>}
+    </Panel>
   </>;
 }
 
 export function JournalList() {
   const result = useFinanceData<Page<Journal>>('finance/journals?limit=50&offset=0');
-  return <><h1>Jurnal</h1><p className="finance-intro">Telusuri jurnal dan dokumen sumbernya.</p>
+  return <><PageHeader title="Jurnal" description="Telusuri jurnal dan dokumen sumbernya." />
     <State loading={result.loading} error={result.error} />
-    <section className="finance-panel">
-      {!result.data?.items.length ? <p>Belum ada jurnal.</p> : <table className="finance-table"><thead><tr>
+    <Panel>
+      {!result.data?.items.length ? <p>Belum ada jurnal.</p> : <div className="pss-table-scroll"><table className="pss-data-table"><thead><tr>
         <th>Nomor</th><th>Tanggal</th><th>Dokumen sumber</th><th>Status</th><th>Aksi</th>
       </tr></thead><tbody>{result.data.items.map((journal) => <tr key={journal.id}>
         <td>{journal.number}</td><td>{financeDate(journal.business_date)}</td>
         <td>{sourceDocument(journal)}</td><td>{journalLabel(journal.status)}</td>
         <td><Link href={`/keuangan/jurnal/${journal.id}`}>Lihat detail</Link></td>
-      </tr>)}</tbody></table>}
-    </section></>;
+      </tr>)}</tbody></table></div>}
+    </Panel></>;
 }
 
 export function JournalDetail({ id }: { id: string }) {
@@ -99,33 +100,33 @@ export function JournalDetail({ id }: { id: string }) {
       ? 'Pembalikan menunggu persetujuan petugas lain.'
       : 'Pembalikan belum dapat diajukan. Periksa periode dan alasan, lalu coba lagi.');
   }
-  return <><Link href="/keuangan/jurnal">← Kembali ke jurnal</Link><h1>Detail Jurnal</h1>
+  return <><PageHeader title="Detail Jurnal" actions={<Link className="pss-button pss-button-secondary" href="/keuangan/jurnal">Kembali ke jurnal</Link>} />
     <State loading={result.loading} error={result.error} />
-    {result.data && <section className="finance-panel"><h2>{result.data.number}</h2>
+    {result.data && <Panel><h2>{result.data.number}</h2>
       <p>{financeDate(result.data.business_date)} · {journalLabel(result.data.status)}</p>
       <p>Dokumen sumber: {sourceDocument(result.data)}</p>
-      <table className="finance-table"><thead><tr><th>Akun</th><th>Catatan</th><th className="number">Debit</th><th className="number">Kredit</th></tr></thead>
+      <div className="pss-table-scroll"><table className="pss-data-table"><thead><tr><th>Akun</th><th>Catatan</th><th className="pss-number">Debit</th><th className="pss-number">Kredit</th></tr></thead>
         <tbody>{result.data.lines.map((line) => <tr key={line.line_number}><td>{line.account_code} · {line.account_name}</td>
-          <td>{line.memo}</td><td className="number">{rupiah(line.debit)}</td><td className="number">{rupiah(line.credit)}</td></tr>)}</tbody></table>
-      {canReverse && <div className="finance-form"><label>Alasan pembalikan
+          <td>{line.memo}</td><td className="pss-number">{rupiah(line.debit)}</td><td className="pss-number">{rupiah(line.credit)}</td></tr>)}</tbody></table></div>
+      {canReverse && <div className="finance-form"><label className="pss-form-field">Alasan pembalikan
         <textarea value={reversalReason} onChange={(event) => setReversalReason(event.target.value)} required /></label>
-        <button className="finance-button" type="button" disabled={!reversalReason.trim()}
+        <button className="pss-button pss-button-primary" type="button" disabled={!reversalReason.trim()}
           onClick={() => void requestReversal()}>Ajukan pembalikan</button></div>}
       {reversalMessage && <p role="status" className="finance-message">{reversalMessage}</p>}
-    </section>}
+    </Panel>}
   </>;
 }
 
 export function TrialBalance() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const result = useFinanceData<{ lines: Row[]; totalDebit: string; totalCredit: string; balanced: boolean }>(`finance/trial-balance?through=${today}`);
-  return <><h1>Neraca Saldo</h1><p className="finance-intro">Saldo sampai {today}. Angka berasal dari jurnal yang sudah dibukukan.</p>
+  return <><PageHeader title="Neraca Saldo" description={`Saldo sampai ${today}. Angka berasal dari jurnal yang sudah dibukukan.`} />
     <State loading={result.loading} error={result.error} />
-    {result.data && <section className="finance-panel"><table className="finance-table"><thead><tr><th>Akun</th><th className="number">Debit</th><th className="number">Kredit</th></tr></thead>
-      <tbody>{result.data.lines.map((row) => <tr key={row.code}><td>{row.code} · {row.name}</td><td className="number">{rupiah(row.debit ?? '0')}</td><td className="number">{rupiah(row.credit ?? '0')}</td></tr>)}
-      <tr><th>Jumlah</th><th className="number">{rupiah(result.data.totalDebit)}</th><th className="number">{rupiah(result.data.totalCredit)}</th></tr></tbody></table>
+    {result.data && <Panel><div className="pss-table-scroll"><table className="pss-data-table"><thead><tr><th>Akun</th><th className="pss-number">Debit</th><th className="pss-number">Kredit</th></tr></thead>
+      <tbody>{result.data.lines.map((row) => <tr key={row.code}><td>{row.code} · {row.name}</td><td className="pss-number">{rupiah(row.debit ?? '0')}</td><td className="pss-number">{rupiah(row.credit ?? '0')}</td></tr>)}
+      <tr><th>Jumlah</th><th className="pss-number">{rupiah(result.data.totalDebit)}</th><th className="pss-number">{rupiah(result.data.totalCredit)}</th></tr></tbody></table></div>
       {!result.data.balanced && <p className="finance-message finance-error">Neraca saldo belum seimbang. Periksa jurnal.</p>}
-    </section>}
+    </Panel>}
   </>;
 }
 
@@ -133,13 +134,13 @@ export function ProfitAndLoss() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const result = useFinanceData<{ lines: Row[]; revenue: string; costOfGoods: string; grossProfit: string; netProfit: string }>(
     `finance/profit-and-loss?from=${today.slice(0, 7)}-01&to=${today}`);
-  return <><h1>Laba Rugi</h1><p className="finance-intro">Periode {today.slice(0, 7)} · Belum final sampai periode ditutup.</p>
+  return <><PageHeader title="Laba Rugi" description={`Periode ${today.slice(0, 7)} · Belum final sampai periode ditutup.`} />
     <State loading={result.loading} error={result.error} />
-    {result.data && <><div className="finance-cards"><div className="finance-card"><p>Penjualan</p><strong>{rupiah(result.data.revenue)}</strong></div>
-      <div className="finance-card"><p>Laba kotor</p><strong>{rupiah(result.data.grossProfit)}</strong></div>
-      <div className="finance-card"><p>Laba bersih</p><strong>{rupiah(result.data.netProfit)}</strong></div></div>
-      <section className="finance-panel"><table className="finance-table"><thead><tr><th>Akun</th><th className="number">Nilai</th></tr></thead>
-        <tbody>{result.data.lines.map((row) => <tr key={row.code}><td>{row.code} · {row.name}</td><td className="number">{rupiah(row.net ?? '0')}</td></tr>)}</tbody></table></section></>}
+    {result.data && <><dl className="pss-kpi-grid"><KpiCard icon={<Wallet />} label="Penjualan" value={rupiah(result.data.revenue)} />
+      <KpiCard icon={<TrendingUp />} tone="success" label="Laba kotor" value={rupiah(result.data.grossProfit)} />
+      <KpiCard icon={<BookOpen />} tone="neutral" label="Laba bersih" value={rupiah(result.data.netProfit)} /></dl>
+      <Panel><div className="pss-table-scroll"><table className="pss-data-table"><thead><tr><th>Akun</th><th className="pss-number">Nilai</th></tr></thead>
+        <tbody>{result.data.lines.map((row) => <tr key={row.code}><td>{row.code} · {row.name}</td><td className="pss-number">{rupiah(row.net ?? '0')}</td></tr>)}</tbody></table></div></Panel></>}
   </>;
 }
 
@@ -147,17 +148,17 @@ export function BalanceSheet() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const result = useFinanceData<{ assets: Row[]; liabilities: Row[]; equity: Row[]; currentPeriodProfit: string;
     totalAssets: string; totalLiabilities: string; totalEquity: string; difference: string }>(`finance/balance-sheet?through=${today}`);
-  return <><h1>Neraca</h1><p className="finance-intro">Posisi sampai {today} · Laba periode berjalan ditampilkan di ekuitas.</p>
+  return <><PageHeader title="Neraca" description={`Posisi sampai ${today} · Laba periode berjalan ditampilkan di ekuitas.`} />
     <State loading={result.loading} error={result.error} />
-    {result.data && <section className="finance-panel"><table className="finance-table"><thead><tr><th>Pos</th><th className="number">Nilai</th></tr></thead><tbody>
-      <tr><th colSpan={2}>Aset</th></tr>{result.data.assets.map((row) => <tr key={row.code}><td>{row.name}</td><td className="number">{rupiah(row.amount ?? '0')}</td></tr>)}
-      <tr><th>Jumlah aset</th><th className="number">{rupiah(result.data.totalAssets)}</th></tr>
-      <tr><th colSpan={2}>Liabilitas</th></tr>{result.data.liabilities.map((row) => <tr key={row.code}><td>{row.name}</td><td className="number">{rupiah(row.amount ?? '0')}</td></tr>)}
-      <tr><th>Jumlah liabilitas</th><th className="number">{rupiah(result.data.totalLiabilities)}</th></tr>
-      <tr><th colSpan={2}>Ekuitas</th></tr>{result.data.equity.map((row) => <tr key={row.code}><td>{row.name}</td><td className="number">{rupiah(row.amount ?? '0')}</td></tr>)}
-      <tr><td>Laba periode berjalan</td><td className="number">{rupiah(result.data.currentPeriodProfit)}</td></tr>
-      <tr><th>Jumlah ekuitas</th><th className="number">{rupiah(result.data.totalEquity)}</th></tr>
-    </tbody></table>{result.data.difference !== '0.00' && <p className="finance-message finance-error">Neraca belum seimbang: {rupiah(result.data.difference)}.</p>}</section>}
+    {result.data && <Panel><div className="pss-table-scroll"><table className="pss-data-table"><thead><tr><th>Pos</th><th className="pss-number">Nilai</th></tr></thead><tbody>
+      <tr><th colSpan={2}>Aset</th></tr>{result.data.assets.map((row) => <tr key={row.code}><td>{row.name}</td><td className="pss-number">{rupiah(row.amount ?? '0')}</td></tr>)}
+      <tr><th>Jumlah aset</th><th className="pss-number">{rupiah(result.data.totalAssets)}</th></tr>
+      <tr><th colSpan={2}>Liabilitas</th></tr>{result.data.liabilities.map((row) => <tr key={row.code}><td>{row.name}</td><td className="pss-number">{rupiah(row.amount ?? '0')}</td></tr>)}
+      <tr><th>Jumlah liabilitas</th><th className="pss-number">{rupiah(result.data.totalLiabilities)}</th></tr>
+      <tr><th colSpan={2}>Ekuitas</th></tr>{result.data.equity.map((row) => <tr key={row.code}><td>{row.name}</td><td className="pss-number">{rupiah(row.amount ?? '0')}</td></tr>)}
+      <tr><td>Laba periode berjalan</td><td className="pss-number">{rupiah(result.data.currentPeriodProfit)}</td></tr>
+      <tr><th>Jumlah ekuitas</th><th className="pss-number">{rupiah(result.data.totalEquity)}</th></tr>
+    </tbody></table></div>{result.data.difference !== '0.00' && <p className="finance-message finance-error">Neraca belum seimbang: {rupiah(result.data.difference)}.</p>}</Panel>}
   </>;
 }
 
@@ -179,15 +180,15 @@ export function PostingExceptions() {
   const reason = (code: string) => ({ PERIOD_CLOSED: 'Periode sudah ditutup', PERIOD_NOT_FOUND: 'Periode belum tersedia',
     UNVALUED_INVENTORY: 'Nilai persediaan belum tersedia', POSTING_RULE_NOT_FOUND: 'Aturan posting belum tersedia',
     ACCOUNT_INACTIVE_OR_MISSING: 'Akun belum aktif' } as Record<string, string>)[code] ?? 'Perlu diperiksa';
-  return <><h1>Pengecualian Posting</h1><p className="finance-intro">Transaksi berikut memerlukan tindakan sebelum dapat dibukukan.</p>
+  return <><PageHeader title="Pengecualian Posting" description="Transaksi berikut memerlukan tindakan sebelum dapat dibukukan." />
     <State loading={result.loading} error={result.error} />
     {message && <p role="status" className="finance-message">{message}</p>}
-    <section className="finance-panel">{!result.data?.items.length ? <p>Semua transaksi sudah diproses.</p> :
-      <table className="finance-table"><thead><tr><th>Tanggal</th><th>Transaksi</th><th>Masalah</th><th>Status</th><th>Aksi</th></tr></thead>
+    <Panel>{!result.data?.items.length ? <p>Semua transaksi sudah diproses.</p> :
+      <div className="pss-table-scroll"><table className="pss-data-table"><thead><tr><th>Tanggal</th><th>Transaksi</th><th>Masalah</th><th>Status</th><th>Aksi</th></tr></thead>
         <tbody>{result.data.items.map((entry) => <tr key={entry.id}><td>{financeDate(entry.business_date)}</td>
           <td>{economicEventLabel(entry.event_type)}</td><td>{reason(entry.reason_code)}</td>
           <td>{entry.status === 'RESOLVED' ? 'Selesai' : 'Perlu ditindaklanjuti'}</td>
-          <td>{canRetry && entry.status !== 'RESOLVED' && <button className="finance-button finance-button-secondary" onClick={() => void retry(entry.id)}>Coba lagi</button>}</td>
-        </tr>)}</tbody></table>}</section>
+          <td>{canRetry && entry.status !== 'RESOLVED' && <button className="pss-button pss-button-secondary" onClick={() => void retry(entry.id)}>Coba lagi</button>}</td>
+        </tr>)}</tbody></table></div>}</Panel>
   </>;
 }

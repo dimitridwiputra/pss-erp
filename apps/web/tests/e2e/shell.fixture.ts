@@ -14,6 +14,24 @@ export const adminShell: ExperienceShellView = {
   incomplete: false,
 };
 
+export const financeShell: ExperienceShellView = {
+  ...adminShell,
+  viewer: { displayName: 'Keuangan Demo' },
+  sections: [adminShell.sections[0]!, {
+    key: 'keuangan', label: 'Keuangan', items: [
+      { key: 'keuangan', label: 'Dasbor Keuangan', description: 'Periksa periode, jurnal, dan laba kotor.', href: '/keuangan', icon: 'dasbor' },
+      { key: 'jurnal', label: 'Jurnal', description: 'Telusuri jurnal dan dokumen sumbernya.', href: '/keuangan/jurnal', icon: 'jurnal' },
+      { key: 'jurnal-manual', label: 'Jurnal Manual', description: 'Siapkan jurnal untuk persetujuan.', href: '/keuangan/jurnal-manual', icon: 'jurnal' },
+      { key: 'buku-besar', label: 'Buku Besar', description: 'Telusuri mutasi akun.', href: '/keuangan/buku-besar', icon: 'buku-besar' },
+      { key: 'neraca-saldo', label: 'Neraca Saldo', description: 'Periksa keseimbangan buku.', href: '/keuangan/neraca-saldo', icon: 'neraca-saldo' },
+      { key: 'laba-rugi', label: 'Laba Rugi', description: 'Lihat hasil usaha periode ini.', href: '/keuangan/laba-rugi', icon: 'laporan' },
+      { key: 'neraca', label: 'Neraca', description: 'Lihat posisi keuangan.', href: '/keuangan/neraca', icon: 'neraca' },
+      { key: 'pengecualian-posting', label: 'Pengecualian Posting', description: 'Tindak lanjuti transaksi yang belum dibukukan.', href: '/keuangan/pengecualian-posting', icon: 'pengecualian' },
+      { key: 'periode', label: 'Periode', description: 'Kelola penutupan buku.', href: '/keuangan/periode', icon: 'periode' },
+    ],
+  }],
+};
+
 export async function mockShell(page: Page, view: ExperienceShellView = adminShell) {
   await page.route('**/api/experience/shell', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(view) }));
 }

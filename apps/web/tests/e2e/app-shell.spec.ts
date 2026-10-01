@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { adminShell, mockShell, snapshot } from './shell.fixture';
+import { adminShell, financeShell, mockShell, snapshot } from './shell.fixture';
 
 /** The app shell (app/_shell, @pss/ui AppShell) around /kantor, against a stand-in BFF. */
 const uuid = (n: number) => `0199a000-0000-7000-8000-${String(n).padStart(12, '0')}`;
@@ -81,4 +81,13 @@ test('a failed menu read says so instead of pretending the viewer has no screens
   await mockCounterBackoffice(page);
   await page.goto('/kantor/penjualan');
   await expect(page.getByText('Sebagian menu belum terbaca')).toBeVisible();
+});
+
+test('the shared shell lists finance screens from the permission-scoped view', async ({ page }) => {
+  await mockShell(page, financeShell);
+  await page.goto('/kantor/penjualan');
+  const nav = page.getByRole('navigation', { name: 'Menu' });
+  await expect(nav.getByRole('link', { name: 'Dasbor Keuangan' })).toHaveAttribute('href', '/keuangan');
+  await expect(nav.getByRole('link', { name: 'Neraca Saldo' })).toHaveAttribute('href', '/keuangan/neraca-saldo');
+  await expect(nav.getByRole('link', { name: 'Neraca', exact: true })).toHaveAttribute('href', '/keuangan/neraca');
 });
