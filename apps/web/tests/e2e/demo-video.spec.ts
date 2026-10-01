@@ -204,7 +204,10 @@ test('PSS MVP demo video', async ({ browser }) => {
   await typeSlow(page, page.getByLabel('Nama barang'), 'Kopi Susu Gula Aren 250ml');
   await typeSlow(page, page.getByLabel('Satuan dasar'), 'BTL');
   await page.getByLabel('Keadaan').selectOption('ACTIVE');
-  await say(page, 'Barang baru', 'Isi SKU, nama, dan satuan dasar. Barang siap dijual setelah diberi harga.', 2400);
+  // PPN is chosen, never defaulted: the field is required and `Simpan Barang` stays disabled until a
+  // person picks, because a default would be the system deciding a tax treatment (MVP-OD-3).
+  await page.getByLabel('Pajak').selectOption('VAT_OUTPUT');
+  await say(page, 'Barang baru', 'Isi SKU, nama, satuan dasar, dan pajak. Barang siap dijual setelah diberi harga.', 2400);
   await page.getByRole('button', { name: 'Simpan Barang' }).click();
   await page.getByLabel('Cari SKU atau nama barang').fill(sku);
   await page.getByRole('button', { name: 'Cari', exact: true }).click();

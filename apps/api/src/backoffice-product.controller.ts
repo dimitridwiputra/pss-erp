@@ -9,6 +9,7 @@ import {
 } from '@pss/contracts';
 import { readIdempotencyKey, ZodValidationPipe } from '@pss/http';
 import { Pool } from 'pg';
+import { createApiPool } from './database-pool';
 import { z } from 'zod';
 import {
   addProductBarcode, addProductUom, createProduct, getCustomerTaxTreatment, getProduct, getProductsByIds, listCustomers,
@@ -55,7 +56,9 @@ const ProductSummaryListResponseSchema = z.strictObject({ items: z.array(Product
  */
 @Injectable()
 export class BackofficeProductService implements OnModuleDestroy {
-  private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  // `createApiPool`, not a bare `new Pool`: without the pool's `error` listener an idle
+  // connection cut by a database restart is an unhandled event and takes the process down.
+  private readonly pool = createApiPool();
 
   private requirePool(): Pool {
     if (!this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');

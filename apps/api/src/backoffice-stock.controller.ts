@@ -12,6 +12,7 @@ import { adjustStock, listAdjustmentReasons, listStockBalances, listStockMovemen
 import { listProducts } from '@pss/master-data';
 import type { ObservedRequest } from '@pss/observability';
 import { Pool } from 'pg';
+import { createApiPool } from './database-pool';
 import {
   authorizeAt, commandContext, commandMeta, parseQuery, requireHeldPermission, runApiCommand, uuidParam,
   type CommandContext,
@@ -52,7 +53,9 @@ const RECEIPT_POST = 'procurement.receipt.post';
  */
 @Injectable()
 export class BackofficeStockService implements OnModuleDestroy {
-  private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  // `createApiPool`, not a bare `new Pool`: without the pool's `error` listener an idle
+  // connection cut by a database restart is an unhandled event and takes the process down.
+  private readonly pool = createApiPool();
 
   private requirePool(): Pool {
     if (!this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');
