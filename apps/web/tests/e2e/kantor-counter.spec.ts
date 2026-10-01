@@ -132,9 +132,11 @@ test('Pelanggan turns PPN on for the walk-in customer, sending the version it lo
   await mockShell(page);
   await page.goto('/kantor/pelanggan');
   const ppn = page.getByRole('group', { name: 'PPN untuk Pelanggan Umum Grosir' });
-  await expect(ppn.getByRole('button', { name: 'Tanpa PPN' })).toHaveAttribute('aria-pressed', 'true');
-  await ppn.getByRole('button', { name: 'Kena PPN' }).click();
-  await expect(ppn.getByRole('button', { name: 'Kena PPN' })).toHaveAttribute('aria-pressed', 'true');
+  // `exact`, because "Kena PPN" is contained in "Tidak Kena PPN" and the two are the two halves of the
+  // same decision.
+  await expect(ppn.getByRole('button', { name: 'Tidak Kena PPN', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await ppn.getByRole('button', { name: 'Kena PPN', exact: true }).click();
+  await expect(ppn.getByRole('button', { name: 'Kena PPN', exact: true })).toHaveAttribute('aria-pressed', 'true');
   expect(sent).toEqual({ taxTreatment: 'VAT_OUTPUT', expectedVersion: 2 });
   await snapshot(page, 'kantor-pelanggan-ppn');
 });

@@ -8,7 +8,7 @@ import { BackofficeFrame } from '../../kasir/components/backoffice-frame';
 import { useCommand } from '../../kasir/hooks/use-command';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaDateTime } from '../../kasir/lib/labels';
-import { customerStatusLabel } from '../lib/labels';
+import { customerStatusLabel, salesTaxCodeLabel, TAX_UNSET } from '../lib/labels';
 import { KantorProblem } from '../lib/problem';
 
 const PAGE_SIZE = 25;
@@ -145,6 +145,7 @@ type CustomerRow = CustomerListResponse['items'][number];
 /**
  * PPN on or off for one customer. Two plain choices rather than the three tax codes: "Bebas PPN"
  * (EXEMPT) is shown when it is stored, but setting it is a tax decision for Finance, not this screen.
+ * The wording comes from `lib/labels`, shared with the product form, so the two screens cannot drift.
  * A customer with no treatment yet shows neither choice pressed, and says why a sale to them stops.
  */
 function TaxTreatmentToggle({ customer }: { customer: CustomerRow }) {
@@ -158,8 +159,8 @@ function TaxTreatmentToggle({ customer }: { customer: CustomerRow }) {
   );
   const current = customer.taxTreatment;
   const options = [
-    { value: 'VAT_OUTPUT', label: 'Kena PPN' },
-    { value: 'NON_VAT', label: 'Tanpa PPN' },
+    { value: 'VAT_OUTPUT', label: salesTaxCodeLabel.VAT_OUTPUT },
+    { value: 'NON_VAT', label: salesTaxCodeLabel.NON_VAT },
   ] as const;
   return (
     <div>
@@ -177,8 +178,8 @@ function TaxTreatmentToggle({ customer }: { customer: CustomerRow }) {
           </button>
         ))}
       </div>
-      {current === 'EXEMPT' && <small>Saat ini: Bebas PPN</small>}
-      {current === null && <small>Belum diatur — penjualan ke pelanggan ini akan ditolak.</small>}
+      {current === 'EXEMPT' && <small>Saat ini: {salesTaxCodeLabel.EXEMPT}</small>}
+      {current === null && <small>{TAX_UNSET} — penjualan ke pelanggan ini akan ditolak.</small>}
       {set.isError && <KantorProblem error={set.error} />}
     </div>
   );

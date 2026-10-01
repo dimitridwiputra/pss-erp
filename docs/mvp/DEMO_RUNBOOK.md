@@ -95,8 +95,8 @@ The three stock screens carry a **Gudang** control in their own heading, not in 
 
 **Barang — a product, its units, its barcodes (MDM-001..003).**
 
-1. **Barang** → **Barang Baru**. SKU `BRG-001`, name *Teh Kotak 350ml*, base unit `BTL`, **Dicatat di**: PSS, **Keadaan**: Aktif. **Simpan Barang**.
-2. A SKU cannot be edited afterwards; the product page says so. Open it, set the name to *Teh Kotak 350ml*, and press **Simpan Perubahan** — a second person editing the same product gets *data sudah berubah*, not a silent overwrite.
+1. **Barang** → **Barang Baru**. SKU `BRG-001`, name *Teh Kotak 350ml*, base unit `BTL`, **Dicatat di**: PSS, **Keadaan**: Aktif, **Pajak**: Kena PPN. **Simpan Barang**. The **Pajak** choice starts empty and **Simpan Barang** stays disabled until it is made — it is a tax decision, so nobody chooses it for the operator. A product left as *Belum diatur* is refused at the counter when a PPN customer buys it, which is the reason the field exists.
+2. A SKU cannot be edited afterwards; the product page says so, and shows the current PPN treatment (*Saat ini: Kena PPN*, or a warning that a PPN sale is refused while it is *Belum-atur*). Open it, set the name to *Teh Kotak 350ml*, and press **Simpan Perubahan** — a second person editing the same product gets *data sudah berubah*, not a silent overwrite.
 3. Under **Satuan dan barcode**: **Tambah satuan** `KARTON`, isi per `BTL` = `24`. The factor is written once and never edited.
 4. **Tambah barcode**: unit `KARTON`, code `8990002000018`. The form asks which *unit* the label is for, because a case label is not a piece label.
 5. **The exception to show here:** open *Mi Goreng 80g* and try the same `8990002000018`. The server refuses — *"Barcode 8990002000018 sudah dipakai barang lain"* — and the product keeps `8990001000012`.
@@ -123,7 +123,7 @@ The three stock screens carry a **Gudang** control in their own heading, not in 
 14. **Penyesuaian Stok** → search `BRG-001` → pick it. Type `-2` in **Selisih** (a shortage), and pick a reason from the list — the options are the domain's own active codes with their Indonesian labels, never free text. A zero is refused: correcting nothing is a mistake.
 15. Press **Simpan 1 Koreksi**. There is no approval step in the demo (`inventory.adjustment.approve` belongs to `BRANCH_MANAGER`, which no demo user holds), so say that the correction is final.
 
-**Pelanggan** lists the customers (MDM-004) and has one switch per customer: **Kena PPN** / **Tanpa PPN**. The branch's walk-in customer is marked *Pelanggan sistem cabang*; its switch decides PPN for every walk-in counter sale made afterwards. Switching it on mid-demo changes the next sale, never one already checked out: Mi Goreng KARTON then costs Rp118.000 + PPN Rp12.980 = **Rp130.980**, the counter and the struk show a *PPN* line, and Finance posts the PPN to *PPN Keluaran* (2-1300). Switch it back to **Tanpa PPN** before §4.2 if you want the runbook's amounts.
+**Pelanggan** lists the customers (MDM-004) and has one switch per customer: **Kena PPN** / **Tidak Kena PPN**. The branch's walk-in customer is marked *Pelanggan sistem cabang*; its switch decides PPN for every walk-in counter sale made afterwards. Switching it on mid-demo changes the next sale, never one already checked out: Mi Goreng KARTON then costs Rp118.000 + PPN Rp12.980 = **Rp130.980**, the counter and the struk show a *PPN* line, and Finance posts the PPN to *PPN Keluaran* (2-1300). Switch it back to **Tidak Kena PPN** before §4.2 if you want the runbook's amounts.
 
 ### 4.2 Cashier sells (kasir.demo)
 

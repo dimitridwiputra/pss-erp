@@ -3,6 +3,11 @@
 import type {
   AddProductBarcodeRequest, CreateProductRequest, ProductDetail, ProductListResponse, UpdateProductRequest,
 } from '@pss/contracts';
+import type { z } from 'zod';
+import { ProductTaxCodeSchema } from '@pss/contracts';
+
+/** The three sales tax codes a product or a customer may carry (TAX-001). */
+type ProductTaxCode = z.infer<typeof ProductTaxCodeSchema>;
 import { EmptyState, PageHeader, Panel, StatusPill } from '@pss/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Barcode, Plus, Save } from 'lucide-react';
@@ -12,7 +17,7 @@ import { useCommand } from '../../kasir/hooks/use-command';
 import { kasirFetch } from '../../kasir/lib/api-client';
 import { jakartaDateTime } from '../../kasir/lib/labels';
 import { quantity } from '../../kasir/lib/money';
-import { orderCaptureLabel, productStatusLabel } from '../lib/labels';
+import { orderCaptureLabel, productStatusLabel, salesTaxCodeLabel, TAX_UNSET } from '../lib/labels';
 import { KantorProblem } from '../lib/problem';
 import { useKantorSession } from '../warehouse-context';
 
@@ -165,6 +170,8 @@ function NewProduct({ onDone }: { onDone: () => void }) {
   const [baseUom, setBaseUom] = useState('PCS');
   const [orderCapture, setOrderCapture] = useState<'PSS' | 'EXTERNAL'>('PSS');
   const [status, setStatus] = useState<'DRAFT' | 'ACTIVE'>('DRAFT');
+  /** Empty until the operator chooses. See the Pajak field below for why it is not pre-filled. */
+  const [taxCode, setTaxCode] = useState<ProductTaxCode | ''>('');
 
   const create = useCommand<CreateProductRequest, ProductDetail>(
     (input, idempotencyKey) => kasirFetch<ProductDetail>('/master-data/products', {
@@ -189,7 +196,18 @@ function NewProduct({ onDone }: { onDone: () => void }) {
 
       <Panel>
         <form
-          onSubmit={(event) => { event.preventDefault(); create.mutate({ sku: sku.trim(), name: name.trim(), baseUom: baseUom.trim(), orderCapture, status }); }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            create.mutate({
+              sku: sku.trim(),
+              name: name.trim(),
+              baseUom: baseUom.trim(),
+              orderCapture,
+              status,
+              // Sent only once a choice is made, so "belum diatur" never happens by accident here.
+              ...(taxCode === '' ? {} : { taxCode }),
+            });
+          }}
           noValidate
         >
           {create.isError && <KantorProblem error={create.error} />}
@@ -223,7 +241,34 @@ function NewProduct({ onDone }: { onDone: () => void }) {
             <small className="pss-muted" style={{ whiteSpace: 'normal' }}>Pilih "Belum diaktifkan" bila barang ini belum siap dijual di konter.</small>
           </label>
 
-          <button type="submit" className="pss-button pss-button-primary" disabled={create.isPending}>
+          <label className="pss-form-field">Pajak
+            <select
+              required
+              value={taxCode}
+              aria-invalid={taxCode === '' ? true : undefined}
+              onChange={(event) => setTaxCode(event.target.value as ProductTaxCode | '')}
+            >
+              <option value="">Pilih…</option>
+              <option value="VAT_OUTPUT">{salesTaxCodeLabel.VAT_OUTPUT}</option>
+              <option value="NON_VAT">{salesTaxCodeLabel.NON_VAT}</option>
+            </select>
+            <small className="pss-muted" style={{ whiteSpace: 'normal' }}>
+              {taxCode === ''
+                ? 'Pilih satu. PPN hanya dihitung untuk pelanggan yang kena PPN.'
+                : taxCode === 'VAT_OUTPUT'
+                  ? 'Barang ini dikenai PPN, dihitung di atas harga, untuk pelanggan yang kena PPN.'
+                  : 'Barang ini tidak dikenai PPN, siapa pun pembelinya.'}
+            </small>
+          </label>
+
+          <button
+            type="submit"
+            className="pss-button pss-button-primary"
+            // The form is `noValidate`, so the browser will not enforce `required`; the button does.
+            // Pre-selecting a value instead would be deciding a tax treatment on someone's behalf, and
+            // an unset one is exactly what makes a PPN sale refuse at the counter (TAX-001, MVP-OD-3).
+            disabled={create.isPending || taxCode === ''}
+          >
             <Save size={16} aria-hidden="true" /> {create.isPending ? 'Menyimpan…' : 'Simpan Barang'}
           </button>
         </form>
@@ -281,6 +326,9 @@ function ProductFacts({ detail, onSaved }: { detail: ProductDetail; onSaved: (me
   const [baseUom, setBaseUom] = useState(detail.baseUom);
   const [orderCapture, setOrderCapture] = useState<'PSS' | 'EXTERNAL'>(detail.orderCapture);
   const [status, setStatus] = useState<'DRAFT' | 'ACTIVE' | 'INACTIVE'>(detail.status);
+  /** The stored treatment, or '' for a product that has none. Sending '' would clear nothing, so an
+   *  untouched '' is simply omitted and the stored value stands. */
+  const [taxCode, setTaxCode] = useState<ProductTaxCode | ''>(detail.taxCode ?? '');
 
   const save = useCommand<UpdateProductRequest, unknown>(
     (input, idempotencyKey) => kasirFetch(`/master-data/products/${detail.productId}`, {
@@ -296,7 +344,17 @@ function ProductFacts({ detail, onSaved }: { detail: ProductDetail; onSaved: (me
           event.preventDefault();
           // `expectedVersion` is the version this screen loaded, so two people editing the same
           // product is STALE_DATA for the second rather than a silent overwrite of the first.
-          save.mutate({ name: name.trim(), baseUom: baseUom.trim(), orderCapture, status, expectedVersion: detail.version });
+          save.mutate({
+            name: name.trim(),
+            baseUom: baseUom.trim(),
+            orderCapture,
+            status,
+            // `''` means "I did not touch it", so nothing is sent and the stored code stands. There is
+            // deliberately no way to clear a tax code from this screen: removing PPN from a product
+            // that has been invoiced is a tax decision (MVP-OD-3), not an edit.
+            ...(taxCode === '' ? {} : { taxCode }),
+            expectedVersion: detail.version,
+          });
         }}
         noValidate
       >
@@ -320,6 +378,26 @@ function ProductFacts({ detail, onSaved }: { detail: ProductDetail; onSaved: (me
             <option value="PSS">{orderCaptureLabel.PSS}</option>
             <option value="EXTERNAL">{orderCaptureLabel.EXTERNAL}</option>
           </select>
+        </label>
+
+        <label className="pss-form-field">Pajak
+          <select value={taxCode} onChange={(event) => setTaxCode(event.target.value as ProductTaxCode | '')}>
+            <option value="">{TAX_UNSET}</option>
+            <option value="VAT_OUTPUT">{salesTaxCodeLabel.VAT_OUTPUT}</option>
+            <option value="NON_VAT">{salesTaxCodeLabel.NON_VAT}</option>
+            {/* Shown when it is already stored, and not offered as a choice. `EXEMPT` and `NON_VAT` are
+                both "no PPN" to the resolver but a different statement to a tax authority, and which one
+                applies is Finance's call (MVP-OD-3). A select that omitted the stored value would show
+                "Belum diatur" for a product that is in fact exempt. */}
+            {detail.taxCode === 'EXEMPT' && <option value="EXEMPT">{salesTaxCodeLabel.EXEMPT}</option>}
+          </select>
+          <small className="pss-muted" style={{ whiteSpace: 'normal' }}>
+            {detail.taxCode === null
+              ? 'Penjualan barang ini ke pelanggan kena PPN akan ditolak sampai pajaknya diatur.'
+              : detail.taxCode === 'EXEMPT'
+                ? `Saat ini: ${salesTaxCodeLabel.EXEMPT}, ditetapkan oleh Keuangan dan tidak diubah di layar ini.`
+                : `Saat ini: ${salesTaxCodeLabel[detail.taxCode]}.`}
+          </small>
         </label>
 
         <label className="pss-form-field">Keadaan

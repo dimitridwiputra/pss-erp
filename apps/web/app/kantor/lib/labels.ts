@@ -36,6 +36,30 @@ export const orderCaptureLabel: Record<'PSS' | 'EXTERNAL', string> = {
   EXTERNAL: 'Dicatat di sistem lain',
 };
 
+/**
+ * PPN for a customer or a product, in the words the tax domain itself uses
+ * (`domains/tax/src/domain/tax-code.ts`: `NON_VAT` is "Tidak Kena PPN", `EXEMPT` is "Bebas PPN").
+ *
+ * Two back-office screens offer the same choice — a product's default line treatment and a customer's
+ * treatment — and they are read side by side by the same operator, so the wording lives here once
+ * rather than twice. A raw code never reaches either screen.
+ *
+ * `VAT_OUTPUT` is worded as the *choice* ("Kena PPN") rather than the domain's statutory name
+ * ("PPN Keluaran"), which names the account role rather than what the operator is deciding.
+ */
+export const salesTaxCodeLabel: Record<'VAT_OUTPUT' | 'NON_VAT' | 'EXEMPT', string> = {
+  VAT_OUTPUT: 'Kena PPN',
+  NON_VAT: 'Tidak Kena PPN',
+  EXEMPT: 'Bebas PPN',
+};
+
+/**
+ * Not recorded yet — a distinct state from "no tax", not a fourth value (TAX-002.E1). An unresolved
+ * treatment or an unset product tax code refuses a taxable sale rather than defaulting, so the words
+ * have to say "not decided", not "none".
+ */
+export const TAX_UNSET = 'Belum diatur';
+
 export const priceListStatusLabel: Record<PriceListStatus, { label: string; tone: Tone }> = {
   DRAFT: { label: 'Belum aktif', tone: 'warning' },
   PENDING_APPROVAL: { label: 'Menunggu persetujuan', tone: 'warning' },

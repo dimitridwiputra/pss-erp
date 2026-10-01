@@ -48,6 +48,9 @@ test('admin.demo sets up a new product, prices it, and receives it with a cost',
   await page.getByRole('textbox', { name: 'Nama barang' }).fill('Kopi Susu Gula Aren 250ml');
   await page.getByRole('textbox', { name: 'Satuan dasar' }).fill('BTL');
   await page.getByRole('combobox', { name: 'Keadaan' }).selectOption('ACTIVE');
+  // PPN is chosen here, not defaulted: a product with no tax code is refused at the counter for a PPN
+  // customer (TAX-001, MVP-OD-3), and this product is sold to the walk-in customer during §4.2.
+  await page.getByRole('combobox', { name: 'Pajak' }).selectOption('VAT_OUTPUT');
   await page.getByRole('button', { name: 'Simpan Barang' }).click();
   // The list is paged, so the new product is found by its SKU rather than by being on page one.
   await page.getByRole('textbox', { name: 'Cari SKU atau nama barang' }).fill(sku);

@@ -182,6 +182,80 @@ describe('back office: Barang (master-data)', () => {
     expect((response.body.units as { uom: string; isBase: boolean }[])[0]).toMatchObject({ uom: 'PCS', isBase: true });
   });
 
+  it('carries the PPN treatment on create and on edit, and audits each one', async () => {
+    // A product created without a tax code is refused at the counter for a PPN customer, so the
+    // Barang form's Pajak field is not decoration: this is the path it writes through (TAX-001).
+    const created = await call('POST', '/master-data/products', {
+      as: 'steward',
+      body: { sku: 'SKU-PPN-1', name: 'Teh Kotak', baseUom: 'BTL', status: 'ACTIVE', taxCode: 'VAT_OUTPUT' },
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    expect(created.body.taxCode).toBe('VAT_OUTPUT');
+
+    // A product created without one keeps NULL rather than defaulting to a treatment.
+    const unset = await call('POST', '/master-data/products', {
+      as: 'steward', body: { sku: 'SKU-PPN-2', name: 'Air Mineral', baseUom: 'BTL', status: 'ACTIVE' },
+    });
+    expect(unset.status).toBe(201);
+    expect(unset.body.taxCode).toBeNull();
+
+    // Editing it to the other treatment is a real change, not a no-op.
+    const productId = created.body.productId as string;
+    const updated = await call('PUT', `/master-data/products/${productId}`, {
+      as: 'steward', body: { taxCode: 'NON_VAT', expectedVersion: created.body.version },
+    });
+    expect(updated.status, JSON.stringify(updated.body)).toBe(200);
+    // The update answer is the new version, not the product, so the stored value is read back rather
+    // than echoed: an echo would pass even if the UPDATE never ran.
+    const reread = await call('GET', `/master-data/products/${productId}`, { as: 'steward' });
+    expect(reread.status).toBe(200);
+    expect(reread.body.taxCode).toBe('NON_VAT');
+
+    // The audit says what the treatment was before and what it became. `changes` is a jsonb array of
+    // field entries, and `UNSET` is how "none" is written, so a product that moves from no treatment to
+    // one reads the same shape as one that moved between two treatments.
+    const auditOf = async (id: string) => {
+      const rows = await pool.query<{ action: string; changes: { path: string; before?: string; after?: string }[] }>(
+        `SELECT action, changes FROM audit.audit_entry
+          WHERE organization_id = $1 AND entity_id = $2
+          ORDER BY occurred_at, action`,
+        [organizationId, id],
+      );
+      return rows.rows.map((row) => {
+        const change = row.changes.find((entry) => entry.path === 'taxCode');
+        // Only the before/after pair: `classification` is the audit package's own business and other
+        // tests assert it.
+        return { action: row.action, before: change?.before, after: change?.after };
+      });
+    };
+
+    expect(await auditOf(productId)).toEqual([
+      { action: 'PRODUCT_CREATED', before: undefined, after: 'VAT_OUTPUT' },
+      { action: 'PRODUCT_UPDATED', before: 'VAT_OUTPUT', after: 'NON_VAT' },
+    ]);
+
+    // The unset product records no treatment rather than "no tax", so an audit reader can tell the two
+    // apart — which is the difference between "nobody decided" and "decided as zero-rated".
+    const unsetAudit = await auditOf(unset.body.productId as string);
+    expect(unsetAudit).toEqual([
+      { action: 'PRODUCT_CREATED', before: undefined, after: 'UNSET' },
+    ]);
+  });
+
+  it('refuses a tax code outside the statutory vocabulary', async () => {
+    // `core.tax_code` is the PRD's list, and the boundary is where an unknown code is refused rather
+    // than stored and discovered at invoicing.
+    const response = await call('POST', '/master-data/products', {
+      as: 'steward', body: { sku: 'SKU-PPN-BAD', name: 'Kode PPN Aneh', baseUom: 'BTL', taxCode: 'PPN_11' },
+    });
+    // A body the boundary cannot parse is `400 VALIDATION_FAILED` here, the repository's rule for a
+    // malformed request; it never reaches the command, so nothing is written.
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('VALIDATION_FAILED');
+    const stored = await pool.query('SELECT 1 FROM core.product WHERE sku = $1', ['SKU-PPN-BAD']);
+    expect(stored.rowCount).toBe(0);
+  });
+
   it('refuses an unauthenticated caller before anything else', async () => {
     const response = await call('GET', '/master-data/products', { auth: null });
     expect(response.status).toBe(401);
