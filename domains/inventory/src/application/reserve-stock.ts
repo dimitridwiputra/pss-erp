@@ -104,7 +104,7 @@ export async function reserveStock(
           [reservationId, parsed.organizationId, parsed.warehouseId, line.productId, line.uom, line.qty, parsed.referenceType, parsed.referenceId],
         );
       } catch (error) {
-        // Two lines for one product in one unit is one line, not two: the unique key says so (MVP-OD-12).
+        // Two lines for one product in one unit is one line, not two: the unique key says so (MVP-OD-28).
         // Letting the constraint violation escape would reach a POS caller as a 500 and a "Terjadi
         // kendala" screen for a cart the cashier can fix by scanning once instead of twice.
         if (!isUniqueViolation(error)) throw error;

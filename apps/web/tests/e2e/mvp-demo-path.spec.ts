@@ -130,14 +130,14 @@ test('admin.demo sets up a new product, prices it, and receives it with a cost',
   await expect(row).toContainText('984.000');
 
   // The dashboard: the tiles that have a source carry numbers, and the one that does not yet says so
-  // in words rather than showing a zero (MVP-OD-23).
+  // in words rather than showing a zero (MVP-OD-31).
   await page.getByRole('link', { name: 'Dasbor Harian' }).click();
   const card = (label: string) => page.locator('.pss-kpi-card').filter({ hasText: label });
   await expect(card('Penjualan hari ini')).toContainText('Rp', { timeout: 20_000 });
   await expect(card('Kas konter belum dihitung')).toContainText('Rp');
   await expect(card('Nilai stok gudang')).toContainText('Rp');
   // The gross-profit tile has no source yet and says so in words. It must never render Rp 0, which
-  // would read as "no profit" (MVP-OD-23). Which words it uses depends on whether the accounting
+  // would read as "no profit" (MVP-OD-31). Which words it uses depends on whether the accounting
   // service is running at all, so the step asserts the property, not the wording: a reason, and no
   // rupiah amount.
   await expect(card('Laba kotor hari ini')).not.toContainText('Rp');

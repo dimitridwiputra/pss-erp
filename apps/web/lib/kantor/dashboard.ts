@@ -76,7 +76,7 @@ export interface KantorDashboard {
 }
 
 /**
- * PROVISIONAL — MVP-OD-23. The gross-profit tile needs a read that the accounting stream has not
+ * PROVISIONAL — MVP-OD-31. The gross-profit tile needs a read that the accounting stream has not
  * published yet, so the path it will answer on and the two fields it must return are stated here, in
  * the one place that changes when that stream answers. The endpoint does not exist yet, the read is
  * refused, and the tile says so in words. If the accounting answer's shape differs, this schema is

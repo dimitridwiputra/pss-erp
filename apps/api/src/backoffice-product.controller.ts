@@ -21,7 +21,7 @@ import { IdentityService } from './identity.controller';
 type ApiRequest = ObservedRequest;
 
 /**
- * `master_data.product.manage` is the only product permission registered, and MVP-OD-8's demo default
+ * `master_data.product.manage` is the only product permission registered, and MVP-OD-32's demo default
  * grants it to MASTER_DATA_STEWARD at the organization (`admin.demo`). It gates writes and reads
  * alike: no `master_data.product.view` exists, so a read stands on the same grant rather than
  * inventing a second one (MVP-OD-20). A warehouse-scoped assignment of the same role does not match
@@ -160,7 +160,7 @@ export class BackofficeProductService implements OnModuleDestroy {
    * `core.customer` alone.
    *
    * Gated on the same steward grant as the product screens, and that is a gap rather than a design:
-   * no customer permission is registered and MVP-OD-8 deliberately left every master-data resource
+   * no customer permission is registered and MVP-OD-32 deliberately left every master-data resource
    * except the product ungranted (MVP-OD-21).
    */
   async customers(context: CommandContext, rawQuery: unknown) {

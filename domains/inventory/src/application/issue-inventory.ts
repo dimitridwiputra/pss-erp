@@ -61,7 +61,7 @@ export async function issueInventory(
     const facts: InventoryMovementFacts[] = [];
 
     for (const line of input.lines) {
-      // The unit is part of the match, not just the insert key (MVP-OD-12): a sale may hold 2 KARTON
+      // The unit is part of the match, not just the insert key (MVP-OD-28): a sale may hold 2 KARTON
       // and 3 PCS of one product, and the handover has to consume the line for the unit it is
       // handing over rather than whichever line the query found first.
       const reservation = await tx.query<{ id: string }>(

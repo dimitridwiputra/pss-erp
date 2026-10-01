@@ -10,7 +10,7 @@ import { z } from 'zod';
  * `phone` is PERSONAL data (AGENTS.md §15). It is shown because an operator identifies a customer by
  * it at the counter, and it is never written to a log or an event by anything in this file.
  *
- * No permission code is registered for reading a customer — MVP-OD-8 deliberately withheld every
+ * No permission code is registered for reading a customer — MVP-OD-32 deliberately withheld every
  * master-data resource except the product. This list is gated on the steward permission the Barang
  * screen uses and the gap is recorded as MVP-OD-21.
  */

@@ -47,7 +47,7 @@ transaction, or `undefined` to let the command own one.
 | Query | Note |
 |---|---|
 | `getProduct(pool, client, input)` | One product with its units (base unit first) and each unit's barcode. Takes a client because the API reads the product back inside a command's transaction. |
-| `getProductSaleUnits(pool, input)` | **Two arguments, deliberately.** MVP-OD-10, requested by the POS stream for its catalog pick. It never runs inside a caller's transaction, and a three-argument read here would silently take a body where a client is expected. |
+| `getProductSaleUnits(pool, input)` | **Two arguments, deliberately.** MVP-OD-27, requested by the POS stream for its catalog pick. It never runs inside a caller's transaction, and a three-argument read here would silently take a body where a client is expected. |
 | `listProducts(pool, client, input)` | Allow-listed filters and sorts only (`q`, `status`, `page`, `pageSize`, `sort` ∈ name/sku/createdAt). Wildcards in `q` are escaped, not honoured. |
 | `getProductsByIds(pool, client, input)` | The SKU/name of ids a caller already holds, so a page of prices or stock rows is labelled with one extra request instead of one per row. |
 | `searchProducts(pool, input)` | `ILIKE` over `sku`/`name`, capped at 100. |

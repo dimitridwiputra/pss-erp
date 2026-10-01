@@ -33,7 +33,7 @@ export interface ProductDetail {
 }
 
 /**
- * The shape MVP-OD-10 asks POS for: the same product read, projected to what a katalog pick needs and
+ * The shape MVP-OD-27 asks POS for: the same product read, projected to what a katalog pick needs and
  * nothing else. It is a projection of the one query below rather than a second query, so the two
  * cannot disagree about which units a product sells.
  */
@@ -133,7 +133,7 @@ export async function getProduct(
 }
 
 /**
- * MVP-OD-10, requested by the POS stream so the katalog can offer a product's sellable units and
+ * MVP-OD-27, requested by the POS stream so the katalog can offer a product's sellable units and
  * their barcodes instead of a name typed by the cashier. The caller applies its own sellability
  * rules (`PosService.scan` requires `orderCapture === 'PSS'` and `status === 'ACTIVE'`); this read
  * reports what the product actually has, because master data is the only owner of that fact.

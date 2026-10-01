@@ -34,7 +34,7 @@ const warehouseB = randomUUID();
  * expects 403 cannot pass because the subject happened to hold something extra.
  */
 const users = {
-  /** MVP-OD-8's demo default: MASTER_DATA_STEWARD at the organization. */
+  /** MVP-OD-32's demo default: MASTER_DATA_STEWARD at the organization. */
   steward: { id: randomUUID(), org: organizationId, role: 'MASTER_DATA_STEWARD', scopeType: 'ORGANIZATION', scopeId: organizationId },
   /** COMMERCIAL_ADMIN at the organization. */
   commercials: { id: randomUUID(), org: organizationId, role: 'COMMERCIAL_ADMIN', scopeType: 'ORGANIZATION', scopeId: organizationId },

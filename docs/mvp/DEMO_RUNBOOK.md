@@ -174,7 +174,7 @@ Open **Dasbor Harian** — under *Hari Ini* in the sidebar, and a tile on `/bera
 |---|---|---|
 | Penjualan hari ini | The day's counter sales and how many transactions | `GET /api/bff/core/pos/reports/summary` (`pos.report.view`) |
 | Kas konter belum dihitung | Counter cash Finance has not yet counted, and how many payments are waiting | the same read — it is one domain's answer, so the two tiles stand or fall together |
-| Laba kotor hari ini | Today's gross profit, with the month to date under it | Finance (MVP-OD-23) — **not built yet**, so this tile reads *Belum tersedia*. Say so; do not read it as a zero margin |
+| Laba kotor hari ini | Today's gross profit, with the month to date under it | Finance (MVP-OD-31) — **not built yet**, so this tile reads *Belum tersedia*. Say so; do not read it as a zero margin |
 | Nilai stok gudang | The warehouse's inventory value, and how many goods have no cost yet | `GET /api/bff/core/inventory/stock-balances` |
 | Stok menipis | How many goods are below the threshold, with the five lowest listed | the same read, filtered by `maxQty` |
 
@@ -208,7 +208,7 @@ From stream A:
 - Offline mode is not in the demo. The counter says so when the connection drops.
 
 From stream C (back office):
-- **The dashboard's gross-profit tile has no source.** `apps/finance-api` publishes only `/health`, so *Laba kotor hari ini* reads *Belum tersedia* and says the accounting report is the missing piece (MVP-OD-23). It is never shown as Rp 0, which would read as "no profit".
+- **The dashboard's gross-profit tile has no source.** `apps/finance-api` publishes only `/health`, so *Laba kotor hari ini* reads *Belum tersedia* and says the accounting report is the missing piece (MVP-OD-31). It is never shown as Rp 0, which would read as "no profit".
 - **A price change needs no approval.** COM-001 requires one and rejects proposer = approver; the MVP activates a draft directly and audits the activation (MVP-OD-14).
 - **A stock correction needs no approval either.** `inventory.adjustment.approve` belongs to `BRANCH_MANAGER`, which no demo user holds, so a correction posted from Penyesuaian Stok is final.
 - **A goods receipt may leave stock unvalued.** Leaving the cost empty is a real state (a physical count has no invoice), and the movement is published with `unitCost: null` for Finance to resolve. There is no revaluation, so a later valued receipt does not value a balance that already holds unvalued stock (MVP-OD-16).

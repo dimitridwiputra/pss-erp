@@ -250,14 +250,14 @@ describe('inventory: filtering balances and movements by a set of product ids', 
   });
 });
 
-describe('inventory: one product in two units in one sale (MVP-OD-12)', () => {
+describe('inventory: one product in two units in one sale (MVP-OD-28)', () => {
   it('reserves and issues KARTON and PCS of the same product as two lines', async () => {
     const productId = randomUUID();
     await seedBalance(productId, 'KARTON', '20');
     const referenceId = randomUUID();
 
     // The reservation key is (reference, product, uom), so both units of one product are one
-    // reservation each. Before MVP-OD-12 the second line collided with the first and checkout failed.
+    // reservation each. Before MVP-OD-28 the second line collided with the first and checkout failed.
     const reserved = await reserveStock(pool, undefined, {
       organizationId,
       warehouseId,

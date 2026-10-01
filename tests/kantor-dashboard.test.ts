@@ -145,7 +145,7 @@ describe('kantor dashboard: composition', () => {
     }
   });
 
-  it('reports the gross-profit tile as unavailable while the accounting read does not exist (MVP-OD-23)', async () => {
+  it('reports the gross-profit tile as unavailable while the accounting read does not exist (MVP-OD-31)', async () => {
     const { transports } = transportsOf(happyCore, {
       [`/finance/summary/daily?date=${BUSINESS_DATE}`]: () => refusal('NOT_FOUND', 404)(),
     });
