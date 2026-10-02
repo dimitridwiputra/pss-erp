@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { auditRetentionClasses, defaultAuditRetentionClass } from './retention-policy';
 
 export const AuditChangeSchema = z.strictObject({
   path: z.string().min(1),
@@ -29,6 +30,16 @@ export const AuditEntryInputSchema = z.strictObject({
   correlationId: z.string().min(1),
   causationId: z.string().min(1).optional(),
   source: z.enum(['WEB', 'MOBILE', 'API', 'SYSTEM', 'IMPORT', 'OFFLINE', 'PAPER']),
+  /**
+   * OD-19 retention class, declared by the calling domain rather than inferred here.
+   *
+   * The audit domain cannot know that a journal post is FINANCIAL and a session login is SECURITY:
+   * that is the owning domain's knowledge of its own fact, and inferring it from the action name
+   * would put a policy table of action prefixes in this domain, which is a duplicate system. Absent a
+   * declaration the entry takes the default class, which is the middle of the range so that a caller
+   * which forgets over-retains rather than destroys a record.
+   */
+  retentionClass: z.enum(auditRetentionClasses).default(defaultAuditRetentionClass),
 });
 
 export type AuditEntryInput = z.input<typeof AuditEntryInputSchema>;

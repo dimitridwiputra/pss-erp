@@ -17,6 +17,19 @@ function rowsBetween(markdown, start, end) {
 const unquote = (value) => value.replace(/^`|`$/g, '');
 const codes = (value) => [...value.matchAll(/`([^`]+)`/g)].map((match) => match[1]);
 
+/**
+ * Backticked codes from an Appendix N.2 cell that are actually configuration keys.
+ *
+ * The cells are prose that also mentions other things in backticks — a field name, a mode value,
+ * a role code — and `codes()` alone registered those as keys. `pss_mode` and `warehouse_id` from
+ * narrative sentences became writable configuration keys that no one could classify or own.
+ *
+ * A configuration key is namespaced, matching the `domain.resource.action` shape the PRD uses for
+ * permission codes. Requiring at least two dot-separated lowercase segments separates the keys from
+ * the prose without hand-listing which mentions are which.
+ */
+const configKeysIn = (value) => codes(value).filter((code) => /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(code));
+
 export function parseRegistryCatalog(markdown) {
   const roles = rowsBetween(markdown, '### D.1 Role Registry', '### D.2 Kelompok permission')
     .map(([code, label, product, defaultScope, permissionGroups, mfa]) => ({ code, label, product, defaultScope, permissionGroups, mfaRequired: mfa === '✔' }));
@@ -35,9 +48,18 @@ export function parseRegistryCatalog(markdown) {
   const offlineStatuses = rowsBetween(markdown, '### M.2 Status sinkronisasi offline', '## Appendix N')
     .map(([code, label, tone, icon]) => ({ code: unquote(code), label, tone, icon: unquote(icon) }));
   const configurationSeeds = rowsBetween(markdown, '### N.1 Seed registry', '### N.2 Config & flag tambahan')
-    .map(([keyExpression, defaultText, scope, owner, validationGate]) => ({ keyExpression: unquote(keyExpression), defaultText, scope, owner, validationGate }));
+    .flatMap(([keyExpression, defaultText, scope, owner, validationGate]) => {
+      // A Key cell may name more than one key: Appendix N.1 writes
+      // `tax.vat_output_rate` / `tax.vat_input_rate` in a single row. Reading the cell as one
+      // string produced a key that matched neither, so both halves raised CONFIG_KEY_UNKNOWN and
+      // neither could be configured. Expand on the backticked codes and keep the rest of the row
+      // as shared context, which is what the row means.
+      const keys = codes(keyExpression);
+      if (keys.length === 0) return [{ keyExpression: unquote(keyExpression), defaultText, scope, owner, validationGate }];
+      return keys.map((key) => ({ keyExpression: key, defaultText, scope, owner, validationGate }));
+    });
   const configurationAdditions = rowsBetween(markdown, '### N.2 Config & flag tambahan', '## Appendix O')
-    .map(([kind, item, section]) => ({ kind, item, section, keys: codes(item ?? '') }));
+    .map(([kind, item, section]) => ({ kind, item, section, keys: configKeysIn(item ?? '') }));
   const queueSeeds = rowsBetween(markdown, '### P.1 Seed registry', '### P.2 Antrian tambahan')
     .map(([code, label, trigger, ownerRole, defaultSla, permittedActions, escalation]) => ({ code: unquote(code), label, trigger, ownerRole, defaultSla, permittedActions, escalation }));
   const queueAdditions = rowsBetween(markdown, '### P.2 Antrian tambahan', '\n---\n')

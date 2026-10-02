@@ -21149,7 +21149,7 @@ Dua mekanisme berbeda diatur di sini: (1) **Registry konfigurasi & policy effect
 **API / COMMAND CONCEPTS:** `ProposeConfigValue`, `getConfig` (library), `GET /platform/config?key=`.
 **IDEMPOTENCY REQUIREMENT:** `Idempotency-Key`.
 **AUDIT REQUIREMENT:** Wajib.
-**RBAC / SCOPE:** `configuration.*.manage` (SYSTEM_ADMIN untuk teknis); owner bisnis per key (FIN-CONFIG, dll.).
+**RBAC / SCOPE:** `configuration.technical.manage` (SYSTEM_ADMIN untuk key teknis); owner bisnis per key dari `platform.config_key` (FIN-CONFIG, dll.). Key `SENSITIVE` selalu lewat approval `config_change`; permission tulis tidak sama dengan permission setujui.
 **OFFLINE BEHAVIOR:** Nilai relevan dibawa dalam snapshot mobile dengan versi.
 **UX REQUIREMENTS:** Tabel key dengan nilai aktif per scope, jadwal, histori; badge ASM/KOSONG.
 **USER-FACING COPY EXAMPLES:** "Titik pengakuan pendapatan: Saat terkirim (asumsi, perlu divalidasi Finance)"; "Berlaku mulai 1 Jan 2027".
@@ -23024,7 +23024,7 @@ Scope mengikuti ARC §16: `ORGANIZATION`, `BRANCH`, `WAREHOUSE`, `TERRITORY`, `P
 | POS-SUPERVISE | `pos.terminal.manage`, `pos.shift.force_close`, `pos.shift.review`, `pos.sale.cancel.approve`, `pos.tender.void.approve`, `pos.transfer.release.approve`, `pos.offline.activate`, `pos.report.view` |
 | DQ-WORK | `platform.exception.work` — mengerjakan antrian yang owner role-nya dimiliki user (Appendix P). Dimiliki semua role yang tercantum sebagai owner antrian |
 | AUDIT-READ-ALL | `*.read`, `audit.entry.read`, `audit.export` |
-| SYS-ADMIN | `identity.user.manage`, `identity.role.assign`, `configuration.*.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis |
+| SYS-ADMIN | `identity.user.manage`, `identity.role.assign`, `configuration.technical.manage`, `integration.connector.manage` — **tanpa** permission mutasi bisnis |
 
 **Level approval** L1/L2/L3 dan threshold nominalnya disimpan di Appendix N (`approval.<type>.levels`). Nilai default ada di Appendix N dan **wajib divalidasi Finance**.
 

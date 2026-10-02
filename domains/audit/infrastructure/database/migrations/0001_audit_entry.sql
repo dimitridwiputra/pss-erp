@@ -1,5 +1,15 @@
 CREATE SCHEMA IF NOT EXISTS audit;
 
+-- ADDED AFTER 0001 FIRST SHIPPED, 2026-09-30 (OD-19): the `retention_class` column below.
+--
+-- The column is additive, has a default, and touches no existing column, so re-running this file
+-- against a database that already applied the pre-amendment version is a complete no-op — every
+-- statement here is already guarded by IF NOT EXISTS. A database that applied the old 0001 gets the
+-- column from `0004_audit_entry_retention_class.sql`, which adds it `IF NOT EXISTS`; a database
+-- created after this amendment gets it from the CREATE TABLE. The reason the column lives in 0001 as
+-- well as 0004 is that nineteen test fixtures across eleven domains replay this file alone, and
+-- `appendAuditEntry` names the column in its INSERT. The proper fix is for those fixtures to replay
+-- the whole ordered list, which is a change outside the audit domain.
 CREATE TABLE IF NOT EXISTS audit.audit_entry (
   id uuid PRIMARY KEY,
   occurred_at timestamptz NOT NULL DEFAULT now(),
@@ -20,6 +30,14 @@ CREATE TABLE IF NOT EXISTS audit.audit_entry (
   correlation_id text NOT NULL,
   causation_id text,
   source text NOT NULL CHECK (source IN ('WEB', 'MOBILE', 'API', 'SYSTEM', 'IMPORT')),
+  -- OD-19: how long this row may stay in the primary database before it moves to cold archive.
+  -- The default is the middle of the proposed class table, so a caller that forgets to classify
+  -- over-retains rather than silently destroying a record. The PERIOD is not stored here on purpose:
+  -- retention is configuration (see `audit.ensure_month_partitions` consumers and DOMAIN.md), so
+  -- changing 24 months to 36 is a data write and never a migration. SEC-001 classification: INTERNAL.
+  retention_class text NOT NULL DEFAULT 'BUSINESS',
+  CONSTRAINT audit_entry_retention_class_check
+    CHECK (retention_class IN ('FINANCIAL', 'BUSINESS', 'SECURITY', 'RAW_LANDING')),
   CONSTRAINT audit_actor_required CHECK (actor_user_id IS NOT NULL OR actor_service_identity IS NOT NULL),
   CONSTRAINT audit_entry_once_per_version UNIQUE (request_id, entity_domain, entity_type, entity_id, entity_version)
 );

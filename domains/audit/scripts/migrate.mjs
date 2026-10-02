@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import pg from 'pg';
 
 const connectionString = process.env.DATABASE_URL;
@@ -8,11 +8,12 @@ const client = new pg.Client({ connectionString });
 await client.connect();
 try {
   await client.query('BEGIN');
-  for (const file of [
-    '0001_audit_entry.sql',
-    '0002_audit_source_offline_paper.sql',
-    '0003_audit_entry_partitioning_prereq.sql',
-  ]) {
+  // Ordered by filename because the numbering is the only ordering that exists. The list is not
+  // hardcoded: a hardcoded list is a migration that silently stops running when someone adds 0007.
+  const migrations = (await readdir(new URL('../infrastructure/database/migrations/', import.meta.url)))
+    .filter((file) => file.endsWith('.sql'))
+    .sort();
+  for (const file of migrations) {
     const sql = await readFile(new URL(`../infrastructure/database/migrations/${file}`, import.meta.url), 'utf8');
     await client.query(sql);
   }
