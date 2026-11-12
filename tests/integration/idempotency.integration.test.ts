@@ -5,6 +5,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runAuditedWork } from '../../domains/audit/src/application/append-audit-entry';
 import { deleteExpiredIdempotencyKeys, IdempotencyError, withIdempotentCommand } from '../../domains/platform/src/application/idempotency';
+import { applyAuditMigrations } from '../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_idempotency_test_${randomUUID().replaceAll('-', '')}`;
 const organizationId = randomUUID();
@@ -36,12 +37,16 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString(), max: 20 });
   for (const file of ['0001_outbox_event.sql', '0002_idempotency_key.sql']) {
-    const migration = await readFile(new URL(`../../domains/platform/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8');
-    await pool.query(migration);
+    await pool.query(await readFile(
+      new URL(`../../domains/platform/infrastructure/database/migrations/${file}`, import.meta.url), 'utf8',
+    ));
   }
-  const auditMigration = await readFile(new URL('../../domains/audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8');
-  await pool.query(auditMigration);
   await pool.query('CREATE TABLE public.test_mutation (id uuid PRIMARY KEY)');
+
+  // The whole audit domain, not one file: a fixture that applies only 0001 is what made
+  // amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
+
 }, 30_000);
 
 afterAll(async () => {

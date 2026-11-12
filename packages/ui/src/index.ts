@@ -21,3 +21,7 @@ export * from './finance-close-template';
 export * from './counter-template';
 export * from './standard-states';
 export * from './status-vocabulary';
+export * from './app-shell';
+export * from './page-header';
+export * from './theme-choice';
+export * from './theme';

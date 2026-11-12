@@ -1,14 +1,5 @@
 import { z } from 'zod';
 
-export const RegisterPosTerminalRequestSchema = z.strictObject({
-  branchId: z.uuid(),
-  warehouseId: z.uuid(),
-  code: z.string().min(1).max(20),
-  name: z.string().min(1),
-  deviceId: z.uuid().optional(),
-});
-export type RegisterPosTerminalRequest = z.infer<typeof RegisterPosTerminalRequestSchema>;
-
 export const PosTerminalResponseSchema = z.strictObject({
   id: z.uuid(),
   branchId: z.uuid(),
@@ -18,3 +9,9 @@ export const PosTerminalResponseSchema = z.strictObject({
   status: z.enum(['ACTIVE', 'INACTIVE']),
 });
 export type PosTerminalResponse = z.infer<typeof PosTerminalResponseSchema>;
+
+/** GET /kasir/terminals — terminals the caller may open a shift on; `inUse` means another shift is OPEN there. */
+export const KasirTerminalListResponseSchema = z.strictObject({
+  items: z.array(PosTerminalResponseSchema.extend({ inUse: z.boolean() })),
+});
+export type KasirTerminalListResponse = z.infer<typeof KasirTerminalListResponseSchema>;

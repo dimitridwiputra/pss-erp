@@ -53,8 +53,19 @@ const groupPermissions: Readonly<Record<string, readonly string[]>> = {
   'BNK-PETTY-EXEC': ['finance.petty_cash.expense.record'],
   'TAX-MANAGE': ['tax.rate.manage', 'tax.invoice_number.manage', 'tax.export.run'],
   'FIN-CONFIG': ['finance.coa.manage', 'finance.posting_rule.manage', 'finance.account_role.map'],
+  'FIN-PNL-VIEW': ['finance.report.pnl.view'],
   'INT-MAP': ['integration.mapping.decide'],
   'INT-OPERATE': ['integration.batch.retry', 'integration.file.upload', 'integration.raw.view'],
+  // POS-EXEC's source text ends "(bila `pos.credit_sale` aktif)": `pos.credit_sale` is the feature
+  // flag gating the request permission, not a permission, so it is not transcribed.
+  'POS-EXEC': [
+    'pos.shift.open', 'pos.shift.close', 'pos.sale.create', 'pos.sale.checkout', 'pos.tender.accept',
+    'pos.customer.quick_register', 'pos.receipt.reprint', 'pos.credit_sale.request',
+  ],
+  'POS-SUPERVISE': [
+    'pos.terminal.manage', 'pos.shift.force_close', 'pos.shift.review', 'pos.sale.cancel.approve',
+    'pos.tender.void.approve', 'pos.transfer.release.approve', 'pos.offline.activate', 'pos.report.view',
+  ],
   'WMS-EXEC': ['wms.task.execute'],
   'WMS-SUPERVISE': ['wms.task.reassign'],
   'WMS-COUNT-REVIEW': ['wms.count.review'],
@@ -65,15 +76,52 @@ const groupPermissions: Readonly<Record<string, readonly string[]>> = {
   'DLV-EXEC': ['fleet.delivery.execute'],
   'GEO-ADMIN': ['geo.dataset.load', 'geo.territory.manage'],
   'CST-VIEW': ['reporting.control_station.view'],
+  'CST-GROSS-PROFIT-SUMMARY': ['control_station.gross_profit_summary.view'],
   'CST-VIEW-TEAM': ['reporting.control_station.view'],
   'FLT-SUPERVISE': ['fleet.shipment.view'],
   'MDM-MERGE-REQUEST': ['master_data.merge.request'],
+  // D.2 gives MDM-MANAGE only as `master_data.*.manage`. Identity never expands a wildcard, so each
+  // resource is transcribed by decision: MVP-OD-32 (demo default, product owner to confirm) adds the
+  // product resource alone. Customer, principal and other master data stay ungranted until decided.
+  'MDM-MANAGE': ['master_data.product.manage'],
   'DQ-WORK': ['platform.exception.work'],
+  // `configuration.*.manage` from Appendix D.3 is deliberately NOT transcribed as a wildcard.
+  // The owner decided SYSTEM_ADMIN may manage TECHNICAL configuration and that business
+  // configuration is proposed by the configured owner role for each key. A wildcard would grant
+  // blanket business reach and would make SOD-07 unsatisfiable, because holding a business
+  // mutation role is a hard violation with no exception path. The concrete technical permission
+  // is transcribed here; the per-key business owner is data in platform.config_key, resolved by
+  // evaluateConfigWrite rather than by a static permission list.
   'SYS-ADMIN': [
     'identity.user.manage', 'identity.role.assign', 'identity.session.revoke',
     'identity.mfa.reset', 'identity.device.revoke', 'integration.connector.manage',
+    'configuration.technical.manage',
   ],
   'AUDIT-READ-ALL': ['audit.entry.read', 'audit.export'],
+};
+
+/**
+ * Grants a feature spec names for a role without a group in the Appendix D.1 role row. Each entry
+ * cites the spec line; none is inferred.
+ *   - POS-014 "RBAC / SCOPE: CSH-DECLARE (POS_CASHIER)" — the counter cashier declares the shift's
+ *     cash handover. The D.1 row for POS_CASHIER lists only POS-EXEC (MVP_PLAN §10, MVP-OD-24).
+ *   - Appendix D additions §46A and POS-010 "RBAC / SCOPE": `fulfillment.pickup.handover`
+ *     (WAREHOUSE_ADMIN, WAREHOUSE_OPERATOR).
+ *   - Appendix D additions §34 and BIL-001 "RBAC / SCOPE": `invoicing.invoice.print` (SALES_ADMIN).
+ *   - Appendix D additions §32 and INV-001 "RBAC / SCOPE": `inventory.stock_card.view`
+ *     (WAREHOUSE_ADMIN, FINANCE). "FINANCE" names no registered role, so only WAREHOUSE_ADMIN is
+ *     transcribed (MVP_PLAN §10, MVP-OD-23).
+ */
+const roleAdditionalGroups: Readonly<Record<string, readonly string[]>> = {
+  POS_CASHIER: ['CSH-DECLARE'],
+};
+const roleAdditionalPermissions: Readonly<Record<string, readonly string[]>> = {
+  WAREHOUSE_ADMIN: ['fulfillment.pickup.handover', 'inventory.stock_card.view'],
+  WAREHOUSE_OPERATOR: ['fulfillment.pickup.handover'],
+  SALES_ADMIN: ['invoicing.invoice.print'],
+  FINANCE_MAKER: ['finance.journal.lines.view'],
+  FINANCE_APPROVER: ['finance.journal.lines.view'],
+  CONTROLLER: ['finance.journal.lines.view'],
 };
 
 export interface RolePermissions {
@@ -84,9 +132,15 @@ export interface RolePermissions {
 export function resolveRolePermissions(roleCode: string): RolePermissions {
   const role = registryCatalog.roles.find((entry) => entry.code === roleCode);
   if (!role) return { permissions: [], unresolvedGroups: [] };
-  const groups = role.permissionGroups.split(',').map((group) => group.trim());
+  const groups = [
+    ...role.permissionGroups.split(',').map((group) => group.trim()),
+    ...(roleAdditionalGroups[roleCode] ?? []),
+  ];
   return {
-    permissions: [...new Set(groups.flatMap((group) => groupPermissions[group] ?? []))].sort(),
+    permissions: [...new Set([
+      ...groups.flatMap((group) => groupPermissions[group] ?? []),
+      ...(roleAdditionalPermissions[roleCode] ?? []),
+    ])].sort(),
     unresolvedGroups: groups.filter((group) => !(group in groupPermissions)),
   };
 }

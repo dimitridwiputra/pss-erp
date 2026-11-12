@@ -1,59 +1,100 @@
-import Image from 'next/image';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { getPssSession, signOut } from '../../auth';
+import { randomUUID } from 'node:crypto';
+import { redirect } from 'next/navigation';
+import { ArrowRight, CheckSquare } from 'lucide-react';
+import { EmptyState, ErrorState, PageHeader } from '@pss/ui';
+import { getPssServerAccessToken } from '../../auth';
+import { resolveHome } from '../../lib/experience/experience-handler';
+import { httpUpstreamTransport } from '../../lib/experience/transport';
+import { workScreens } from '../../lib/navigation/work-screens';
+import { ShellIcon } from '../_shell/icons';
+import { HomeConnectivity } from './home-connectivity';
+import { HomeWidgets } from './widgets';
 
 export const metadata = { title: 'Beranda | PSS' };
 
-export default async function SignedInHome() {
-  const session = await getPssSession();
-  if (!session || session.error || !session.pssAccount) redirect('/masuk');
+const jakartaHour = () => Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' }).format(new Date()));
+const jakartaLongDate = () => new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date());
 
-  const canOpenAdmin = session.grants?.some((grant) => grant.permission === 'orders.order.create') ?? false;
-  const canApprove = session.grants?.some((grant) => grant.permission.endsWith('.approve')) ?? false;
+function greeting(): string {
+  const hour = jakartaHour();
+  if (hour < 11) return 'Selamat pagi';
+  if (hour < 15) return 'Selamat siang';
+  if (hour < 19) return 'Selamat sore';
+  return 'Selamat malam';
+}
+
+export default async function SignedInHome() {
+  const accessToken = await getPssServerAccessToken();
+  if (!accessToken) redirect('/masuk');
+
+  const outcome = await resolveHome({ transport: httpUpstreamTransport, accessToken, requestId: randomUUID(), instance: '/beranda' });
+  if (outcome.kind === 'PROBLEM' && outcome.problem.code === 'UNAUTHENTICATED') redirect('/masuk');
+  if (outcome.kind === 'PROBLEM') {
+    return <ErrorState problem={outcome.problem} action={<Link className="pss-button pss-button-primary" href="/beranda">Coba lagi</Link>} />;
+  }
+
+  const { view } = outcome;
+  const screenKeys = view.workTiles.map((tile) => tile.key);
+  const iconOf = (key: string) => workScreens.find((screen) => screen.key === key)?.icon ?? 'home';
 
   return (
-    <main className="page-shell">
-      <header className="masthead">
-        <Image src="/pss-logo.png" alt="Putra Sumber Sari" width={274} height={91} priority />
-        <form action={async () => {
-          'use server';
-          await signOut({ redirectTo: '/masuk' });
-        }}>
-          <button className="auth-signout" type="submit">Keluar</button>
-        </form>
-      </header>
-      <section className="hero" aria-labelledby="home-title">
-        <p className="eyebrow">HARI INI</p>
-        <h1 id="home-title">Selamat datang, {session.pssAccount.displayName}.</h1>
-        <p className="lead">Pilih pekerjaan yang tersedia untuk akun Anda.</p>
-      </section>
-      {canOpenAdmin ? (
-        <section className="status-panel" aria-label="Aplikasi yang tersedia">
-          <div>
-            <p className="section-label">AKSES ANDA</p>
-            <h2>PSS Admin</h2>
-            <p>Pengaturan akses sudah terhubung. Alur pesanan dan pekerjaan admin akan tampil di sini saat modul operasional siap.</p>
-          </div>
-          <span className="status-marker">Akses tersedia</span>
+    <div className="home-dashboard">
+      <PageHeader eyebrow={jakartaLongDate()} title={`${greeting()}, ${view.viewer.displayName}`}
+        description="Ringkasan hari ini dan layar kerja yang bisa Anda buka." />
+      <HomeConnectivity />
+
+      {view.incomplete && (
+        <section className="approval-partial" role="status">
+          <h2>Sebagian informasi belum terbaca</h2>
+          <p>Daftar akses atau wewenang Anda mungkin belum lengkap. Muat ulang halaman ini sebelum memulai pekerjaan.</p>
+          <Link href="/beranda">Muat ulang</Link>
         </section>
+      )}
+
+      {view.primaryAction && (
+        <section className="home-next-action" aria-label="Tindakan berikutnya">
+          <span className="home-next-icon" aria-hidden="true"><CheckSquare size={22} /></span>
+          <div>
+            <p className="pss-page-eyebrow">Tindakan berikutnya</p>
+            <h2>Persetujuan</h2>
+            <p>Periksa permintaan yang menjadi wewenang Anda.</p>
+          </div>
+          <Link className="pss-button pss-button-primary" href={view.primaryAction.href}>{view.primaryAction.label} <ArrowRight size={18} aria-hidden="true" /></Link>
+        </section>
+      )}
+
+      <HomeWidgets screenKeys={screenKeys} />
+
+      {view.workTiles.length > 0 ? (
+        <section className="home-work" aria-labelledby="home-work-title">
+          <h2 id="home-work-title">Buka layar kerja</h2>
+          <ul>
+            {view.workTiles.map((tile) => (
+              <li key={tile.key}>
+                <Link className="home-work-tile" href={tile.href}>
+                  <span className="home-work-icon" aria-hidden="true"><ShellIcon name={iconOf(tile.key)} /></span>
+                  <span className="home-work-text"><strong>{tile.label}</strong><span>{tile.description}</span></span>
+                  <ArrowRight className="home-work-arrow" size={18} aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : !view.primaryAction && (
+        <EmptyState title="Belum ada pekerjaan yang siap dibuka" description="Pekerjaan baru akan muncul di sini ketika alur untuk akun Anda sudah tersedia." />
+      )}
+
+      {view.products === null ? (
+        <ErrorState problem={{ title: 'Daftar aplikasi belum terbaca', message: 'Muat ulang halaman ini untuk melihat akses aplikasi Anda.' }} action={<Link href="/beranda">Muat ulang</Link>} />
+      ) : view.products.length === 0 ? (
+        <p className="home-access-note">Belum ada akses aplikasi untuk akun Anda. Hubungi Admin Sistem jika Anda seharusnya memiliki pekerjaan di PSS.</p>
       ) : (
-        <section className="status-panel" aria-label="Belum ada pekerjaan">
-          <div>
-            <p className="section-label">BELUM ADA PEKERJAAN</p>
-            <h2>Akses produk belum ditetapkan</h2>
-            <p>Hubungi Admin Sistem jika Anda seharusnya memiliki pekerjaan di PSS.</p>
-          </div>
+        <section className="home-products" aria-labelledby="home-products-title">
+          <h2 id="home-products-title">Akses aplikasi Anda</h2>
+          <ul>{view.products.map((product) => <li key={product.key}>{product.label}</li>)}</ul>
         </section>
       )}
-      {canApprove && (
-        <section className="status-panel" aria-label="Persetujuan">
-          <div><p className="section-label">PERLU KEPUTUSAN</p><h2>Persetujuan</h2><p>Lihat permintaan dari seluruh produk yang menjadi wewenang Anda.</p>
-            <Link className="home-primary-link" href="/persetujuan">Buka persetujuan <span aria-hidden="true">→</span></Link>
-          </div>
-        </section>
-      )}
-      <footer>Putra Sumber Sari · Beranda internal</footer>
-    </main>
+    </div>
   );
 }

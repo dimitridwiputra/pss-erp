@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import ts from 'typescript';
+import { registeredControllerNames } from './check-api-controller-registration.mjs';
 
 /**
  * PLT-002 / PLT-006 command fitness.
@@ -105,7 +106,11 @@ function exemptionKey(verb, path) {
   return `${verb} ${path}`;
 }
 
-export function findCommandFitnessProblems(sources, exemptions) {
+/**
+ * `registered` is the set of controller names the API module registers; when given, any other
+ * controller is skipped, because it serves no route. When omitted, every controller is inspected.
+ */
+export function findCommandFitnessProblems(sources, exemptions, registered) {
   const problems = [];
   const waives = new Map();
 
@@ -123,7 +128,7 @@ export function findCommandFitnessProblems(sources, exemptions) {
     function visit(node) {
       if (ts.isClassDeclaration(node)) {
         const prefix = controllerPrefix(node);
-        if (prefix !== undefined) {
+        if (prefix !== undefined && (!registered || registered.has(node.name?.text))) {
           for (const member of node.members) {
             if (!ts.isMethodDeclaration(member)) continue;
             const methodName = member.name?.getText() ?? '(anonymous)';
@@ -280,10 +285,15 @@ if (process.argv[1]?.endsWith('/check-command-fitness.mjs')) {
   const root = new URL('../', import.meta.url);
   const exemptions = JSON.parse(await readFile(new URL('scripts/command-fitness-exemptions.json', root), 'utf8'));
   const apiRoot = new URL('apps/api/src/', root);
-  const modules = ['main.ts', 'identity.controller.ts', 'approval.controller.ts', 'wms.controller.ts'];
+  // Every source file, not a list: a hardcoded list let a controller in a file that was not on it
+  // (pos.controller.ts) be registered with no route checked at all. Only registered controllers
+  // are inspected, so reading an unregistered file costs nothing.
+  const modules = (await readdir(apiRoot)).filter((name) => name.endsWith('.ts')).sort();
   const sources = [];
   for (const name of modules) sources.push({ fileName: name, source: await readFile(new URL(name, apiRoot), 'utf8') });
-  const problems = findCommandFitnessProblems(sources, exemptions);
+  const registered = registeredControllerNames(sources.find(({ fileName }) => fileName === 'main.ts').source);
+  // A computed or missing controllers array cannot be narrowed statically, so inspect everything.
+  const problems = findCommandFitnessProblems(sources, exemptions, registered);
   const plumbing = findPlumbingProblemsIn(await collectWorkspaceSources(root));
   const all = [...problems, ...plumbing.problems];
 

@@ -5,6 +5,63 @@ import { DomainError, registryCatalog } from '@pss/contracts';
 import { runAuditedWork, withAuditedTransaction, type AuditedTransaction } from '@pss/audit';
 
 /**
+ * PLT-009 key classification. Owned by Platform, in Platform's own schema, because the decision it
+ * records — who may change a key, and whether that change needs approval — is about configuration,
+ * not about identity.
+ *
+ * It is declared here rather than imported from `@pss/identity` on purpose: Platform importing a
+ * business domain is a PLT-002 boundary violation, and it would be the wrong dependency direction
+ * even if the check allowed it. Identity consumes this shape through the API layer, which is where
+ * an authorization decision belongs.
+ */
+const ConfigKeyRowSchema = z.object({
+  key: z.string().min(1),
+  classification: z.enum(['TECHNICAL', 'BUSINESS']),
+  sensitivity: z.enum(['SENSITIVE', 'ROUTINE']),
+  owner_role_code: z.string().nullable(),
+  approval_level: z.number().int().min(1).max(3).nullable(),
+});
+
+const SELECT_POLICY_COLUMNS = 'key, classification, sensitivity, owner_role_code, approval_level';
+
+export type ConfigKeyClassification = 'TECHNICAL' | 'BUSINESS';
+export type ConfigKeySensitivity = 'SENSITIVE' | 'ROUTINE';
+
+export interface ConfigKeyPolicy {
+  key: string;
+  classification: ConfigKeyClassification;
+  sensitivity: ConfigKeySensitivity;
+  ownerRoleCode: string | null;
+  approvalLevel: number | null;
+}
+
+function toConfigKeyPolicy(row: z.output<typeof ConfigKeyRowSchema>): ConfigKeyPolicy {
+  return {
+    key: row.key,
+    classification: row.classification,
+    sensitivity: row.sensitivity,
+    ownerRoleCode: row.owner_role_code,
+    approvalLevel: row.approval_level,
+  };
+}
+
+/** Every registered key's policy, for the admin report and the phase gate report. */
+export async function loadConfigKeyPolicies(executor: Pick<Pool, 'query'>): Promise<ConfigKeyPolicy[]> {
+  const result = await executor.query(`SELECT ${SELECT_POLICY_COLUMNS} FROM platform.config_key ORDER BY key`);
+  return z.array(ConfigKeyRowSchema).parse(result.rows).map(toConfigKeyPolicy);
+}
+
+/** Throws `CONFIG_KEY_UNKNOWN` for a key the registry does not classify, so it fails closed. */
+export async function loadConfigKeyPolicy(executor: Pick<Pool, 'query'>, key: string): Promise<ConfigKeyPolicy> {
+  const result = await executor.query(
+    `SELECT ${SELECT_POLICY_COLUMNS} FROM platform.config_key WHERE key = $1`, [key],
+  );
+  const row = result.rows[0];
+  if (!row) throw new DomainError('CONFIG_KEY_UNKNOWN');
+  return toConfigKeyPolicy(ConfigKeyRowSchema.parse(row));
+}
+
+/**
  * PLT-009 — the audited administrative write path for `platform.config_value`, plus the row
  * projection the read path is fed from.
  *
@@ -200,7 +257,13 @@ async function writeConfigValue(
   if (!parsed.success) throw new DomainError('VALIDATION_FAILED');
   const input = parsed.data;
   assertRegisteredConfigKey(input.key);
-  if (input.requiresOwnerApproval && input.approvalId === undefined) {
+  // PLT-009.AC02's fail-safe: a SENSITIVE key may not reach SCHEDULED on the proposer's own
+  // say-so. `requiresOwnerApproval` is the caller's claim, so it can only ever RAISE protection —
+  // the registry's own classification in platform.config_key is what lowers it. Trusting the
+  // caller here would let any client post `requiresOwnerApproval: false` for a tax rate.
+  const keyPolicy = await loadConfigKeyPolicy(client, input.key);
+  const requiresApproval = keyPolicy.sensitivity === 'SENSITIVE' || input.requiresOwnerApproval;
+  if (requiresApproval && input.approvalId === undefined) {
     throw new DomainError('VALIDATION_FAILED', [], [{
       path: 'approvalId', code: 'required',
       message: 'Nilai yang memerlukan persetujuan owner harus menyertakan approvalId.',
@@ -212,7 +275,7 @@ async function writeConfigValue(
       message: 'Tanggal berakhir harus setelah tanggal mulai berlaku.',
     }]);
   }
-  const status: ConfigValueStatus = input.requiresOwnerApproval ? 'PENDING_APPROVAL' : 'SCHEDULED';
+  const status: ConfigValueStatus = requiresApproval ? 'PENDING_APPROVAL' : 'SCHEDULED';
   const { branchId, principalId, customerId } = input.scope;
 
   const superseded = await client.query<{ id: string; revision: number; status: string }>(

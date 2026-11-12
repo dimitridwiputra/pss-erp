@@ -64,6 +64,25 @@ export function checkAccess(request: AccessRequest): boolean {
     matchesScope(assignment, request));
 }
 
+/**
+ * For a list query: the concrete branch or warehouse ids where `permission` is held, or `all` when an
+ * organization-wide assignment grants it. The same rules as `checkAccess` apply (registered role,
+ * declared permission, role-compatible scope), so a list scoped by this never shows a row that
+ * `checkAccess` would refuse on its own record. Other scope types grant nothing here.
+ */
+export function scopeIdsFor(
+  assignments: readonly RoleAssignment[], organizationId: string, permission: string, scopeType: 'BRANCH' | 'WAREHOUSE',
+): { all: boolean; ids: string[] } {
+  const granting = assignments.filter((assignment) =>
+    isRegisteredRole(assignment.roleCode) &&
+    roleAllowsScope(assignment.roleCode, assignment.scopeType) &&
+    resolveRolePermissions(assignment.roleCode).permissions.includes(permission));
+  const all = granting.some((assignment) => assignment.scopeType === 'ORGANIZATION' && assignment.scopeId === organizationId);
+  const ids = [...new Set(granting.filter((assignment) => assignment.scopeType === scopeType && assignment.scopeId)
+    .map((assignment) => assignment.scopeId as string))];
+  return { all, ids };
+}
+
 export function requireAccess(request: AccessRequest, isRead = false): void {
   if (!checkAccess(request)) throw new DomainError(isRead ? 'NOT_FOUND' : 'PERMISSION_DENIED');
 }

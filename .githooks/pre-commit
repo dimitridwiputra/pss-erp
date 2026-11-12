@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-pnpm architecture:check
+# contracts:check builds packages/contracts/dist, which architecture:check reads, so a fresh
+# checkout or worktree must run it first.
 pnpm contracts:check
+pnpm architecture:check
 pnpm db:check
 pnpm ui:check
 pnpm secrets:check

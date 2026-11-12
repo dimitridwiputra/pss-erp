@@ -4,6 +4,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { confirmPickupHandover, type ConfirmPickupHandoverInput } from '../src/application/confirm-pickup-handover';
 import { releaseFulfillment, type ReleaseFulfillmentInput } from '../src/application/release-fulfillment';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_fulfillment_test_${randomUUID().replaceAll('-', '')}`;
 let admin: pg.Client;
@@ -19,9 +20,10 @@ beforeAll(async () => {
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
   const fulfillmentMigration = await readFile(new URL('../infrastructure/database/migrations/0001_fulfillment.sql', import.meta.url), 'utf8');
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
   await pool.query(fulfillmentMigration);
-  const auditMigration = await readFile(new URL('../../audit/infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8');
-  await pool.query(auditMigration);
   const platformMigration = await readFile(new URL('../../platform/infrastructure/database/migrations/0001_outbox_event.sql', import.meta.url), 'utf8');
   await pool.query(platformMigration);
 }, 30_000);
@@ -119,7 +121,7 @@ describe('FUL customer-pickup handover', () => {
 
   it('confirmPickupHandover with full qty transitions to DELIVERED', async () => {
     const released = await releaseSingleLine('8.000');
-    const result = await confirmPickupHandover(pool, confirmInput({
+    const result = await confirmPickupHandover(pool, undefined, confirmInput({
       deliveryOrderId: released.deliveryOrderId,
       deliveryOrderLineId: released.deliveryOrderLineId,
       qtyHandedOver: '8.000',
@@ -143,7 +145,7 @@ describe('FUL customer-pickup handover', () => {
 
   it('confirmPickupHandover with partial qty transitions to PARTIALLY_DELIVERED', async () => {
     const released = await releaseSingleLine('8.000');
-    const result = await confirmPickupHandover(pool, confirmInput({
+    const result = await confirmPickupHandover(pool, undefined, confirmInput({
       deliveryOrderId: released.deliveryOrderId,
       deliveryOrderLineId: released.deliveryOrderLineId,
       qtyHandedOver: '5.000',
@@ -157,7 +159,7 @@ describe('FUL customer-pickup handover', () => {
 
   it('throws POS_NOT_PAID when the sale is not PAID or CREDIT_APPROVED', async () => {
     const released = await releaseSingleLine('3.000');
-    await expect(confirmPickupHandover(pool, confirmInput({
+    await expect(confirmPickupHandover(pool, undefined, confirmInput({
       deliveryOrderId: released.deliveryOrderId,
       deliveryOrderLineId: released.deliveryOrderLineId,
       qtyHandedOver: '3.000',
@@ -175,15 +177,15 @@ describe('FUL customer-pickup handover', () => {
       deliveryOrderLineId: released.deliveryOrderLineId,
       qtyHandedOver: '4.000',
     });
-    await confirmPickupHandover(pool, input);
-    await expect(confirmPickupHandover(pool, input)).rejects.toMatchObject({ code: 'POS_ALREADY_HANDED_OVER' });
+    await confirmPickupHandover(pool, undefined, input);
+    await expect(confirmPickupHandover(pool, undefined, input)).rejects.toMatchObject({ code: 'POS_ALREADY_HANDED_OVER' });
   });
 
   it('throws SEGREGATION_OF_DUTIES when the same actor accepted the tender and the SoD flag is on, but succeeds when it is off', async () => {
     const cashierId = randomUUID();
 
     const blocked = await releaseSingleLine('2.000');
-    await expect(confirmPickupHandover(pool, confirmInput({
+    await expect(confirmPickupHandover(pool, undefined, confirmInput({
       deliveryOrderId: blocked.deliveryOrderId,
       deliveryOrderLineId: blocked.deliveryOrderLineId,
       qtyHandedOver: '2.000',
@@ -193,7 +195,7 @@ describe('FUL customer-pickup handover', () => {
     }))).rejects.toMatchObject({ code: 'SEGREGATION_OF_DUTIES' });
 
     const allowed = await releaseSingleLine('2.000');
-    const result = await confirmPickupHandover(pool, confirmInput({
+    const result = await confirmPickupHandover(pool, undefined, confirmInput({
       deliveryOrderId: allowed.deliveryOrderId,
       deliveryOrderLineId: allowed.deliveryOrderLineId,
       qtyHandedOver: '2.000',

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runAuditedWork, withAuditedTransaction } from '../src/application/append-audit-entry';
+import { listMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_audit_test_${randomUUID().replaceAll('-', '')}`;
 const organizationId = randomUUID();
@@ -37,8 +38,12 @@ beforeAll(async () => {
   const testUrl = new URL(baseUrl);
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
-  const migration = await readFile(new URL('../infrastructure/database/migrations/0001_audit_entry.sql', import.meta.url), 'utf8');
-  await pool.query(migration);
+  // Replay the domain's ordered migration list, not a single file. Hardcoding `0001` is what made
+  // amending a shipped migration look like the shortest path to a new column — the fixture could not
+  // see `0004` (MIG-RISK-AUD-001). Reading the directory keeps the fixture in step with production.
+  for (const file of await listMigrations(new URL('../infrastructure/database/migrations/', import.meta.url).pathname)) {
+    await pool.query(await readFile(new URL(`../infrastructure/database/migrations/${file}`, import.meta.url), 'utf8'));
+  }
   await pool.query('CREATE TABLE public.test_record (id uuid PRIMARY KEY, status text NOT NULL)');
 }, 30_000);
 
@@ -66,10 +71,17 @@ describe('AUD-001 PostgreSQL transaction boundary', () => {
   });
 
   it('rolls back the business row if audit fails or is omitted', async () => {
+    // A failure INSIDE the audit append must roll the business row back with it. The trigger is used
+    // rather than a duplicate-key violation: since the partition swap the once-per-version
+    // constraint is inert (ADR-0014, AUD-RISK-001), so a duplicate no longer raises and cannot be
+    // used here to stand in for a failing audit write.
     const duplicateBusinessId = randomUUID();
     await expect(withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
       await client.query('INSERT INTO public.test_record (id, status) VALUES ($1, $2)', [duplicateBusinessId, 'CONFIRMED']);
-      await appendAuditEntry(entry('request-1', 1));
+      const id = await appendAuditEntry(entry('request-rollback', 1));
+      // An invalid action violates the source CHECK, so the audit INSERT fails after the business
+      // row has already been written in this transaction.
+      await client.query(`UPDATE audit.audit_entry SET action = 'NOT_A_SOURCE' WHERE id = $1`, [id]);
     })).rejects.toThrow();
     expect((await pool.query('SELECT id FROM public.test_record WHERE id = $1', [duplicateBusinessId])).rowCount).toBe(0);
 
@@ -78,6 +90,20 @@ describe('AUD-001 PostgreSQL transaction boundary', () => {
       await client.query('INSERT INTO public.test_record (id, status) VALUES ($1, $2)', [missingAuditBusinessId, 'CONFIRMED']);
     })).rejects.toThrow('requires an audit entry');
     expect((await pool.query('SELECT id FROM public.test_record WHERE id = $1', [missingAuditBusinessId])).rowCount).toBe(0);
+  });
+
+  it('rolls the audit entry back when the business mutation fails', async () => {
+    // The other direction. Both rows are in one transaction, so a failure on either side leaves
+    // neither behind — this is the coupling ADR-0014 identifies as the only once-per-version
+    // guarantee once the database constraint became inert.
+    const requestId = randomUUID();
+    await expect(withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+      await appendAuditEntry(entry(requestId, 1));
+      // Violates the NOT NULL on status, so the business write fails after the audit append.
+      await client.query('INSERT INTO public.test_record (id, status) VALUES ($1, NULL)', [randomUUID()]);
+    })).rejects.toThrow();
+    const { rowCount } = await pool.query('SELECT id FROM audit.audit_entry WHERE request_id = $1', [requestId]);
+    expect(rowCount).toBe(0);
   });
 
   it('rejects update, delete, and truncate of committed audit entries', async () => {

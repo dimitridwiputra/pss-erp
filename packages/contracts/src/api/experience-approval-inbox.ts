@@ -22,7 +22,7 @@ import { MoneyAmountSchema, UtcTimestampSchema } from '../primitives';
  */
 
 /** Where a value came from. The BFF reads domains only through these public reads. */
-export const ExperienceSourceNameSchema = z.enum(['identitySelf', 'identityGrants', 'platformApprovalInbox']);
+export const ExperienceSourceNameSchema = z.enum(['identitySelf', 'identityGrants', 'identityNavigation', 'platformApprovalInbox']);
 export type ExperienceSourceName = z.infer<typeof ExperienceSourceNameSchema>;
 
 export const ExperienceSourceStateSchema = z.enum(['OK', 'UNAVAILABLE']);

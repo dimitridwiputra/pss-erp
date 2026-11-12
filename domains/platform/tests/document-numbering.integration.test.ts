@@ -6,6 +6,7 @@ import {
   confirmDocumentNumber, createNumberingScheme, listNumberingSchemes, numberSequenceUsage,
   reserveDocumentNumber, seedDraftNumberingSchemes, voidDocumentNumber,
 } from '../src/application/document-numbering';
+import { applyAuditMigrations } from '../../../scripts/apply-migrations.mjs';
 
 const databaseName = `pss_doc_numbering_test_${randomUUID().replaceAll('-', '')}`;
 const organizationId = randomUUID();
@@ -25,8 +26,10 @@ beforeAll(async () => {
   const testUrl = new URL(baseUrl);
   testUrl.pathname = `/${databaseName}`;
   pool = new pg.Pool({ connectionString: testUrl.toString() });
+  // The whole audit domain, not one file: a fixture that replays only
+  // 0001 is what made amending a shipped migration look safe (MIG-RISK-AUD-001).
+  await applyAuditMigrations(pool);
   for (const relativePath of [
-    '../../audit/infrastructure/database/migrations/0001_audit_entry.sql',
     '../infrastructure/database/migrations/0001_outbox_event.sql',
     '../infrastructure/database/migrations/0008_document_numbering.sql',
   ]) {

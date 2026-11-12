@@ -103,7 +103,7 @@ const approvedAppendixMAggregates = new Set([
  * `schema` the exported Zod schema whose `z.enum([...])` is read.
  */
 export const statusStateUnions = [
-  { stcCode: 'PosShift', file: 'pos-shift', schema: 'PosShiftResponseSchema' },
+  { stcCode: 'PosShift', file: 'pos-shift', schema: 'PosShiftStatusSchema' },
   { stcCode: 'PosSale', file: 'pos-sale', schema: 'PosSaleStatusSchema' },
   { stcCode: 'PosTender', file: 'pos-tender', schema: 'PosTenderResponseSchema' },
   { stcCode: 'PosTerminal', file: 'pos-terminal', schema: 'PosTerminalResponseSchema' },

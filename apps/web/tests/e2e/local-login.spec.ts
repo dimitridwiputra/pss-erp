@@ -25,8 +25,9 @@ test('a mapped PSS account can sign in, see its access, and sign out', async ({ 
   await page.goto('/beranda');
   await expect(page).toHaveURL(/\/masuk$/);
   await signInAsDemo(page);
-  await expect(page.getByRole('heading', { name: /Selamat datang, Admin Demo PSS/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'PSS Admin' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pekerjaan Anda' })).toBeVisible();
+  await expect(page.getByText('Selamat datang, Admin Demo PSS.')).toBeVisible();
+  await expect(page.getByRole('list').getByText('PSS Admin', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Keluar' }).click();
   await expect(page).toHaveURL(/\/masuk$/, { timeout: 20_000 });
   await page.goto('/beranda');

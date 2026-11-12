@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
 
 const fetch = globalThis.fetch;
@@ -10,7 +12,18 @@ const issuer = 'http://127.0.0.1:8080/realms/pss-local';
 const adminBase = 'http://127.0.0.1:8080/admin/realms/pss-local';
 const root = new URL('../', import.meta.url);
 const webEnvironmentPath = new URL('apps/web/.env.local', root);
-const loginPath = new URL('.local/pss-demo-login.txt', root);
+/**
+ * Keycloak is one container shared by every checkout, so its passwords must be recorded in one
+ * place too. In a git worktree `.local/` resolves to the main checkout's; otherwise a second
+ * worktree would find no file, reset the passwords, and lock the first checkout out.
+ */
+const credentialsRoot = pathToFileURL(`${dirname(resolve(fileURLToPath(root), execFileSync('git', ['rev-parse', '--git-common-dir'], {
+  cwd: fileURLToPath(root), encoding: 'utf8',
+}).trim()))}/`);
+const localDirectory = new URL('.local/', credentialsRoot);
+const loginPath = new URL('pss-demo-login.txt', localDirectory);
+const mvpDemoLoginPath = new URL('pss-mvp-demo-logins.txt', localDirectory);
+const mvpDemoSeedPath = new URL('infrastructure/keycloak/pss-demo-users.json', root);
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required to create the synthetic local account.');
 
@@ -98,6 +111,37 @@ async function ensureApiAudience(token) {
   }
 }
 
+/**
+ * Keycloak 26's AMR mapper reports only the methods whose flow step names an authenticator
+ * reference, and the built-in browser flow names none, so `amr` came out empty even after an OTP
+ * login and every approval failed `requireRecentMfa` with MFA_REQUIRED. This gives the password
+ * step `pwd` and the OTP step `otp` (RFC 8176). It makes the MFA check work as designed; it does not
+ * relax it.
+ */
+async function ensureAuthenticationReferences(token) {
+  const references = { 'auth-username-password-form': 'pwd', 'auth-otp-form': 'otp' };
+  const executionsResponse = await keycloakRequest('/authentication/flows/browser/executions', token);
+  if (!executionsResponse.ok) throw new Error(`Local browser flow read returned HTTP ${executionsResponse.status}.`);
+  for (const execution of await executionsResponse.json()) {
+    const reference = references[execution.providerId];
+    if (!reference) continue;
+    if (execution.authenticationConfig) {
+      const configPath = `/authentication/config/${execution.authenticationConfig}`;
+      const existing = await (await keycloakRequest(configPath, token)).json();
+      if (existing.config?.['default.reference.value'] === reference) continue;
+      const updated = await keycloakRequest(configPath, token, {
+        method: 'PUT', body: JSON.stringify({ ...existing, config: { ...existing.config, 'default.reference.value': reference } }),
+      });
+      if (!updated.ok) throw new Error(`Local ${execution.providerId} reference update returned HTTP ${updated.status}.`);
+      continue;
+    }
+    const created = await keycloakRequest(`/authentication/executions/${execution.id}/config`, token, {
+      method: 'POST', body: JSON.stringify({ alias: `pss-amr-${reference}`, config: { 'default.reference.value': reference } }),
+    });
+    if (created.status !== 201) throw new Error(`Local ${execution.providerId} reference returned HTTP ${created.status}.`);
+  }
+}
+
 async function ensureDemoUser(token) {
   const username = 'pss-demo-admin';
   const usersPath = `/users?username=${encodeURIComponent(username)}&exact=true`;
@@ -123,14 +167,15 @@ async function ensureDemoUser(token) {
     if (!updated.ok) throw new Error(`Local demo profile setup returned HTTP ${updated.status}.`);
   }
   const existingLogin = await readFile(loginPath, 'utf8').catch(() => null);
-  if (!existingLogin) {
-    const password = randomBytes(18).toString('base64url');
-    const reset = await keycloakRequest(`/users/${subject}/reset-password`, token, {
-      method: 'PUT',
-      body: JSON.stringify({ type: 'password', value: password, temporary: false }),
-    });
-    if (reset.status !== 204) throw new Error(`Local demo password setup returned HTTP ${reset.status}.`);
-    await mkdir(new URL('.local/', root), { recursive: true });
+  const savedPassword = existingLogin?.match(/^Password: (.+)$/m)?.[1];
+  const password = savedPassword ?? randomBytes(18).toString('base64url');
+  const reset = await keycloakRequest(`/users/${subject}/reset-password`, token, {
+    method: 'PUT',
+    body: JSON.stringify({ type: 'password', value: password, temporary: false }),
+  });
+  if (reset.status !== 204) throw new Error(`Local demo password setup returned HTTP ${reset.status}.`);
+  if (!savedPassword) {
+    await mkdir(localDirectory, { recursive: true });
     await writeFile(loginPath, `Synthetic local development account only\nUsername: ${username}\nPassword: ${password}\n`, { mode: 0o600 });
   }
   return subject;
@@ -164,6 +209,88 @@ async function ensurePssMapping(subject) {
   }
 }
 
+/**
+ * MVP demo users (docs/mvp/MVP_PLAN.md §7) from `infrastructure/keycloak/pss-demo-users.json`.
+ * The seed file carries identities and role assignments only; each password is generated here once
+ * and written to `.local/pss-mvp-demo-logins.txt`, so no credential is ever committed. Re-running
+ * reapplies the recorded passwords to Keycloak: its Docker volume may have been recreated while the
+ * shared gitignored file survived. Every write is keyed by a fixed user ID or by the unique
+ * active-assignment index. This is a local fixture, like the account above; IDN-003 owns the
+ * audited assignment command for real accounts.
+ */
+async function ensureMvpDemoUsers(token) {
+  const seed = JSON.parse(await readFile(mvpDemoSeedPath, 'utf8'));
+  // Appendix D marks some roles `mfaRequired`, and approval decisions call `requireRecentMfa`. The
+  // demo meets that control rather than skipping it: such a user must enrol an authenticator app
+  // on first login, after which the default browser flow's conditional OTP puts `otp` in `amr`.
+  const { registryCatalog } = createRequire(import.meta.url)('../packages/contracts/dist/index.js');
+  const mfaRoles = new Set(registryCatalog.roles.filter((role) => role.mfaRequired).map((role) => role.code));
+  const scopeIds = { ORGANIZATION: seed.organization.id, BRANCH: seed.branch.id, WAREHOUSE: seed.warehouse.id };
+  const recorded = await readFile(mvpDemoLoginPath, 'utf8').catch(() => '');
+  const newLogins = [];
+  const pool = new pg.Pool({ connectionString: databaseUrl });
+  try {
+    for (const user of seed.users) {
+      const usersPath = `/users?username=${encodeURIComponent(user.username)}&exact=true`;
+      let users = await (await keycloakRequest(usersPath, token)).json();
+      if (!users.length) {
+        const [firstName, ...rest] = user.displayName.split(' ');
+        const created = await keycloakRequest('/users', token, {
+          method: 'POST',
+          body: JSON.stringify({
+            username: user.username, enabled: true, emailVerified: true,
+            firstName, lastName: rest.join(' ') || firstName, email: `${user.username}@example.test`,
+          }),
+        });
+        if (created.status !== 201) throw new Error(`Demo user ${user.username} creation returned HTTP ${created.status}.`);
+        users = await (await keycloakRequest(usersPath, token)).json();
+      }
+      const subject = users[0]?.id;
+      if (!subject) throw new Error(`Demo user ${user.username} has no subject.`);
+      if (user.roles.some((role) => mfaRoles.has(role.roleCode))) {
+        const credentials = await (await keycloakRequest(`/users/${subject}/credentials`, token)).json();
+        const hasOtp = credentials.some((credential) => credential.type === 'otp');
+        if (!hasOtp && !users[0].requiredActions?.includes('CONFIGURE_TOTP')) {
+          const updated = await keycloakRequest(`/users/${subject}`, token, {
+            method: 'PUT',
+            body: JSON.stringify({ ...users[0], requiredActions: [...(users[0].requiredActions ?? []), 'CONFIGURE_TOTP'] }),
+          });
+          if (!updated.ok) throw new Error(`Demo MFA enrolment for ${user.username} returned HTTP ${updated.status}.`);
+        }
+      }
+      const savedPassword = new RegExp(`^Username: ${user.username.replaceAll('.', '\\.')}\\nPassword: (.+)$`, 'm').exec(recorded)?.[1];
+      const password = savedPassword ?? randomBytes(18).toString('base64url');
+      const reset = await keycloakRequest(`/users/${subject}/reset-password`, token, {
+        method: 'PUT', body: JSON.stringify({ type: 'password', value: password, temporary: false }),
+      });
+      if (reset.status !== 204) throw new Error(`Demo password setup for ${user.username} returned HTTP ${reset.status}.`);
+      if (!savedPassword) {
+        newLogins.push(`Username: ${user.username}\nPassword: ${password}\n`);
+      }
+      await pool.query(
+        `INSERT INTO identity.user_account (id, organization_id, idp_subject, display_name, primary_branch_id, status)
+         VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+         ON CONFLICT (id) DO UPDATE SET idp_subject = EXCLUDED.idp_subject, status = 'ACTIVE', updated_at = now()`,
+        [user.userId, seed.organization.id, subject, user.displayName, seed.branch.id],
+      );
+      for (const role of user.roles) {
+        await pool.query(
+          `INSERT INTO identity.role_assignment (id, user_id, role_code, scope_type, scope_id)
+           VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
+          [randomUUID(), user.userId, role.roleCode, role.scopeType, scopeIds[role.scopeType]],
+        );
+      }
+    }
+  } finally {
+    await pool.end();
+  }
+  if (newLogins.length) {
+    await mkdir(localDirectory, { recursive: true });
+    const header = recorded ? '' : 'Synthetic local MVP demo accounts only (docs/mvp/MVP_PLAN.md §7)\n\n';
+    await writeFile(mvpDemoLoginPath, `${recorded}${header}${newLogins.join('\n')}`, { mode: 0o600 });
+  }
+}
+
 async function ensureWebEnvironment() {
   const existing = await readFile(webEnvironmentPath, 'utf8').catch(() => '');
   const values = {
@@ -172,6 +299,7 @@ async function ensureWebEnvironment() {
     AUTH_KEYCLOAK_ISSUER: issuer,
     AUTH_TRUST_HOST: 'true',
     PSS_API_BASE_URL: 'http://127.0.0.1:4000',
+    PSS_FINANCE_API_BASE_URL: 'http://127.0.0.1:4001',
   };
   const missing = Object.entries(values).filter(([key]) => !new RegExp(`^${key}=`, 'm').test(existing));
   if (missing.length) {
@@ -184,7 +312,9 @@ async function ensureWebEnvironment() {
 await waitForKeycloak();
 const token = await adminToken();
 await ensureApiAudience(token);
+await ensureAuthenticationReferences(token);
 const subject = await ensureDemoUser(token);
 await ensurePssMapping(subject);
+await ensureMvpDemoUsers(token);
 await ensureWebEnvironment();
-process.stdout.write('Local PSS identity ready. Demo sign-in details are in .local/pss-demo-login.txt.\n');
+process.stdout.write('Local PSS identity ready. Demo sign-in details are in .local/pss-demo-login.txt and .local/pss-mvp-demo-logins.txt.\n');

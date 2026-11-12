@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BusinessDateSchema, UtcTimestampSchema } from '../primitives';
 import { eventCatalog } from './catalog.generated';
+import { registryCatalog } from '../registry';
 export { v7 as newEventId } from 'uuid';
 
 export { eventCatalog } from './catalog.generated';
@@ -33,6 +34,8 @@ export const EventEnvelopeSchema = z.strictObject({
   causationId: z.string().min(1),
   payload: z.unknown().refine((value) => value !== undefined, 'Payload is required.'),
 });
+
+export const ApprovalTypeCodeSchema = z.enum(registryCatalog.approvalTypes);
 
 // Only implemented payload schemas may be published. Catalog presence alone grants no publish permission.
 export const DeliveryOrderClosedV1Schema = EventEnvelopeSchema.extend({
@@ -71,11 +74,162 @@ export const ApprovalDecidedV1Schema = EventEnvelopeSchema.extend({
   }),
 });
 
+const approvalSubjectV2 = {
+  requestId: z.uuid(), type: ApprovalTypeCodeSchema,
+  ownerDomain: z.string().min(1), subjectType: z.string().min(1),
+  subjectRef: z.string().min(1), subjectVersion: z.int().positive(),
+};
+
+export const FinanceApprovalSubmittedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('FINANCE_APPROVAL_SUBMITTED'), eventVersion: z.literal(1),
+  payload: z.strictObject({
+    ...approvalSubjectV2, requestedBy: z.uuid(), summary: z.string().min(1).max(200),
+    scopeType: z.enum(['ORGANIZATION', 'BRANCH']), scopeId: z.uuid(),
+    contextHash: z.string().regex(/^[a-f0-9]{64}$/),
+    amount: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+  }),
+});
+
+export const ApprovalRequestedV2Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('APPROVAL_REQUESTED'), eventVersion: z.literal(2),
+  payload: z.strictObject({ ...approvalSubjectV2, decision: z.literal('PENDING') }),
+});
+
+export const ApprovalDecidedV2Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('APPROVAL_DECIDED'), eventVersion: z.literal(2),
+  payload: z.strictObject({
+    ...approvalSubjectV2, decision: z.enum(['APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED']),
+    decidedBy: z.uuid(), reason: z.string().optional(), step: z.int().positive(),
+  }),
+});
+
+// MVP v1 payloads (docs/mvp/MVP_PLAN.md §5). The wire format is fixed-scale so a consumer never
+// re-rounds: money has exactly 2 places, quantity exactly 3, a unit cost exactly 4 (the inventory
+// ledger's numeric(18,4), MVP-OD-13), and only deltas and variances may be signed.
+const MoneyV1 = z.string().regex(/^(?:0|[1-9]\d*)\.\d{2}$/, 'Money is a decimal string with 2 places.');
+const SignedMoneyV1 = z.string().regex(/^-?(?:0|[1-9]\d*)\.\d{2}$/, 'Money is a signed decimal string with 2 places.')
+  .refine((value) => !/^-0\.00$/.test(value), 'Negative zero is not a money value.');
+const QuantityV1 = z.string().regex(/^(?:0|[1-9]\d*)\.\d{3}$/, 'Quantity is a decimal string with 3 places.');
+const SignedQuantityV1 = z.string().regex(/^-?(?:0|[1-9]\d*)\.\d{3}$/, 'Quantity is a signed decimal string with 3 places.')
+  .refine((value) => !/^-0\.000$/.test(value), 'Negative zero is not a quantity value.');
+const UnitCostV1 = z.string().regex(/^(?:0|[1-9]\d*)\.\d{4}$/, 'Unit cost is a decimal string with 4 places.');
+
+// A null cost means the movement is unvalued; finance routes it to the exception queue (AGENTS.md §3.7).
+const inventoryMovementPayloadV1 = {
+  movementId: z.uuid(), warehouseId: z.uuid(), productId: z.uuid(), uom: z.string().min(1),
+  qty: QuantityV1, unitCost: UnitCostV1.nullable(), totalCost: MoneyV1.nullable(), sourceId: z.uuid(),
+  businessDate: BusinessDateSchema,
+};
+
+export const InventoryReceivedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('INVENTORY_RECEIVED'),
+  eventVersion: z.literal(1),
+  payload: z.strictObject({ ...inventoryMovementPayloadV1, sourceType: z.enum(['GOODS_RECEIPT', 'WMS_RECEIPT']) }),
+});
+
+export const InventoryIssuedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('INVENTORY_ISSUED'),
+  eventVersion: z.literal(1),
+  payload: z.strictObject({ ...inventoryMovementPayloadV1, sourceType: z.literal('SALES_FULFILLMENT') }),
+});
+
+export const InventoryAdjustedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('INVENTORY_ADJUSTED'),
+  eventVersion: z.literal(1),
+  payload: z.strictObject({
+    adjustmentId: z.uuid(), warehouseId: z.uuid(), productId: z.uuid(), uom: z.string().min(1),
+    qtyDelta: SignedQuantityV1, unitCost: UnitCostV1.nullable(), totalCostDelta: SignedMoneyV1.nullable(),
+    reasonCode: z.string().min(1), businessDate: BusinessDateSchema,
+  }),
+});
+
+export const InvoiceIssuedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('INVOICE_ISSUED'),
+  eventVersion: z.literal(1),
+  payload: z.strictObject({
+    invoiceId: z.uuid(), invoiceNumber: z.string().min(1), customerId: z.uuid(), branchId: z.uuid(),
+    salesOrderId: z.uuid(), channel: z.literal('POS'), currency: z.literal('IDR'),
+    subtotal: MoneyV1, taxAmount: MoneyV1, total: MoneyV1, businessDate: BusinessDateSchema,
+  }),
+});
+
+export const PaymentReceivedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('PAYMENT_RECEIVED'),
+  eventVersion: z.literal(1),
+  payload: z.strictObject({
+    paymentId: z.uuid(), method: z.literal('TUNAI'), amount: MoneyV1, currency: z.literal('IDR'),
+    customerId: z.uuid(), referenceType: z.literal('POS_SALE'), referenceId: z.uuid(), invoiceId: z.uuid().nullable(),
+    receivedBy: z.uuid(), cashLocationType: z.literal('POS_SHIFT'), cashLocationId: z.uuid(),
+    businessDate: BusinessDateSchema,
+  }),
+});
+
+/** Authoritative Payments compensation for the demo's PAYMENT_RECEIVED posting. */
+export const PaymentReversedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('PAYMENT_REVERSED'), eventVersion: z.literal(1),
+  payload: z.strictObject({
+    paymentId: z.uuid(), originalEventId: z.uuidv7(), reasonCode: z.string().min(1),
+    businessDate: BusinessDateSchema,
+  }),
+});
+
+export const CashCustodyVerifiedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('CASH_CUSTODY_VERIFIED'),
+  eventVersion: z.literal(1),
+  payload: z.strictObject({
+    cashCustodyRecordId: z.uuid(), declaredAmount: MoneyV1, countedAmount: MoneyV1,
+    varianceAmount: SignedMoneyV1, verifiedBy: z.uuid(), sourceType: z.literal('POS_SHIFT'), sourceId: z.uuid(),
+    businessDate: BusinessDateSchema,
+  }),
+});
+
+export const JournalPostedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('JOURNAL_POSTED'),
+  eventVersion: z.literal(1),
+  payload: z.strictObject({
+    journalId: z.uuid(), journalNumber: z.string().min(1), periodCode: z.string().min(1),
+    businessDate: BusinessDateSchema, sourceType: z.string().min(1), sourceEventId: z.uuidv7().nullable(),
+    totalDebit: MoneyV1, totalCredit: MoneyV1,
+  }),
+});
+
+export const JournalReversedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('JOURNAL_REVERSED'),
+  eventVersion: z.literal(1),
+  payload: z.strictObject({ journalId: z.uuid(), reversalJournalId: z.uuid(), reasonCode: z.string().min(1) }),
+});
+
+export const AccountingPeriodClosedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('ACCOUNTING_PERIOD_CLOSED'),
+  eventVersion: z.literal(1),
+  payload: z.strictObject({ periodId: z.uuid(), periodCode: z.string().min(1), closedBy: z.uuid() }),
+});
+
+export const AccountingPeriodReopenedV1Schema = EventEnvelopeSchema.extend({
+  eventType: z.literal('ACCOUNTING_PERIOD_REOPENED'), eventVersion: z.literal(1),
+  payload: z.strictObject({
+    periodId: z.uuid(), periodCode: z.string().min(1), reopenedBy: z.uuid(),
+    approvalRequestId: z.uuid(), reason: z.string().min(1),
+  }),
+});
+
 export const eventSchemaRegistry = {
   DELIVERY_ORDER_CLOSED: { 1: DeliveryOrderClosedV1Schema },
   DELIVERY_ORDER_DELIVERED: { 1: DeliveryOrderDeliveredV1Schema },
-  APPROVAL_REQUESTED: { 1: ApprovalRequestedV1Schema },
-  APPROVAL_DECIDED: { 1: ApprovalDecidedV1Schema },
+  APPROVAL_REQUESTED: { 1: ApprovalRequestedV1Schema, 2: ApprovalRequestedV2Schema },
+  APPROVAL_DECIDED: { 1: ApprovalDecidedV1Schema, 2: ApprovalDecidedV2Schema },
+  FINANCE_APPROVAL_SUBMITTED: { 1: FinanceApprovalSubmittedV1Schema },
+  INVENTORY_RECEIVED: { 1: InventoryReceivedV1Schema },
+  INVENTORY_ISSUED: { 1: InventoryIssuedV1Schema },
+  INVENTORY_ADJUSTED: { 1: InventoryAdjustedV1Schema },
+  INVOICE_ISSUED: { 1: InvoiceIssuedV1Schema },
+  PAYMENT_RECEIVED: { 1: PaymentReceivedV1Schema },
+  PAYMENT_REVERSED: { 1: PaymentReversedV1Schema },
+  CASH_CUSTODY_VERIFIED: { 1: CashCustodyVerifiedV1Schema },
+  JOURNAL_POSTED: { 1: JournalPostedV1Schema },
+  JOURNAL_REVERSED: { 1: JournalReversedV1Schema },
+  ACCOUNTING_PERIOD_CLOSED: { 1: AccountingPeriodClosedV1Schema },
+  ACCOUNTING_PERIOD_REOPENED: { 1: AccountingPeriodReopenedV1Schema },
 } satisfies Partial<Record<EventName, Record<number, z.ZodType>>>;
 
 export function parseEventForPublication(input: unknown) {

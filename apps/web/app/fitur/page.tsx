@@ -34,7 +34,7 @@ export default function FeaturesPage() {
         </div>
         <div className="directory-source-card">
           <span>SUMBER & STATUS</span>
-          <strong>280 fitur</strong>
+          <strong>{catalog.length} fitur</strong>
           <p>Nama, tujuan, fase, dan sprint mengikuti PRD serta implementation plan. Hanya fitur yang sudah diverifikasi diberi status tersedia atau sebagian.</p>
         </div>
       </section>

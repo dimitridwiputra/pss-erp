@@ -31,7 +31,7 @@ export function parseEventCatalog(markdown) {
       baseCount += 1;
     }
   }
-  if (baseCount !== 135 || additionCount !== 39 || new Set(catalog.map((item) => item.name)).size !== 174) {
+  if (baseCount !== 136 || additionCount !== 39 || new Set(catalog.map((item) => item.name)).size !== 175) {
     throw new Error(`Unexpected PRD event catalog: ${baseCount} base, ${additionCount} additions, ${catalog.length} total. Review Appendix C before regenerating.`);
   }
   return catalog;
@@ -52,6 +52,6 @@ if (process.argv[1]?.endsWith('/generate-event-catalog.mjs')) {
     } else process.stdout.write('Event catalog matches PRD Appendix C.\n');
   } else {
     await writeFile(outputPath, content);
-    process.stdout.write('Generated 174 catalog event names from PRD Appendix C.\n');
+    process.stdout.write('Generated 175 catalog event names from PRD Appendix C.\n');
   }
 }

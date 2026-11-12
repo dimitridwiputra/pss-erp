@@ -3,7 +3,7 @@ import { getToken } from 'next-auth/jwt';
 import { isStoredTokenStale, refreshAccessToken, type StoredToken } from './lib/access-token';
 
 /**
- * Client-side fetches (`kasirFetch`, `gudangFetch`) call bare relative paths like `/pos/shifts`
+ * Client-side fetches (`gudangFetch`) call bare relative paths like `/wms/tasks`
  * with no `Authorization` header of their own — the NestJS API resolves the acting user purely
  * from that header (see `IdentityService.getCurrentUser`), never from a session cookie. This
  * middleware is the bridge: it reads the same NextAuth session JWT `getPssServerAccessToken`
@@ -36,5 +36,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/pos/:path+', '/kasir/:path+', '/wms/:path+', '/gudang/:path+', '/me', '/me/:path+'],
+  matcher: ['/wms/:path+', '/gudang/:path+', '/me', '/me/:path+'],
 };

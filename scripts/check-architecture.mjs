@@ -155,10 +155,69 @@ export function findArchitectureViolations(files, workspacePackages = new Map())
   return violations;
 }
 
+/**
+ * TAX-001.R01: no VAT rate may be written as a literal in code that resolves tax.
+ *
+ * This is a fitness function, not a lint style rule. The reason it exists is specific: the defect it
+ * would have caught was `tax_total` stored as `0` by every command in `prepare-invoice.ts`, with a
+ * comment saying tax was deferred. Nothing failed, nothing was flagged, and every taxable invoice
+ * went out untaxed — because the rate was not in code, it was nowhere.
+ *
+ * The scope is the part that took three attempts to get right, and the reason is worth recording.
+ *
+ * A repository-wide scan for percentage-shaped literals is worthless here, and it is worse than
+ * worthless because it looks like coverage. Run against this repository it reports `width: '40%'` in
+ * a web story and a `0.95` confidence threshold in the exception queue — neither is a tax rate, and
+ * a check that reports those gets switched off, and a check that is switched off protects nothing.
+ * Widening it to test files is the same mistake: a test proving "an 11% rate taxes at 11%" must
+ * contain 11, so the rule fires on exactly the code that verifies it.
+ *
+ * So the scope is semantic rather than textual: the tax domain's own source, and any file that
+ * imports `@pss/tax`. That covers the real risk — a rate written as a literal in invoicing, in POS,
+ * or anywhere else that computes tax — with no false positives, and it does not need to guess what a
+ * number means.
+ */
+const RATE_LITERAL_PATTERNS = [
+  // A decimal in rate shape: `tax * 0.11`, `Decimal('0.11')`. Requires a leading `0.` followed by a
+  // non-zero digit, so 0.5 and 0.02 are caught while `0.0`, `1.0` and ordinary fractions are not
+  // flagged on shape alone.
+  { pattern: /(?<![\w.])0\.(?:0[1-9]|[1-9]\d)\d*/g, label: 'decimal rate literal' },
+  // A whole-number percentage written as `11%`. Catches the arithmetic form; the string form `'11'`
+  // is indistinguishable from any other two-character string and is deliberately not attempted.
+  { pattern: /(?<![\w.'"])(?:[1-9]|[1-9]\d)%/g, label: 'percentage literal' },
+];
+
+export function findRateLiteralViolations(files) {
+  const violations = [];
+  for (const { path, source } of files) {
+    if (/\/(dist|node_modules)\//.test(path)) continue;
+    if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(path)) continue;
+    // Migrations seed statutory and historical rates, which is data rather than logic.
+    if (/\/infrastructure\/database\//.test(path)) continue;
+    const isTaxDomain = path.includes('/domains/tax/');
+    const consumesTax = /from\s+['"]@pss\/tax['"]/.test(source);
+    if (!isTaxDomain && !consumesTax) continue;
+
+    // Comments first: a comment explaining why a hardcoded 11% is wrong must not itself trip the rule.
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    for (const { pattern, label } of RATE_LITERAL_PATTERNS) {
+      for (const match of code.matchAll(new RegExp(pattern.source, 'g'))) {
+        violations.push(`${path} contains a ${label} (${match[0]}): a tax rate belongs in configuration or an approved TaxRate row, not in code (TAX-001.R01).`);
+      }
+    }
+  }
+  return violations;
+}
+
 if (process.argv[1]?.endsWith(`check-architecture.mjs`)) {
   const paths = (await Promise.all(['apps', 'packages', 'domains'].map((directory) => sourceFiles(join(root, directory))))).flat();
   const files = await Promise.all(paths.map(async (path) => ({ path, source: await readFile(path, 'utf8') })));
-  const violations = findArchitectureViolations(files, await workspacePackagePaths(root));
+  const violations = [
+    ...findArchitectureViolations(files, await workspacePackagePaths(root)),
+    ...findRateLiteralViolations(files),
+  ];
   if (violations.length) {
     process.stderr.write(`${violations.join('\n')}\n`);
     process.exitCode = 1;

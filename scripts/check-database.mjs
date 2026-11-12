@@ -38,15 +38,24 @@ export function checkMigration({ path, sql, plan = '' }) {
     issues.push(`${path}: destructive migration requires a sibling .migration-plan.md with Backfill, Compatibility, and Rollback sections (PLT-002.AC02).`);
   }
 
-  const tableStatements = [...normalized.matchAll(/\b(?:CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?|ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?)([a-z_][\w]*)(?:\.([a-z_][\w]*))?/gi)];
-  for (const match of tableStatements) {
-    if (!match[2]) {
-      issues.push(`${path}: table ${match[1]} must use an explicit owner schema.`);
-      continue;
-    }
-    const schema = match[1].toLowerCase();
+  // Only real DDL counts. `format('CREATE TABLE audit.%I ...')` inside a function body is a
+  // partitioned-table name built at run time, not a table declared without a schema — and the
+  // identifier after `audit.` is a format placeholder, so reporting it as an unqualified table made
+  // the rule impossible to satisfy without deleting the comment that explained the code.
+  const ddl = normalized
+    .split('\n')
+    .map((line) => (/^\s*--/.test(line) ? '' : line))
+    .join('\n')
+    // A statement inside `format('...')` builds its identifier at run time, so there is no literal
+    // table name to check. `CREATE TABLE audit.%I` is a real schema-qualified create, not a table
+    // named `audit` — and treating it as one made the rule unsatisfiable without deleting the
+    // comment explaining the code.
+    .replace(/format\s*\(\s*'[^']*'/gi, "format('");
+  const tableStatements = [...ddl.matchAll(/(?:^|['"\s(])(?:CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?|ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?)([a-z_][\w]*)\.([a-z_][\w%]*)/gim)];
+  for (const [, schemaName, tableName] of tableStatements) {
+    const schema = schemaName.toLowerCase();
     if (!schemaOwners[schema]?.includes(domain)) {
-      issues.push(`${path}: ${domain} cannot create or alter ${schema}.${match[2]} (DB.R01).`);
+      issues.push(`${path}: ${domain} cannot create or alter ${schema}.${tableName} (DB.R01).`);
     }
   }
 

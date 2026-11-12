@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { withAuditedTransaction } from '@pss/audit';
 import { DomainError } from '@pss/contracts';
+import { withConnection } from '@pss/platform';
+import { parseOrThrow, RequestMetaShape } from './support/command-input';
 
 /**
  * POS-000.R07 requires INVENTORY/FULFILLMENT = MANAGED (via the `principal-policy` resolver,
@@ -21,13 +22,10 @@ const RegisterPosTerminalSchema = z.strictObject({
   branchId: z.uuid(),
   warehouseId: z.uuid(),
   code: z.string().min(1).max(20),
-  name: z.string().min(1),
+  name: z.string().min(1).max(80),
   deviceId: z.uuid().optional(),
   printerProfile: z.record(z.string(), z.unknown()).optional(),
-  actor: z.strictObject({ userId: z.uuid().optional(), roles: z.array(z.string()).default([]), serviceIdentity: z.string().optional() }),
-  requestId: z.string().min(1),
-  correlationId: z.string().min(1),
-  source: z.enum(['WEB', 'MOBILE', 'API', 'SYSTEM', 'IMPORT']),
+  ...RequestMetaShape,
 });
 export type RegisterPosTerminalInput = z.input<typeof RegisterPosTerminalSchema>;
 
@@ -41,29 +39,25 @@ export interface PosTerminal {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-function parseOrThrow<T>(schema: z.ZodType<T>, raw: unknown): T {
-  const result = schema.safeParse(raw);
-  if (result.success) return result.data;
-  const fieldErrors = result.error.issues.map((issue) => ({
-    path: issue.path.join('.') || 'input', code: issue.code, message: 'Periksa nilai ini.',
-  }));
-  throw new DomainError('VALIDATION_FAILED', [], fieldErrors);
-}
-
-export async function registerPosTerminal(pool: Pool, raw: RegisterPosTerminalInput): Promise<PosTerminal> {
+export async function registerPosTerminal(pool: Pool, client: PoolClient | undefined, raw: RegisterPosTerminalInput): Promise<PosTerminal> {
   const input = parseOrThrow(RegisterPosTerminalSchema, raw);
   assertWarehouseManaged(input.warehouseId);
-  return withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
+  return withConnection(pool, client, async ({ client, appendAuditEntry }) => {
     const id = randomUUID();
-    await client.query(
-      `INSERT INTO pos.pos_terminal (
-        id, organization_id, branch_id, warehouse_id, code, name, device_id, printer_profile, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 'ACTIVE')`,
-      [
-        id, input.organizationId, input.branchId, input.warehouseId, input.code, input.name,
-        input.deviceId ?? null, input.printerProfile ? JSON.stringify(input.printerProfile) : null,
-      ],
-    );
+    try {
+      await client.query(
+        `INSERT INTO pos.pos_terminal (
+          id, organization_id, branch_id, warehouse_id, code, name, device_id, printer_profile, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 'ACTIVE')`,
+        [
+          id, input.organizationId, input.branchId, input.warehouseId, input.code, input.name,
+          input.deviceId ?? null, input.printerProfile ? JSON.stringify(input.printerProfile) : null,
+        ],
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') throw new DomainError('DUPLICATE_CODE');
+      throw error;
+    }
     await appendAuditEntry({
       organizationId: input.organizationId, branchId: input.branchId, actor: input.actor,
       action: 'POS_TERMINAL_UPDATED',
@@ -75,30 +69,25 @@ export async function registerPosTerminal(pool: Pool, raw: RegisterPosTerminalIn
   });
 }
 
-const DeactivatePosTerminalSchema = z.strictObject({
-  terminalId: z.uuid(),
-  actor: z.strictObject({ userId: z.uuid().optional(), roles: z.array(z.string()).default([]), serviceIdentity: z.string().optional() }),
-  requestId: z.string().min(1),
-  correlationId: z.string().min(1),
-  source: z.enum(['WEB', 'MOBILE', 'API', 'SYSTEM', 'IMPORT']),
-});
+const DeactivatePosTerminalSchema = z.strictObject({ terminalId: z.uuid(), ...RequestMetaShape });
 export type DeactivatePosTerminalInput = z.input<typeof DeactivatePosTerminalSchema>;
 
-export async function deactivatePosTerminal(pool: Pool, raw: DeactivatePosTerminalInput): Promise<void> {
+export async function deactivatePosTerminal(pool: Pool, client: PoolClient | undefined, raw: DeactivatePosTerminalInput): Promise<void> {
   const input = parseOrThrow(DeactivatePosTerminalSchema, raw);
-  await withAuditedTransaction(pool, async ({ client, appendAuditEntry }) => {
-    const openShift = await client.query('SELECT id FROM pos.pos_shift WHERE terminal_id = $1 AND status = $2', [input.terminalId, 'OPEN']);
-    if ((openShift.rowCount ?? 0) > 0) throw new DomainError('POS_SHIFT_STILL_OPEN');
-    const terminal = await client.query<{ organization_id: string; branch_id: string }>(
-      'SELECT organization_id, branch_id FROM pos.pos_terminal WHERE id = $1', [input.terminalId],
+  await withConnection(pool, client, async ({ client, appendAuditEntry }) => {
+    const terminal = await client.query<{ organization_id: string; branch_id: string; status: string; version: number }>(
+      'SELECT organization_id, branch_id, status, version FROM pos.pos_terminal WHERE id = $1 FOR UPDATE', [input.terminalId],
     );
     const row = terminal.rows[0];
     if (!row) throw new DomainError('NOT_FOUND');
-    await client.query("UPDATE pos.pos_terminal SET status = 'INACTIVE', updated_at = now() WHERE id = $1", [input.terminalId]);
+    if (row.status !== 'ACTIVE') throw new DomainError('INVALID_STATE_TRANSITION');
+    const openShift = await client.query('SELECT id FROM pos.pos_shift WHERE terminal_id = $1 AND status = $2', [input.terminalId, 'OPEN']);
+    if ((openShift.rowCount ?? 0) > 0) throw new DomainError('POS_SHIFT_STILL_OPEN');
+    await client.query("UPDATE pos.pos_terminal SET status = 'INACTIVE', version = version + 1, updated_at = now() WHERE id = $1", [input.terminalId]);
     await appendAuditEntry({
       organizationId: row.organization_id, branchId: row.branch_id, actor: input.actor,
       action: 'POS_TERMINAL_UPDATED',
-      entity: { domain: 'pos', type: 'PosTerminal', id: input.terminalId, version: 1 },
+      entity: { domain: 'pos', type: 'PosTerminal', id: input.terminalId, version: row.version + 1 },
       changes: [{ path: 'status', classification: 'INTERNAL', before: 'ACTIVE', after: 'INACTIVE' }],
       requestId: input.requestId, correlationId: input.correlationId, source: input.source,
     });

@@ -1,11 +1,13 @@
 import {
   CurrentUserPermissionsResponseSchema,
   CurrentUserResponseSchema,
+  CurrentUserNavigationResponseSchema,
   DomainError,
   PendingApprovalProjectionSchema,
   ProblemDetailsSchema,
   type CurrentUserPermissionsResponse,
   type CurrentUserResponse,
+  type CurrentUserNavigationResponse,
   type ExperienceSourceName,
   type PendingApprovalProjection,
 } from '@pss/contracts';
@@ -68,10 +70,12 @@ async function readSource<T>(
 
 export const IDENTITY_SELF_PATH = '/me';
 export const IDENTITY_GRANTS_PATH = '/me/permissions';
+export const IDENTITY_NAVIGATION_PATH = '/me/navigation';
 export const PLATFORM_APPROVAL_INBOX_PATH = '/platform/approvals/inbox';
 
 export type IdentitySelf = CurrentUserResponse;
 export type IdentityGrants = CurrentUserPermissionsResponse;
+export type IdentityNavigation = CurrentUserNavigationResponse;
 
 export function readIdentitySelf(transport: UpstreamTransport, accessToken: string): Promise<SourceOutcome<IdentitySelf>> {
   return readSource<IdentitySelf>('identitySelf', transport, accessToken, IDENTITY_SELF_PATH, CurrentUserResponseSchema);
@@ -79,6 +83,10 @@ export function readIdentitySelf(transport: UpstreamTransport, accessToken: stri
 
 export function readIdentityGrants(transport: UpstreamTransport, accessToken: string): Promise<SourceOutcome<IdentityGrants>> {
   return readSource<IdentityGrants>('identityGrants', transport, accessToken, IDENTITY_GRANTS_PATH, CurrentUserPermissionsResponseSchema);
+}
+
+export function readIdentityNavigation(transport: UpstreamTransport, accessToken: string): Promise<SourceOutcome<IdentityNavigation>> {
+  return readSource<IdentityNavigation>('identityNavigation', transport, accessToken, IDENTITY_NAVIGATION_PATH, CurrentUserNavigationResponseSchema);
 }
 
 export function readPlatformApprovalInbox(

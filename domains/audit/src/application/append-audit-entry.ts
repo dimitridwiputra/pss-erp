@@ -46,10 +46,10 @@ export async function runAuditedWork<T>(client: PoolClient, work: (transaction: 
             id, organization_id, branch_id, actor_user_id, actor_roles, actor_on_behalf_of,
             actor_service_identity, action, entity_domain, entity_type, entity_id,
             entity_version, changes, reason_code, request_id, correlation_id,
-            causation_id, source
+            causation_id, source, retention_class
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb,
-            $14, $15, $16, $17, $18
+            $14, $15, $16, $17, $18, $19
           )`,
           [
             id, input.organizationId, input.branchId ?? null, input.actor.userId ?? null,
@@ -57,6 +57,11 @@ export async function runAuditedWork<T>(client: PoolClient, work: (transaction: 
             input.action, input.entity.domain, input.entity.type, input.entity.id,
             input.entity.version, JSON.stringify(redactAuditChanges(input.changes)), input.reasonCode ?? null,
             input.requestId, input.correlationId, input.causationId ?? null, input.source,
+            // The class is written explicitly rather than left to the column default so that the
+            // value in the row is the value the schema validated, including the default it filled in.
+            // A row whose class only exists as an unstated database default cannot be traced back to
+            // the declaration that produced it.
+            input.retentionClass,
           ],
         );
         appendedEntries.set(client, (appendedEntries.get(client) ?? 0) + 1);

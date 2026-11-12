@@ -31,6 +31,7 @@ import {
 } from '@pss/wms';
 import { findProductByBarcode } from '@pss/master-data';
 import { Pool, type PoolClient } from 'pg';
+import { createApiPool } from './database-pool';
 import { IdentityService } from './identity.controller';
 
 type AuthedRequest = { headers: { authorization?: string; 'idempotency-key'?: string } };
@@ -40,7 +41,7 @@ const WMS_READ_PERMISSIONS = ['wms.task.execute', 'wms.task.reassign', 'wms.coun
 
 @Injectable()
 export class WmsService implements OnModuleDestroy {
-  private readonly pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  private readonly pool = createApiPool();
 
   private requirePool(): Pool {
     if (!this.pool) throw new DomainError('DEPENDENCY_UNAVAILABLE');

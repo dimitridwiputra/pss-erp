@@ -15,7 +15,13 @@ describe('PLT-003 source-preserving registries', () => {
 
   it('preserves unapproved configuration wording without turning it into a runtime default', () => {
     expect(findConfigurationSeed('invoicing.recognition_point')?.defaultText).toContain('ASM');
-    expect(findConfigurationSeed('approval.<type>.levels')?.defaultText).toContain('KOSONG');
+    // The KOSONG-means-fail-safe wording for approval levels is a documented policy field, not a
+    // writable key: its name carries a `<type>` placeholder and its value lives per type in
+    // platform.approval_level. The wording has to survive, so it is kept as a documented-only row.
+    const approvalLevels = registryCatalog.configurationAdditions
+      .find((entry) => entry.documentedOnly?.includes('approval.<type>.levels'));
+    expect(approvalLevels?.item).toContain('KOSONG');
+    expect(approvalLevels?.keys).toEqual([]);
     expect(registryCatalog.reasonCodes.some((entry) => entry.placeholder)).toBe(true);
   });
 

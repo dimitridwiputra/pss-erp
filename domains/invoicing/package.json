@@ -13,7 +13,9 @@
   "dependencies": {
     "@pss/audit": "workspace:*",
     "@pss/contracts": "workspace:*",
+    "@pss/master-data": "workspace:*",
     "@pss/platform": "workspace:*",
+    "@pss/tax": "workspace:*",
     "pg": "8.23.0",
     "zod": "4.6.5"
   },
